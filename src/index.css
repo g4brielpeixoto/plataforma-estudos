@@ -1,0 +1,126 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+  Paleta lilás escolhida para o projeto:
+  #8F7193 ameixa (primária) · #A788AB lavanda · #C0A0C3 lilás · #DFCAE1 névoa · #E5DDE6 pérola (fundo)
+  Tons derivados: tinta (texto) e superfícies do tema escuro.
+*/
+:root {
+  --c-fundo: #e5dde6;
+  --c-superficie: #fbf8fb;
+  --c-superficie-2: #f2ebf3;
+  --c-linha: #dfcae1;
+  --c-tinta: #3f3242;
+  --c-tinta-suave: #6e5d71;
+  --c-primaria: #8f7193;
+  --c-primaria-forte: #7a5e7e;
+  --c-sobre-primaria: #ffffff;
+  --c-lavanda: #a788ab;
+  --c-lilas: #c0a0c3;
+  --c-nevoa: #dfcae1;
+  --c-perola: #e5dde6;
+  --c-bom: #3f8a5f;
+  --c-bom-fundo: #e2f1e7;
+  --c-medio: #9a6b12;
+  --c-medio-fundo: #f7ecd2;
+  --c-ruim: #b0443f;
+  --c-ruim-fundo: #f6e0de;
+  color-scheme: light;
+}
+
+.dark {
+  --c-fundo: #1d171f;
+  --c-superficie: #271f2a;
+  --c-superficie-2: #312735;
+  --c-linha: #42354a;
+  --c-tinta: #f1e9f2;
+  --c-tinta-suave: #bba9bf;
+  --c-primaria: #c0a0c3;
+  --c-primaria-forte: #dfcae1;
+  --c-sobre-primaria: #2a1f2d;
+  --c-lavanda: #a788ab;
+  --c-lilas: #8f7193;
+  --c-nevoa: #3a2e3f;
+  --c-perola: #2c232f;
+  --c-bom: #7ccb9b;
+  --c-bom-fundo: #1f3328;
+  --c-medio: #e4bd6a;
+  --c-medio-fundo: #3a2f17;
+  --c-ruim: #ec958f;
+  --c-ruim-fundo: #3d2221;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-fundo: var(--c-fundo);
+  --color-superficie: var(--c-superficie);
+  --color-superficie-2: var(--c-superficie-2);
+  --color-linha: var(--c-linha);
+  --color-tinta: var(--c-tinta);
+  --color-tinta-suave: var(--c-tinta-suave);
+  --color-primaria: var(--c-primaria);
+  --color-primaria-forte: var(--c-primaria-forte);
+  --color-sobre-primaria: var(--c-sobre-primaria);
+  --color-lavanda: var(--c-lavanda);
+  --color-lilas: var(--c-lilas);
+  --color-nevoa: var(--c-nevoa);
+  --color-perola: var(--c-perola);
+  --color-bom: var(--c-bom);
+  --color-bom-fundo: var(--c-bom-fundo);
+  --color-medio: var(--c-medio);
+  --color-medio-fundo: var(--c-medio-fundo);
+  --color-ruim: var(--c-ruim);
+  --color-ruim-fundo: var(--c-ruim-fundo);
+  --font-sans: 'Figtree', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Literata', ui-serif, Georgia, serif;
+}
+
+html,
+body {
+  background: var(--c-fundo);
+  color: var(--c-tinta);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'tnum' 0;
+}
+
+.numeros {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--c-primaria);
+  outline-offset: 2px;
+}
+
+input[type='checkbox'] {
+  accent-color: var(--c-primaria);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.seta-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238F7193' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
