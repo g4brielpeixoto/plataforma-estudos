@@ -31,6 +31,9 @@ export function traduzirErroAuth(e: unknown): string {
     return 'Este e-mail já tem conta. Entre com sua senha ou use "Esqueci a senha".'
   if (/password should be at least/i.test(msg) || codigo === 'weak_password') return 'A senha precisa ter pelo menos 6 caracteres.'
   if (/email not confirmed/i.test(msg)) return 'Este e-mail ainda não foi confirmado.'
+  if (/signups? (are|is) (not allowed|disabled)/i.test(msg) || codigo === 'signup_disabled' || codigo === 'email_provider_disabled')
+    return 'O cadastro está desligado no momento. Avise quem administra a plataforma.'
+  if (/logins? (are|is) disabled/i.test(msg)) return 'O login por e-mail está desligado no momento. Avise quem administra a plataforma.'
   if (/rate limit|too many/i.test(msg) || codigo === 'over_email_send_rate_limit')
     return 'Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo.'
   if (/not authorized|sending .*email/i.test(msg))
