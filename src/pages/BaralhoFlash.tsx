@@ -10,7 +10,7 @@ import { useAtualizarCartoesFlash, useExcluirNotasFlash } from '@/hooks/dados'
 import { filtroEscopo, useDadosFlash } from '@/hooks/useFlash'
 import { camposDeNovo } from '@/lib/flashcards/agenda'
 import { contagem } from '@/lib/flashcards/fila'
-import { textoPuro } from '@/lib/flashcards/html'
+import { previa, textoPuro } from '@/lib/flashcards/html'
 import { semMarcas } from '@/lib/flashcards/omissao'
 import { rotuloSelecao } from '@/lib/topicos'
 import { cn, mensagemErro, normalizar } from '@/lib/utils'
@@ -212,8 +212,8 @@ export function BaralhoFlash() {
                 return (
                   <li key={nota.id} className={cn('flex items-start gap-3 px-4 py-3 sm:px-5', suspensa && 'opacity-60')}>
                     <button type="button" onClick={() => setEditando(nota)} className="min-w-0 flex-1 text-left" aria-label={`Editar cartão: ${textoPuro(semMarcas(nota.frente)).slice(0, 80)}`}>
-                      <p className="line-clamp-2 text-[15px] text-tinta [overflow-wrap:anywhere]">{textoPuro(semMarcas(nota.frente)) || '(sem texto)'}</p>
-                      {nota.tipo === 'basico' && <p className="mt-0.5 line-clamp-1 text-sm text-tinta-suave [overflow-wrap:anywhere]">{textoPuro(nota.verso)}</p>}
+                      <p className="line-clamp-2 text-[15px] text-tinta [overflow-wrap:anywhere]">{previa(semMarcas(nota.frente)) || '(sem texto)'}</p>
+                      {nota.tipo === 'basico' && <p className="mt-0.5 line-clamp-1 text-sm text-tinta-suave [overflow-wrap:anywhere]">{previa(nota.verso)}</p>}
                       <p className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-tinta-suave">
                         <span>{nota.tipo === 'omissao' ? `Omissão · ${cartoes.length} ${cartoes.length === 1 ? 'cartão' : 'cartões'}` : 'Frente e verso'}</span>
                         {topico && <span className="truncate">{topico.nome}</span>}

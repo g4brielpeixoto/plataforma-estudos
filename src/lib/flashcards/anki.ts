@@ -1,6 +1,7 @@
 import type { TipoNotaFlash } from '@/types'
 import type { CamposAgenda } from './agenda'
-import { limparHtmlComInfo, textoParaHtml, textoPuro } from './html'
+import { limparHtmlComInfo, textoParaHtml, textoPuro, type MapearSrc } from './html'
+import { tipoPeloNome, tipoPelosBytes } from './imagens'
 import { numerosOmissao } from './omissao'
 
 /*
@@ -9,8 +10,14 @@ import { numerosOmissao } from './omissao'
     "collection.anki21b", comprimido com zstd e no esquema 18 (tabela decks, nomes com \x1f).
     No formato antigo é "collection.anki21" ou "collection.anki2" (esquema 11, baralhos em JSON na tabela col).
   - .txt: "Notas em texto puro", com cabeçalhos #separator, #html, #deck column…
+  Imagens: no .apkg vêm como arquivos numerados ("0", "1"…) e um índice "media" — JSON no formato antigo;
+  no novo, protobuf comprimido com zstd, e cada arquivo também em zstd. No texto das notas, a imagem vira
+  <img src="anki-midia:NOME"> até ser enviada para o bucket na hora de importar.
   As bibliotecas (fflate, fzstd, sql.js) só são carregadas quando alguém importa.
 */
+
+/** Prefixo provisório das imagens do pacote, trocado pelo endereço no bucket ao importar */
+export const PREFIXO_MIDIA = 'anki-midia:'
 
 export interface CartaoImportado {
   /** 0 no básico; número da omissão na omissão */
@@ -29,6 +36,8 @@ export interface NotaImportada {
   frente: string
   verso: string
   cartoes: CartaoImportado[]
+  /** nomes das imagens do pacote usadas na nota */
+  midias: string[]
 }
 
 export interface BaralhoImportado {
@@ -47,9 +56,77 @@ export interface ColecaoImportada {
   invertidos: number
   /** notas sem texto na frente */
   vazias: number
-  /** imagens deixadas de fora */
-  imagens: number
+  /** imagens citadas nas notas que não vieram no arquivo (exportado sem mídia, ou .txt) */
+  imagensFaltando: number
+  /** lê as imagens do pacote (só existe no .apkg/.colpkg) */
+  lerMidias: (nomes: string[]) => Promise<Map<string, Blob>>
 }
+
+const semMidias = async () => new Map<string, Blob>()
+
+/** Nome da imagem como o Anki guarda: sem %20 e afins */
+function nomeDaMidia(src: string) {
+  let nome = src.trim()
+  try {
+    nome = decodeURIComponent(nome)
+  } catch {
+    /* fica como está */
+  }
+  return nome.normalize('NFC')
+}
+
+/** Lê o índice "media" do formato novo: protobuf MediaEntries { repeated MediaEntry entries = 1 } */
+export function lerIndiceProtobuf(b: Uint8Array): Map<string, string> {
+  let i = 0
+  const varint = (fim: number) => {
+    let r = 0
+    let mult = 1
+    while (i < fim) {
+      const byte = b[i++]
+      r += (byte & 0x7f) * mult
+      if (byte < 0x80) break
+      mult *= 128
+    }
+    return r
+  }
+  const indice = new Map<string, string>()
+  let posicao = 0
+  while (i < b.length) {
+    const chave = varint(b.length)
+    const tipo = chave & 7
+    if (chave >>> 3 === 1 && tipo === 2) {
+      const tam = varint(b.length)
+      const fim = i + tam
+      let nome = ''
+      let arquivoZip: number | null = null
+      while (i < fim) {
+        const k = varint(fim)
+        const campo = k >>> 3
+        const t = k & 7
+        if (t === 2) {
+          const n = varint(fim)
+          if (campo === 1) nome = new TextDecoder().decode(b.slice(i, i + n))
+          i += n
+        } else if (t === 0) {
+          const v = varint(fim)
+          if (campo === 255) arquivoZip = v
+        } else if (t === 5) i += 4
+        else if (t === 1) i += 8
+        else break
+      }
+      i = fim
+      if (nome) indice.set(nome.normalize('NFC'), String(arquivoZip ?? posicao))
+      posicao++
+    } else if (tipo === 2) i += varint(b.length)
+    else if (tipo === 0) varint(b.length)
+    else if (tipo === 5) i += 4
+    else if (tipo === 1) i += 8
+    else break
+  }
+  return indice
+}
+
+const ZSTD = (b: Uint8Array) => b[0] === 0x28 && b[1] === 0xb5 && b[2] === 0x2f && b[3] === 0xfd
 
 export class ErroImportacao extends Error {}
 
@@ -62,31 +139,82 @@ export async function lerArquivoAnki(arquivo: File): Promise<ColecaoImportada> {
   if (/\.(txt|tsv|csv)$/.test(nome)) return lerTextoAnki(await arquivo.text())
   if (!/\.(apkg|colpkg)$/.test(nome)) throw new ErroImportacao('Escolha um arquivo .apkg, .colpkg ou .txt exportado pelo Anki.')
 
-  const { unzipSync } = await import('fflate')
+  const [{ unzipSync }, { decompress }] = await Promise.all([import('fflate'), import('fzstd')])
+  const zip = new Uint8Array(await arquivo.arrayBuffer())
   let arquivos: Record<string, Uint8Array>
   try {
-    arquivos = unzipSync(new Uint8Array(await arquivo.arrayBuffer()), { filter: (f) => f.name.startsWith('collection.') })
+    arquivos = unzipSync(zip, { filter: (f) => f.name.startsWith('collection.') || f.name === 'media' })
   } catch {
     throw new ErroImportacao('Não consegui abrir o arquivo. Exporte de novo no Anki como "Pacote de baralho do Anki (.apkg)".')
   }
 
   let banco: Uint8Array | undefined
-  if (arquivos['collection.anki21b']) {
-    const { decompress } = await import('fzstd')
-    banco = decompress(arquivos['collection.anki21b'])
-  } else {
-    banco = arquivos['collection.anki21'] ?? arquivos['collection.anki2']
-  }
+  if (arquivos['collection.anki21b']) banco = decompress(arquivos['collection.anki21b'])
+  else banco = arquivos['collection.anki21'] ?? arquivos['collection.anki2']
   if (!banco) throw new ErroImportacao('O arquivo não tem uma coleção do Anki dentro. Exporte de novo como .apkg.')
+
+  // índice das imagens: nome → arquivo dentro do zip
+  let indice = new Map<string, string>()
+  const media = arquivos['media']
+  if (media?.length) {
+    try {
+      const json = JSON.parse(new TextDecoder().decode(media)) as Record<string, string>
+      indice = new Map(Object.entries(json).map(([arquivoZip, nome]) => [nome.normalize('NFC'), arquivoZip]))
+    } catch {
+      try {
+        indice = lerIndiceProtobuf(ZSTD(media) ? decompress(media) : media)
+      } catch {
+        indice = new Map()
+      }
+    }
+  }
+
+  const lerMidias = async (nomes: string[]) => {
+    const procurados = new Map<string, string>()
+    for (const n of nomes) {
+      const z = indice.get(n)
+      if (z) procurados.set(z, n)
+    }
+    const saida = new Map<string, Blob>()
+    if (!procurados.size) return saida
+    const brutos = unzipSync(zip, { filter: (f) => procurados.has(f.name) })
+    for (const [arquivoZip, bytes] of Object.entries(brutos)) {
+      const nome = procurados.get(arquivoZip)!
+      const dados = ZSTD(bytes) ? decompress(bytes) : bytes
+      const tipo = tipoPelosBytes(dados) ?? tipoPeloNome(nome) ?? 'application/octet-stream'
+      saida.set(nome, new Blob([dados as BlobPart], { type: tipo }))
+    }
+    return saida
+  }
 
   const [{ default: initSqlJs }, { default: wasm }] = await Promise.all([import('sql.js'), import('sql.js/dist/sql-wasm-browser.wasm?url')])
   const SQL = await initSqlJs({ locateFile: () => wasm })
   const db = new SQL.Database(banco)
   try {
-    return lerBanco(db)
+    return { ...lerBanco(db, indice), lerMidias }
   } finally {
     db.close()
   }
+}
+
+/**
+  Limpa o HTML de um campo do Anki guardando as imagens do pacote como "anki-midia:NOME".
+  Devolve também os nomes usados e quantas imagens não estavam no pacote.
+*/
+function limparCampo(html: string, indice: Map<string, string>) {
+  const usadas = new Set<string>()
+  let faltando = 0
+  const mapear: MapearSrc = (src) => {
+    const nome = nomeDaMidia(src)
+    if (indice.has(nome)) {
+      usadas.add(nome)
+      return PREFIXO_MIDIA + encodeURIComponent(nome)
+    }
+    faltando++
+    return null
+  }
+  const r = limparHtmlComInfo(html ?? '', mapear)
+  return { html: r.html, usadas, faltando }
 }
 
 type Banco = { exec: (sql: string) => { columns: string[]; values: unknown[][] }[] }
@@ -142,7 +270,7 @@ export function agendaDoAnki(c: CartaoAnki, crt: number, agora = new Date()): Ca
   }
 }
 
-function lerBanco(db: Banco): ColecaoImportada {
+function lerBanco(db: Banco, indice: Map<string, string>): Omit<ColecaoImportada, 'lerMidias'> {
   const tabelas = new Set(linhas(db, "select name from sqlite_master where type = 'table'").map((l) => String(l[0])))
   if (!tabelas.has('notes') || !tabelas.has('cards')) throw new ErroImportacao('O arquivo não tem notas do Anki.')
   const crt = Number(linhas(db, 'select crt from col')[0]?.[0] ?? 0)
@@ -184,15 +312,15 @@ function lerBanco(db: Banco): ColecaoImportada {
   }
 
   const agora = new Date()
-  const r: ColecaoImportada = { formato: 'apkg', notas: [], baralhos: [], comProgresso: false, invertidos: 0, vazias: 0, imagens: 0 }
+  const r: Omit<ColecaoImportada, 'lerMidias'> = { formato: 'apkg', notas: [], baralhos: [], comProgresso: false, invertidos: 0, vazias: 0, imagensFaltando: 0 }
 
   for (const [nid, nota] of notasAnki) {
     const cartoes = cartoesPorNota.get(nid) ?? []
     if (!cartoes.length) continue
     const baralho = baralhos.get(cartoes[0].did) ?? 'Importado do Anki'
     const omissao = numerosOmissao(nota.campos[0] ?? '').length > 0
-    const montada = montarNota(nota.campos, omissao)
-    r.imagens += montada.imagens
+    const montada = montarNota(nota.campos, omissao, indice)
+    r.imagensFaltando += montada.faltando
     if (!montada.frente) {
       r.vazias++
       continue
@@ -209,7 +337,7 @@ function lerBanco(db: Banco): ColecaoImportada {
       importados.push(cartaoImportado(0, cartoes.find((c) => c.ord === 0), crt, agora))
     }
     if (importados.some((c) => c.agenda)) r.comProgresso = true
-    r.notas.push({ origem: `anki:${nota.guid}`, baralho, tipo: omissao ? 'omissao' : 'basico', frente: montada.frente, verso: montada.verso, cartoes: importados })
+    r.notas.push({ origem: `anki:${nota.guid}`, baralho, tipo: omissao ? 'omissao' : 'basico', frente: montada.frente, verso: montada.verso, cartoes: importados, midias: montada.midias })
   }
   r.baralhos = resumirBaralhos(r.notas)
   return r
@@ -221,11 +349,13 @@ function cartaoImportado(ordem: number, c: CartaoAnki | undefined, crt: number, 
 }
 
 /** Campos da nota → frente e verso. Campos a mais (tipos de nota personalizados) vão para o verso */
-function montarNota(campos: string[], omissao: boolean) {
-  let imagens = 0
+function montarNota(campos: string[], omissao: boolean, indice: Map<string, string>) {
+  let faltando = 0
+  const midias = new Set<string>()
   const limpar = (h: string) => {
-    const r = limparHtmlComInfo(h ?? '')
-    imagens += r.imagens
+    const r = limparCampo(h, indice)
+    faltando += r.faltando
+    r.usadas.forEach((n) => midias.add(n))
     return r.html
   }
   const frente = limpar(campos[0] ?? '')
@@ -235,7 +365,7 @@ function montarNota(campos: string[], omissao: boolean) {
     // "y" é o marcador de "adicionar invertido" de alguns tipos de nota
     .filter((h) => textoPuro(h).length > 1)
   const verso = [omissao ? '' : limpar(campos[1] ?? ''), ...extras].filter(Boolean).join('<hr>')
-  return { frente, verso, imagens }
+  return { frente: textoPuro(frente) || /<img\b/.test(frente) ? frente : '', verso, faltando, midias: [...midias] }
 }
 
 function resumirBaralhos(notas: NotaImportada[]): BaralhoImportado[] {
@@ -318,7 +448,7 @@ export function lerTextoAnki(texto: string): ColecaoImportada {
   const colGuid = coluna('guid column')
   const especiais = new Set([colTipo, colBaralho, colTags, colGuid].filter((c) => c >= 0))
 
-  const r: ColecaoImportada = { formato: 'txt', notas: [], baralhos: [], comProgresso: false, invertidos: 0, vazias: 0, imagens: 0 }
+  const r: ColecaoImportada = { formato: 'txt', notas: [], baralhos: [], comProgresso: false, invertidos: 0, vazias: 0, imagensFaltando: 0, lerMidias: semMidias }
   const vistos = new Set<string>()
   for (const linha of dividirCsv(corpo, sep)) {
     if (!linha.some((c) => c.trim())) continue
@@ -326,13 +456,14 @@ export function lerTextoAnki(texto: string): ColecaoImportada {
     const omissao = numerosOmissao(campos[0] ?? '').length > 0
     let imagens = 0
     const limpar = (h: string) => {
-      const x = limparHtmlComInfo(h)
+      // o .txt não traz os arquivos das imagens
+      const x = limparHtmlComInfo(h, () => null)
       imagens += x.imagens
       return x.html
     }
     const frente = limpar(campos[0] ?? '')
     const verso = limpar(campos[1] ?? '')
-    r.imagens += imagens
+    r.imagensFaltando += imagens
     if (!frente) {
       r.vazias++
       continue
@@ -350,6 +481,7 @@ export function lerTextoAnki(texto: string): ColecaoImportada {
       frente,
       verso,
       cartoes: ordens.map((ordem) => ({ ordem, agenda: null, suspenso: false, posicao: 0 })),
+      midias: [],
     })
   }
   r.baralhos = resumirBaralhos(r.notas)

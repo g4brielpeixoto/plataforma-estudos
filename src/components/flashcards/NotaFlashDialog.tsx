@@ -48,6 +48,9 @@ export function NotaFlashDialog({
   const [erro, setErro] = useState('')
   const [criarNovo, setCriarNovo] = useState(lerCriarNovo)
   const [salvos, setSalvos] = useState(0)
+  const [enviandoFrente, setEnviandoFrente] = useState(0)
+  const [enviandoVerso, setEnviandoVerso] = useState(0)
+  const enviando = enviandoFrente + enviandoVerso > 0
   const refFrente = useRef<CampoRicoRef>(null)
 
   useEffect(() => {
@@ -196,6 +199,7 @@ export function NotaFlashDialog({
               valor={frente}
               aoMudar={setFrente}
               omissao={omissao}
+              aoEnviar={setEnviandoFrente}
               placeholder={omissao ? 'Ex.: O prazo do mandado de segurança é de 120 dias.' : 'Pergunta'}
             />
             {omissao && (
@@ -216,6 +220,7 @@ export function NotaFlashDialog({
               rotulo={omissao ? 'Extra' : 'Verso'}
               valor={verso}
               aoMudar={setVerso}
+              aoEnviar={setEnviandoVerso}
               placeholder={omissao ? 'Mostrado junto com a resposta (fonte, artigo, comentário)' : 'Resposta'}
             />
           </div>
@@ -234,8 +239,8 @@ export function NotaFlashDialog({
               <Botao type="button" variante="secundario" onClick={() => aoMudar(false)}>
                 {salvos > 0 ? 'Fechar' : 'Cancelar'}
               </Botao>
-              <Botao type="submit" carregando={salvar.isPending}>
-                {nota ? 'Salvar alterações' : 'Salvar cartão'}
+              <Botao type="submit" carregando={salvar.isPending} disabled={enviando}>
+                {enviando ? 'Enviando imagem…' : nota ? 'Salvar alterações' : 'Salvar cartão'}
               </Botao>
             </div>
           </div>

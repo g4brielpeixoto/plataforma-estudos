@@ -1,8 +1,10 @@
-import { Bold, Brackets, Italic, List, ListOrdered, Underline } from 'lucide-react'
-import { forwardRef, useEffect, useImperativeHandle, useRef, type ClipboardEvent, type KeyboardEvent, type ReactNode } from 'react'
-import { limparHtml, textoParaHtml, textoPuro } from '@/lib/flashcards/html'
+import { Bold, Brackets, ImagePlus, Italic, List, ListOrdered, LoaderCircle, Underline } from 'lucide-react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { toast } from 'sonner'
+import { enviarImagemFlash } from '@/hooks/dados'
+import { limparHtml, textoParaHtml, vazio as estaVazio } from '@/lib/flashcards/html'
 import { proximoNumero } from '@/lib/flashcards/omissao'
-import { cn } from '@/lib/utils'
+import { cn, mensagemErro } from '@/lib/utils'
 
 export interface CampoRicoRef {
   focar: () => void
@@ -18,15 +20,34 @@ interface Props {
   rotulo: string
   invalido?: boolean
   className?: string
+  /** avisa quantas imagens estão sendo enviadas (para segurar o "Salvar" até terminar) */
+  aoEnviar?: (quantas: number) => void
 }
 
 /*
   Editor de texto com formatação simples, como o editor do Anki.
   O conteúdo é HTML; o que é colado passa pela limpeza (sem estilos, links ou scripts).
+  Imagens: botão, colar (print da tela) ou arrastar. Elas vão para o bucket e entram no texto pelo endereço.
   Usa document.execCommand, que todos os navegadores ainda suportam para edição simples.
 */
-export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id, valor, aoMudar, placeholder, omissao, rotulo, invalido, className }, ref) {
+export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id, valor, aoMudar, placeholder, omissao, rotulo, invalido, className, aoEnviar }, ref) {
   const editor = useRef<HTMLDivElement>(null)
+  const seletor = useRef<HTMLInputElement>(null)
+  // onde o cursor estava (para a imagem entrar no lugar certo depois do envio)
+  const cursor = useRef<Range | null>(null)
+  const [enviando, setEnviando] = useState(0)
+
+  const mudarEnvio = (delta: number) =>
+    setEnviando((n) => {
+      const novo = Math.max(0, n + delta)
+      aoEnviar?.(novo)
+      return novo
+    })
+
+  const guardarCursor = () => {
+    const sel = window.getSelection()
+    if (sel?.rangeCount && editor.current?.contains(sel.anchorNode)) cursor.current = sel.getRangeAt(0).cloneRange()
+  }
 
   useImperativeHandle(ref, () => ({ focar: () => editor.current?.focus() }), [])
 
@@ -36,7 +57,41 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
     if (el && el.innerHTML !== valor) el.innerHTML = valor
   }, [valor])
 
-  const emitir = () => editor.current && aoMudar(editor.current.innerHTML)
+  const emitir = () => {
+    guardarCursor()
+    if (editor.current) aoMudar(editor.current.innerHTML)
+  }
+
+  const inserirImagens = async (arquivos: File[]) => {
+    const imagens = arquivos.filter((f) => f.type.startsWith('image/'))
+    if (!imagens.length) return
+    mudarEnvio(imagens.length)
+    for (const arquivo of imagens) {
+      try {
+        const url = await enviarImagemFlash(arquivo)
+        const el = editor.current
+        if (!el) continue
+        el.focus()
+        const sel = window.getSelection()
+        if (sel) {
+          sel.removeAllRanges()
+          if (cursor.current && el.contains(cursor.current.startContainer)) sel.addRange(cursor.current)
+          else {
+            const fim = document.createRange()
+            fim.selectNodeContents(el)
+            fim.collapse(false)
+            sel.addRange(fim)
+          }
+        }
+        document.execCommand('insertImage', false, url)
+        emitir()
+      } catch (e) {
+        toast.error(`Não deu para enviar a imagem: ${mensagemErro(e)}`)
+      } finally {
+        mudarEnvio(-1)
+      }
+    }
+  }
 
   const comando = (nome: string) => {
     editor.current?.focus()
@@ -57,10 +112,27 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
 
   const aoColar = (e: ClipboardEvent<HTMLDivElement>) => {
     e.preventDefault()
+    // imagem copiada (print da tela, "copiar imagem"): envia
+    const arquivos = Array.from(e.clipboardData.files)
+    if (arquivos.some((f) => f.type.startsWith('image/'))) {
+      guardarCursor()
+      void inserirImagens(arquivos)
+      return
+    }
     const html = e.clipboardData.getData('text/html')
     const texto = e.clipboardData.getData('text/plain')
     document.execCommand('insertHTML', false, html ? limparHtml(html) : textoParaHtml(texto))
     emitir()
+  }
+
+  const aoSoltar = (e: DragEvent<HTMLDivElement>) => {
+    const arquivos = Array.from(e.dataTransfer.files)
+    if (!arquivos.some((f) => f.type.startsWith('image/'))) return
+    e.preventDefault()
+    // põe o cursor onde a imagem foi solta
+    const ponto = document.caretRangeFromPoint?.(e.clientX, e.clientY)
+    if (ponto && editor.current?.contains(ponto.startContainer)) cursor.current = ponto
+    void inserirImagens(arquivos)
   }
 
   const aoTeclar = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -70,7 +142,7 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
     }
   }
 
-  const vazio = textoPuro(valor) === ''
+  const vazio = estaVazio(valor)
 
   return (
     <div
@@ -96,6 +168,33 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
         <BotaoFerramenta rotulo="Lista numerada" aoClicar={() => comando('insertOrderedList')}>
           <ListOrdered className="size-4" />
         </BotaoFerramenta>
+        <BotaoFerramenta
+          rotulo="Imagem (também dá para colar ou arrastar)"
+          aoClicar={() => {
+            guardarCursor()
+            seletor.current?.click()
+          }}
+        >
+          <ImagePlus className="size-4" />
+        </BotaoFerramenta>
+        <input
+          ref={seletor}
+          type="file"
+          accept="image/*"
+          multiple
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden
+          onChange={(e) => {
+            void inserirImagens(Array.from(e.target.files ?? []))
+            e.target.value = ''
+          }}
+        />
+        {enviando > 0 && (
+          <span className="ml-1 inline-flex items-center gap-1.5 text-xs text-tinta-suave" role="status">
+            <LoaderCircle className="size-3.5 animate-spin" aria-hidden /> Enviando imagem…
+          </span>
+        )}
         {omissao && (
           <button
             type="button"
@@ -125,7 +224,10 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
           aria-invalid={invalido || undefined}
           onInput={emitir}
           onBlur={emitir}
+          onKeyUp={guardarCursor}
+          onMouseUp={guardarCursor}
           onPaste={aoColar}
+          onDrop={aoSoltar}
           onKeyDown={aoTeclar}
           className="texto-rico min-h-24 px-3 py-2.5 text-[15px] leading-relaxed text-tinta outline-none [overflow-wrap:anywhere]"
         />

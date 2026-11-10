@@ -1,6 +1,6 @@
-import { CircleCheck, FileUp, LoaderCircle, TriangleAlert } from 'lucide-react'
+import { CircleCheck, FileUp, Image as ImageIcon, LoaderCircle, TriangleAlert } from 'lucide-react'
 import { useMemo, useRef, useState, type DragEvent } from 'react'
-import { useImportarFlashcards, type NotaParaImportar, type PlanoImportacaoFlash } from '@/hooks/dados'
+import { useImportarFlashcards, type NotaParaImportar, type PlanoImportacaoFlash, type ProgressoImportacao } from '@/hooks/dados'
 import type { ColecaoImportada, NotaImportada } from '@/lib/flashcards/anki'
 import { textoPuro } from '@/lib/flashcards/html'
 import { rotuloSelecao } from '@/lib/topicos'
@@ -61,8 +61,8 @@ export function ImportarAnkiDialog({
   const [colecao, setColecao] = useState<ColecaoImportada | null>(null)
   const [destinos, setDestinos] = useState<Record<string, Destino>>({})
   const [manterProgresso, setManterProgresso] = useState(true)
-  const [progresso, setProgresso] = useState({ feitas: 0, total: 0 })
-  const [resultado, setResultado] = useState<{ notas: number; cartoes: number; disciplinasNovas: number } | null>(null)
+  const [progresso, setProgresso] = useState<ProgressoImportacao>({ fase: 'notas', feitas: 0, total: 0 })
+  const [resultado, setResultado] = useState<{ notas: number; cartoes: number; disciplinasNovas: number; imagens: number; imagensComFalha: number; completadas: number } | null>(null)
   const [arrastando, setArrastando] = useState(false)
   const entrada = useRef<HTMLInputElement>(null)
 
@@ -82,10 +82,17 @@ export function ImportarAnkiDialog({
   }
 
   // já importada antes: mesmo id do Anki; no .txt sem id, mesmo texto na frente
-  const jaExiste = useMemo(() => {
-    const origens = new Set(notasExistentes.map((n) => n.origem_anki).filter(Boolean) as string[])
+  const { jaExiste, aCompletar } = useMemo(() => {
+    const porOrigem = new Map(notasExistentes.filter((n) => n.origem_anki).map((n) => [n.origem_anki as string, n]))
     const frentes = new Set(notasExistentes.map((n) => normalizar(textoPuro(n.frente))))
-    return (n: NotaImportada) => origens.has(n.origem) || (n.origem.startsWith('txt:') && frentes.has(normalizar(textoPuro(n.frente))))
+    return {
+      jaExiste: (n: NotaImportada) => porOrigem.has(n.origem) || (n.origem.startsWith('txt:') && frentes.has(normalizar(textoPuro(n.frente)))),
+      /** nota importada antes, quando as imagens ainda não vinham, que agora pode recebê-las */
+      aCompletar: (n: NotaImportada) => {
+        const e = porOrigem.get(n.origem)
+        return e && n.midias.length > 0 && `${e.frente}${e.verso}`.includes('[imagem]') ? e : undefined
+      },
+    }
   }, [notasExistentes])
 
   const ler = async (arquivo: File | undefined) => {
@@ -107,24 +114,33 @@ export function ImportarAnkiDialog({
 
   // o que vai ser importado de cada baralho (pulando o que já veio antes)
   const resumo = useMemo(() => {
-    if (!colecao) return { porBaralho: new Map<string, { novas: number; repetidas: number }>(), total: 0, cartoes: 0 }
     const porBaralho = new Map<string, { novas: number; repetidas: number }>()
+    if (!colecao) return { porBaralho, total: 0, cartoes: 0, completar: 0, imagens: 0 }
     let total = 0
     let cartoes = 0
+    let completar = 0
+    const imagens = new Set<string>()
     for (const n of colecao.notas) {
       const r = porBaralho.get(n.baralho) ?? { novas: 0, repetidas: 0 }
-      if (jaExiste(n)) r.repetidas++
-      else {
+      const vai = destinos[n.baralho]?.disciplina !== 'x'
+      if (jaExiste(n)) {
+        r.repetidas++
+        if (vai && aCompletar(n)) {
+          completar++
+          n.midias.forEach((m) => imagens.add(m))
+        }
+      } else {
         r.novas++
-        if (destinos[n.baralho]?.disciplina !== 'x') {
+        if (vai) {
           total++
           cartoes += n.cartoes.length
+          n.midias.forEach((m) => imagens.add(m))
         }
       }
       porBaralho.set(n.baralho, r)
     }
-    return { porBaralho, total, cartoes }
-  }, [colecao, jaExiste, destinos])
+    return { porBaralho, total, cartoes, completar, imagens: imagens.size }
+  }, [colecao, jaExiste, aCompletar, destinos])
 
   const gravar = async () => {
     if (!colecao) return
@@ -136,10 +152,21 @@ export function ImportarAnkiDialog({
     // novos entram no fim da fila, na ordem que tinham no Anki
     let posicao = cartoesExistentes.reduce((m, c) => Math.max(m, c.posicao), 0) + 1
     const notas: NotaParaImportar[] = []
+    const completar: PlanoImportacaoFlash['completar'] = []
+    const midias = new Set<string>()
     const ordenadas = [...colecao.notas].sort((a, b) => Math.min(...a.cartoes.map((c) => c.posicao)) - Math.min(...b.cartoes.map((c) => c.posicao)))
     for (const n of ordenadas) {
       const destino = destinos[n.baralho]
-      if (!destino || destino.disciplina === 'x' || jaExiste(n)) continue
+      if (!destino || destino.disciplina === 'x') continue
+      if (jaExiste(n)) {
+        const existente = aCompletar(n)
+        if (existente) {
+          completar.push({ nota: existente, frente: n.frente, verso: n.verso })
+          n.midias.forEach((m) => midias.add(m))
+        }
+        continue
+      }
+      n.midias.forEach((m) => midias.add(m))
       const existente = destino.disciplina.startsWith('d:') ? destino.disciplina.slice(2) : null
       notas.push({
         id: crypto.randomUUID(),
@@ -153,13 +180,19 @@ export function ImportarAnkiDialog({
         cartoes: n.cartoes.map((c) => ({ ...c, agenda: manterProgresso ? c.agenda : null, posicao: posicao++ })),
       })
     }
-    if (!notas.length) return setErro('Nada para importar: escolha um destino para pelo menos um baralho.')
-    const plano: PlanoImportacaoFlash = { novasDisciplinas: novasDisciplinas.filter((d) => notas.some((n) => n.novaDisciplina === d.nome)), notas }
+    if (!notas.length && !completar.length) return setErro('Nada para importar: escolha um destino para pelo menos um baralho.')
+    const plano: PlanoImportacaoFlash = {
+      novasDisciplinas: novasDisciplinas.filter((d) => notas.some((n) => n.novaDisciplina === d.nome)),
+      notas,
+      completar,
+      midias: [...midias],
+      lerMidias: colecao.lerMidias,
+    }
     setErro('')
-    setProgresso({ feitas: 0, total: notas.length })
+    setProgresso({ fase: midias.size ? 'imagens' : 'notas', feitas: 0, total: midias.size || notas.length })
     setEtapa('gravando')
     try {
-      const r = await importar.mutateAsync({ plano, aoProgredir: (feitas, total) => setProgresso({ feitas, total }) })
+      const r = await importar.mutateAsync({ plano, aoProgredir: setProgresso })
       setResultado(r)
       setEtapa('pronto')
     } catch (e) {
@@ -176,7 +209,12 @@ export function ImportarAnkiDialog({
 
   const avisos: string[] = []
   if (colecao?.invertidos) avisos.push(`${colecao.invertidos} ${colecao.invertidos === 1 ? 'cartão invertido (verso → frente) fica' : 'cartões invertidos (verso → frente) ficam'} de fora: aqui cada nota de frente e verso vira um cartão só.`)
-  if (colecao?.imagens) avisos.push(`${colecao.imagens} ${colecao.imagens === 1 ? 'imagem não é importada' : 'imagens não são importadas'}; no lugar aparece "[imagem]".`)
+  if (colecao?.imagensFaltando)
+    avisos.push(
+      colecao.formato === 'txt'
+        ? `${colecao.imagensFaltando} ${colecao.imagensFaltando === 1 ? 'imagem não vem' : 'imagens não vêm'} no arquivo .txt; no lugar aparece "[imagem]". Para trazer as imagens, exporte como .apkg.`
+        : `${colecao.imagensFaltando} ${colecao.imagensFaltando === 1 ? 'imagem não está' : 'imagens não estão'} no arquivo; no lugar aparece "[imagem]". No Anki, marque "Incluir mídia" ao exportar.`,
+    )
   if (colecao?.vazias) avisos.push(`${colecao.vazias} ${colecao.vazias === 1 ? 'nota sem texto foi ignorada' : 'notas sem texto foram ignoradas'}.`)
 
   return (
@@ -307,6 +345,17 @@ export function ImportarAnkiDialog({
             </label>
           )}
 
+          {(resumo.imagens > 0 || resumo.completar > 0) && (
+            <p className="flex gap-2 rounded-xl bg-superficie-2 px-4 py-3 text-sm text-tinta">
+              <ImageIcon className="mt-0.5 size-4 shrink-0 text-tinta-suave" aria-hidden />
+              <span>
+                {resumo.imagens > 0 && `${resumo.imagens.toLocaleString('pt-BR')} ${resumo.imagens === 1 ? 'imagem vai' : 'imagens vão'} junto (as grandes são reduzidas para no máximo 1600 px).`}
+                {resumo.completar > 0 &&
+                  ` ${resumo.completar.toLocaleString('pt-BR')} ${resumo.completar === 1 ? 'nota importada antes sem imagem vai recebê-la' : 'notas importadas antes sem imagem vão recebê-las'} agora.`}
+              </span>
+            </p>
+          )}
+
           {avisos.length > 0 && (
             <ul className="space-y-1.5 rounded-xl bg-medio-fundo px-4 py-3 text-sm text-tinta">
               {avisos.map((a) => (
@@ -328,10 +377,12 @@ export function ImportarAnkiDialog({
             <Botao type="button" variante="fantasma" onClick={reiniciar}>
               Outro arquivo
             </Botao>
-            <Botao type="button" onClick={() => void gravar()} disabled={!resumo.total}>
+            <Botao type="button" onClick={() => void gravar()} disabled={!resumo.total && !resumo.completar}>
               {resumo.total
                 ? `Importar ${resumo.total.toLocaleString('pt-BR')} ${resumo.total === 1 ? 'nota' : 'notas'} (${resumo.cartoes.toLocaleString('pt-BR')} ${resumo.cartoes === 1 ? 'cartão' : 'cartões'})`
-                : 'Tudo já foi importado'}
+                : resumo.completar
+                  ? `Completar ${resumo.completar.toLocaleString('pt-BR')} ${resumo.completar === 1 ? 'nota' : 'notas'} com as imagens`
+                  : 'Tudo já foi importado'}
             </Botao>
           </div>
         </div>
@@ -339,10 +390,10 @@ export function ImportarAnkiDialog({
 
       {etapa === 'gravando' && (
         <div className="space-y-3 py-6" role="status">
-          <p className="font-medium text-tinta">Importando…</p>
+          <p className="font-medium text-tinta">{progresso.fase === 'imagens' ? 'Enviando as imagens…' : 'Importando as notas…'}</p>
           <BarraProgresso valor={progresso.total ? (progresso.feitas / progresso.total) * 100 : 0} rotulo="Progresso da importação" />
           <p className="text-sm text-tinta-suave numeros">
-            {progresso.feitas.toLocaleString('pt-BR')} de {progresso.total.toLocaleString('pt-BR')} notas. Não feche esta janela.
+            {progresso.feitas.toLocaleString('pt-BR')} de {progresso.total.toLocaleString('pt-BR')} {progresso.fase === 'imagens' ? 'imagens' : 'notas'}. Não feche esta janela.
           </p>
         </div>
       )}
@@ -353,10 +404,22 @@ export function ImportarAnkiDialog({
           <div>
             <p className="font-serif text-xl text-tinta">Importação concluída</p>
             <p className="mt-1 text-tinta-suave numeros">
-              {resultado.notas.toLocaleString('pt-BR')} {resultado.notas === 1 ? 'nota' : 'notas'} e {resultado.cartoes.toLocaleString('pt-BR')}{' '}
-              {resultado.cartoes === 1 ? 'cartão' : 'cartões'}
-              {resultado.disciplinasNovas ? `, ${resultado.disciplinasNovas} ${resultado.disciplinasNovas === 1 ? 'disciplina nova' : 'disciplinas novas'}` : ''}.
+              {resultado.notas > 0 && (
+                <>
+                  {resultado.notas.toLocaleString('pt-BR')} {resultado.notas === 1 ? 'nota' : 'notas'} e {resultado.cartoes.toLocaleString('pt-BR')}{' '}
+                  {resultado.cartoes === 1 ? 'cartão' : 'cartões'}
+                  {resultado.disciplinasNovas ? `, ${resultado.disciplinasNovas} ${resultado.disciplinasNovas === 1 ? 'disciplina nova' : 'disciplinas novas'}` : ''}
+                  {resultado.imagens ? `, ${resultado.imagens} ${resultado.imagens === 1 ? 'imagem' : 'imagens'}` : ''}.{' '}
+                </>
+              )}
+              {resultado.completadas > 0 && `${resultado.completadas} ${resultado.completadas === 1 ? 'nota importada antes recebeu' : 'notas importadas antes receberam'} as imagens.`}
             </p>
+            {resultado.imagensComFalha > 0 && (
+              <p className="mt-2 text-sm text-medio">
+                {resultado.imagensComFalha} {resultado.imagensComFalha === 1 ? 'imagem não pôde ser enviada' : 'imagens não puderam ser enviadas'} (formato que o navegador não abre ou maior que 5 MB) e
+                {resultado.imagensComFalha === 1 ? ' aparece' : ' aparecem'} como "[imagem]".
+              </p>
+            )}
           </div>
           <Botao onClick={() => fechar(false)}>Ver baralhos</Botao>
         </div>

@@ -327,3 +327,15 @@ input[type='checkbox']:checked::after {
 .omissao-resposta {
   border-bottom: 2px solid currentColor;
 }
+/* imagens nos flashcards: cabem na largura e não passam de meia tela de altura na revisão */
+.texto-rico img {
+  display: inline-block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  vertical-align: middle;
+}
+.conteudo-cartao img {
+  max-height: 55vh;
+  margin: 0.4em auto;
+}

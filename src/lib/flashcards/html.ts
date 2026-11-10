@@ -1,7 +1,10 @@
+import { PREFIXO_IMAGENS_FLASH } from '../config'
+
 /*
-  O conteúdo dos cartões é HTML simples (como no Anki): negrito, itálico, listas, tabelas.
+  O conteúdo dos cartões é HTML simples (como no Anki): negrito, itálico, listas, tabelas e imagens.
   Tudo que entra (importação, editor, colar) passa por limparHtml, que só mantém as tags
-  permitidas, sem nenhum atributo. Scripts, estilos, links e imagens ficam de fora.
+  permitidas, sem atributos. A única exceção é o src das imagens, aceito só quando aponta para
+  o bucket de imagens dos flashcards deste projeto. Scripts, estilos e links ficam de fora.
 */
 
 const PERMITIDAS = new Set([
@@ -17,11 +20,17 @@ const TROCAR: Record<string, string> = { STRONG: 'b', EM: 'i', STRIKE: 's' }
 
 export interface ResultadoLimpeza {
   html: string
-  /** imagens encontradas (substituídas por "[imagem]") */
+  /** imagens recusadas (endereço de fora), trocadas por "[imagem]" */
   imagens: number
 }
 
-function copiar(origem: Node, destino: Node, doc: Document, info: { imagens: number }) {
+/** Decide o src de cada imagem: devolve o endereço a usar, ou null para recusar */
+export type MapearSrc = (src: string) => string | null
+
+/** Só imagens enviadas para o bucket dos flashcards */
+export const srcPermitido: MapearSrc = (src) => (src.startsWith(PREFIXO_IMAGENS_FLASH) && !/["'<>\s]/.test(src) ? src : null)
+
+function copiar(origem: Node, destino: Node, doc: Document, info: { imagens: number }, mapear: MapearSrc) {
   for (const filho of Array.from(origem.childNodes)) {
     if (filho.nodeType === Node.TEXT_NODE) {
       destino.appendChild(doc.createTextNode(filho.textContent ?? ''))
@@ -31,27 +40,34 @@ function copiar(origem: Node, destino: Node, doc: Document, info: { imagens: num
     const tag = (filho as Element).tagName.toUpperCase()
     if (DESCARTAR.has(tag)) continue
     if (tag === 'IMG') {
-      info.imagens++
-      destino.appendChild(doc.createTextNode('[imagem]'))
+      const src = mapear((filho as Element).getAttribute('src') ?? '')
+      if (src) {
+        const img = doc.createElement('img')
+        img.setAttribute('src', src)
+        destino.appendChild(img)
+      } else {
+        info.imagens++
+        destino.appendChild(doc.createTextNode('[imagem]'))
+      }
       continue
     }
     if (PERMITIDAS.has(tag)) {
       const novo = doc.createElement(TROCAR[tag] ?? tag.toLowerCase())
-      copiar(filho, novo, doc, info)
+      copiar(filho, novo, doc, info, mapear)
       destino.appendChild(novo)
     } else {
       // tag desconhecida (span, font, a, h1…): fica só o conteúdo
-      copiar(filho, destino, doc, info)
+      copiar(filho, destino, doc, info, mapear)
     }
   }
 }
 
-export function limparHtmlComInfo(html: string): ResultadoLimpeza {
+export function limparHtmlComInfo(html: string, mapear: MapearSrc = srcPermitido): ResultadoLimpeza {
   const info = { imagens: 0 }
   if (!html) return { html: '', imagens: 0 }
   const origem = new DOMParser().parseFromString(`<!doctype html><body>${html}</body>`, 'text/html')
   const destino = document.implementation.createHTMLDocument('')
-  copiar(origem.body, destino.body, destino, info)
+  copiar(origem.body, destino.body, destino, info, mapear)
   let limpo = destino.body.innerHTML
   // tira quebras e espaços sobrando no começo e no fim
   limpo = limpo.replace(/^(\s|&nbsp;|<br>|<div><br><\/div>)+/, '').replace(/(\s|&nbsp;|<br>|<div><br><\/div>)+$/, '')
@@ -77,5 +93,13 @@ export function textoParaHtml(texto: string): string {
   return texto.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\r?\n/g, '<br>')
 }
 
-/** O campo está vazio de verdade (só espaços, quebras ou tags vazias)? */
-export const vazio = (html: string) => textoPuro(html) === ''
+/** O campo está vazio de verdade (sem texto e sem imagem)? */
+export const vazio = (html: string) => textoPuro(html) === '' && !/<img\b/i.test(html)
+
+/** Endereços das imagens usadas no HTML */
+export function imagensDoHtml(html: string): string[] {
+  return [...html.matchAll(/<img\b[^>]*\bsrc="([^"]+)"/gi)].map((m) => m[1].replace(/&amp;/g, '&'))
+}
+
+/** Prévia em texto para listas: o texto, ou "[imagem]" quando só tem imagem */
+export const previa = (html: string) => textoPuro(html) || (/<img\b/i.test(html) ? '[imagem]' : '')
