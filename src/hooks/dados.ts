@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { caminhoDaFoto } from '@/lib/foto'
 import { buscarTodos, supabase } from '@/lib/supabase'
-import type { Convite, Disciplina, Estudo, Metas, NivelTopico, NovoEstudo, Perfil, Prova, Topico } from '@/types'
+import type { Convite, Disciplina, Estudo, ItemPlanner, Metas, NivelTopico, NovoEstudo, Perfil, Prova, Topico } from '@/types'
 
 /*
   Acesso aos dados. Toda leitura usa o React Query (cache + recarga automática);
@@ -17,6 +17,7 @@ export const chaves = {
   convites: ['convites'] as const,
   metas: ['metas'] as const,
   provas: ['provas'] as const,
+  planner: ['planner'] as const,
 }
 
 // ---------- leituras ----------
@@ -94,6 +95,16 @@ export function useProvas() {
       if (error) throw error
       return data as Prova[]
     },
+  })
+}
+
+export function usePlanner() {
+  return useQuery({
+    queryKey: chaves.planner,
+    queryFn: () =>
+      buscarTodos<ItemPlanner>((de, ate) =>
+        supabase.from('planner_itens').select('*').order('data').order('ordem').order('criado_em').range(de, ate),
+      ),
   })
 }
 
@@ -237,11 +248,21 @@ export function useImportar() {
 export function useSalvarEstudo() {
   const invalidar = useInvalidar()
   return useMutation({
-    mutationFn: async ({ id, estudo, concluirTopico }: { id?: string; estudo: NovoEstudo; concluirTopico?: boolean }) => {
-      const { error } = id
-        ? await supabase.from('estudos').update(estudo).eq('id', id)
-        : await supabase.from('estudos').insert(estudo)
-      if (error) throw error
+    mutationFn: async ({ id, estudo, concluirTopico, plannerItemId }: { id?: string; estudo: NovoEstudo; concluirTopico?: boolean; plannerItemId?: string }) => {
+      let estudoId = id
+      if (id) {
+        const { error } = await supabase.from('estudos').update(estudo).eq('id', id)
+        if (error) throw error
+      } else {
+        const { data, error } = await supabase.from('estudos').insert(estudo).select('id').single()
+        if (error) throw error
+        estudoId = data.id as string
+      }
+      // estudo que veio do planner: o item fica concluído e ligado a este registro
+      if (plannerItemId && estudoId) {
+        const { error: e3 } = await supabase.from('planner_itens').update({ concluido_em: new Date().toISOString(), estudo_id: estudoId }).eq('id', plannerItemId)
+        if (e3) throw e3
+      }
       if (concluirTopico !== undefined) {
         const { error: e2 } = await supabase
           .from('topicos')
@@ -249,8 +270,9 @@ export function useSalvarEstudo() {
           .eq('id', estudo.topico_id)
         if (e2) throw e2
       }
+      return estudoId
     },
-    onSuccess: () => invalidar('estudos', 'topicos'),
+    onSuccess: () => invalidar('estudos', 'topicos', 'planner'),
   })
 }
 
@@ -261,7 +283,7 @@ export function useExcluirEstudo() {
       const { error } = await supabase.from('estudos').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => invalidar('estudos'),
+    onSuccess: () => invalidar('estudos', 'planner'),
   })
 }
 
@@ -359,5 +381,73 @@ export function useExcluirProva() {
       if (error) throw error
     },
     onSuccess: () => invalidar('provas'),
+  })
+}
+
+// ---------- planner ----------
+
+export type DadosItemPlanner = Pick<ItemPlanner, 'data' | 'disciplina_id' | 'topico_id' | 'tipo' | 'minutos_previstos' | 'observacao'>
+
+export function useSalvarItemPlanner() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async ({ id, dados }: { id?: string; dados: DadosItemPlanner & { ordem?: number; adiamentos?: number } }) => {
+      const { error } = id
+        ? await supabase.from('planner_itens').update(dados).eq('id', id)
+        : await supabase.from('planner_itens').insert({ ...dados, data_original: dados.data, ordem: dados.ordem ?? 0 })
+      if (error) throw error
+    },
+    onSuccess: () => invalidar('planner'),
+  })
+}
+
+export function useExcluirItemPlanner() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('planner_itens').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => invalidar('planner'),
+  })
+}
+
+/** Grava vários itens de uma vez (mover de dia, reagendar atrasados), atualizando a tela na hora */
+export function useAtualizarItensPlanner() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (itens: ItemPlanner[]) => {
+      if (!itens.length) return
+      const linhas = itens.map(({ user_id: _u, criado_em: _c, ...resto }) => resto)
+      const { error } = await supabase.from('planner_itens').upsert(linhas, { onConflict: 'id' })
+      if (error) throw error
+    },
+    onMutate: async (itens) => {
+      await qc.cancelQueries({ queryKey: chaves.planner })
+      const anterior = qc.getQueryData<ItemPlanner[]>(chaves.planner)
+      const novos = new Map(itens.map((i) => [i.id, i]))
+      qc.setQueryData<ItemPlanner[]>(chaves.planner, (lista) => (lista ?? []).map((i) => novos.get(i.id) ?? i))
+      return { anterior }
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.anterior) qc.setQueryData(chaves.planner, ctx.anterior)
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: chaves.planner }),
+  })
+}
+
+/** Desfaz o check: o item volta a pendente e o estudo que ele gerou sai do histórico */
+export function useDesmarcarItemPlanner() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async (item: ItemPlanner) => {
+      const { error } = await supabase.from('planner_itens').update({ concluido_em: null, estudo_id: null }).eq('id', item.id)
+      if (error) throw error
+      if (item.estudo_id) {
+        const { error: e2 } = await supabase.from('estudos').delete().eq('id', item.estudo_id)
+        if (e2) throw e2
+      }
+    },
+    onSuccess: () => invalidar('planner', 'estudos'),
   })
 }

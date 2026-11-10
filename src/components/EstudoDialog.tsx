@@ -13,6 +13,8 @@ export interface ValoresIniciaisEstudo {
   origem?: Origem
   disciplinaId?: string
   topicoId?: string
+  /** item do planner que fica concluído (e ligado a este estudo) ao salvar */
+  plannerItemId?: string
 }
 
 const ROTULO_ORIGEM: Record<Origem, string> = {
@@ -31,12 +33,15 @@ export function EstudoDialog({
   editando,
   iniciais,
   aoSalvar,
+  aoSoConcluir,
 }: {
   aberto: boolean
   aoMudar: (aberto: boolean) => void
   editando?: Estudo | null
   iniciais?: ValoresIniciaisEstudo
   aoSalvar?: () => void
+  /** mostra a opção de marcar o item do planner como feito sem registrar estudo */
+  aoSoConcluir?: () => void
 }) {
   const disciplinas = useDisciplinas()
   const topicos = useTopicos()
@@ -126,8 +131,9 @@ export function EstudoDialog({
           observacao: observacao.trim() || null,
         },
         concluirTopico: topicoSelecionado && topicoSelecionado.concluido !== concluir ? concluir : undefined,
+        plannerItemId: editando ? undefined : iniciais?.plannerItemId,
       })
-      toast.success(editando ? 'Estudo atualizado.' : 'Estudo salvo.')
+      toast.success(editando ? 'Estudo atualizado.' : iniciais?.plannerItemId ? 'Estudo salvo e item do planner concluído.' : 'Estudo salvo.')
       aoMudar(false)
       aoSalvar?.()
     } catch (err) {
@@ -144,9 +150,9 @@ export function EstudoDialog({
       aoMudar={aoMudar}
       titulo={editando ? 'Editar estudo' : 'Salvar estudo'}
       descricao={
-        duracaoInicial
+        (duracaoInicial && origem !== 'manual'
           ? `${ROTULO_ORIGEM[origem]}: ${formatarDuracao(duracaoInicial)} cronometrados. Diga o que você estudou.`
-          : 'Registre o que você estudou.'
+          : 'Registre o que você estudou.') + (!editando && iniciais?.plannerItemId ? ' Ao salvar, o item do planner fica marcado como feito.' : '')
       }
     >
       {semDisciplinas ? (
@@ -231,7 +237,21 @@ export function EstudoDialog({
             </p>
           )}
 
-          <div className="flex justify-end gap-2 pt-1">
+          <div className="flex flex-wrap justify-end gap-2 pt-1">
+            {aoSoConcluir && !editando && (
+              <Botao
+                type="button"
+                variante="fantasma"
+                className="mr-auto px-2"
+                title="Para quando o estudo já foi registrado de outro jeito"
+                onClick={() => {
+                  aoSoConcluir()
+                  aoMudar(false)
+                }}
+              >
+                Só marcar como feito
+              </Botao>
+            )}
             <Botao type="button" variante="secundario" onClick={() => aoMudar(false)}>
               Cancelar
             </Botao>

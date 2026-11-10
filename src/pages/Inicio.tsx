@@ -10,6 +10,7 @@ import { EstudoDialog } from '@/components/EstudoDialog'
 import { EstudoSemanal } from '@/components/EstudoSemanal'
 import { MapaCalor } from '@/components/MapaCalor'
 import { MetasSemanais } from '@/components/MetasSemanais'
+import { PlanejamentoHoje } from '@/components/PlanejamentoHoje'
 import { ResumoTopo } from '@/components/ResumoTopo'
 import { TempoPizza } from '@/components/TempoPizza'
 import { BarraProgresso, Botao, Carregando, Painel, SeloAcerto } from '@/components/ui'
@@ -201,6 +202,7 @@ export function Inicio() {
             </div>
 
             <div className="order-1 space-y-5 xl:order-2">
+              <PlanejamentoHoje disciplinas={disciplinas.data ?? []} topicos={topicos.data ?? []} />
               <ContagemProvas />
               <MetasSemanais estudos={todos} />
               <EstudoSemanal estudos={todos} />

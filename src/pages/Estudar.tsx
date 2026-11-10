@@ -1,10 +1,14 @@
 import { isToday } from 'date-fns'
-import { ClipboardCheck, Pause, Play, RotateCcw, Settings, SkipForward } from 'lucide-react'
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { CalendarDays, ClipboardCheck, Pause, Play, RotateCcw, Settings, SkipForward, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useLocation, useNavigate } from 'react-router'
+import { toast } from 'sonner'
 import { EstudoDialog } from '@/components/EstudoDialog'
 import { Botao, Campo, Dialogo, Entrada, Selecao } from '@/components/ui'
-import { useDisciplinas, useEstudos, useTopicos } from '@/hooks/dados'
+import { useDisciplinas, useEstudos, usePlanner, useTopicos } from '@/hooks/dados'
 import { CONFIG_PADRAO, useCronometro, type ConfigPomodoro, type Modo } from '@/hooks/useCronometro'
+import type { PlayDoPlanner } from '@/hooks/usePlannerAcoes'
+import { concluido, COR_TIPO, ROTULO_TIPO } from '@/lib/planner'
 import { cn, formatarDuracao, formatarRelogio } from '@/lib/utils'
 import { rotuloSelecao } from '@/lib/topicos'
 
@@ -67,6 +71,31 @@ export function Estudar() {
   const [salvando, setSalvando] = useState(false)
   const [configurando, setConfigurando] = useState(false)
   const [minutosPersonalizados, setMinutosPersonalizados] = useState('')
+  const planner = usePlanner()
+  const local = useLocation()
+  const navegar = useNavigate()
+  const playTratado = useRef<string | null>(null)
+
+  // play vindo do planner: escolhe a disciplina e o tópico do item e começa a contar
+  useEffect(() => {
+    const play = (local.state as { planner?: PlayDoPlanner } | null)?.planner
+    if (!play || playTratado.current === local.key) return
+    playTratado.current = local.key
+    navegar('/estudar', { replace: true, state: null })
+    if (c.temTempo && c.plannerId !== play.id) {
+      toast.error('Já existe um estudo em andamento. Salve ou zere o tempo atual e dê o play de novo no planner.')
+      return
+    }
+    c.vincularPlanner(play.id, play.disciplinaId, play.topicoId ?? '')
+    if (c.modo === 'timer' && play.minutos && !c.temTempo) c.definirAlvoTimer(play.minutos)
+    if (!c.rodando) c.iniciar()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [local.key])
+
+  const itemPlanner = c.plannerId ? (planner.data ?? []).find((i) => i.id === c.plannerId) : undefined
+  const itemPendente = itemPlanner && !concluido(itemPlanner) ? itemPlanner : undefined
+  const nomeDisciplinaPlanner = itemPendente ? (disciplinas.data ?? []).find((d) => d.id === itemPendente.disciplina_id)?.nome : undefined
+  const nomeTopicoPlanner = itemPendente?.topico_id ? (topicos.data ?? []).find((t) => t.id === itemPendente.topico_id)?.nome : undefined
 
   const topicosDaDisciplina = (topicos.data ?? []).filter((t) => t.disciplina_id === c.disciplinaId)
   const estudadoHoje = useMemo(
@@ -128,6 +157,27 @@ export function Estudar() {
           </button>
         ))}
       </div>
+
+      {itemPendente && (
+        <div className={cn('relative mb-3 flex items-center gap-3 overflow-hidden rounded-xl py-2.5 pr-2 pl-4', COR_TIPO[itemPendente.tipo].fundo)}>
+          <span className={cn('absolute inset-y-0 left-0 w-1', COR_TIPO[itemPendente.tipo].barra)} aria-hidden />
+          <CalendarDays className="size-4 shrink-0 text-tinta-suave" aria-hidden />
+          <p className="min-w-0 flex-1 text-sm text-tinta">
+            <span className="text-tinta-suave">Do planner ({ROTULO_TIPO[itemPendente.tipo].toLowerCase()}): </span>
+            <span className="font-semibold">{nomeDisciplinaPlanner ?? 'Disciplina'}</span>
+            {nomeTopicoPlanner && <span className="text-tinta-suave"> · {nomeTopicoPlanner}</span>}
+            <span className="block text-xs text-tinta-suave">Ao salvar, o item fica marcado como feito.</span>
+          </p>
+          <button
+            onClick={() => c.vincularPlanner('')}
+            aria-label="Desligar do planner"
+            title="Desligar do planner (o tempo continua)"
+            className="grid size-8 shrink-0 place-items-center rounded-lg text-tinta-suave hover:bg-superficie/70 hover:text-tinta"
+          >
+            <X className="size-4" aria-hidden />
+          </button>
+        </div>
+      )}
 
       <div className="mb-8 grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Selecao
@@ -246,7 +296,13 @@ export function Estudar() {
       <EstudoDialog
         aberto={salvando}
         aoMudar={setSalvando}
-        iniciais={{ duracaoSegundos: Math.round(c.estudadoMs / 1000), origem: c.modo, disciplinaId: c.disciplinaId, topicoId: c.topicoId }}
+        iniciais={{
+          duracaoSegundos: Math.round(c.estudadoMs / 1000),
+          origem: c.modo,
+          disciplinaId: c.disciplinaId,
+          topicoId: c.topicoId,
+          plannerItemId: itemPendente?.id,
+        }}
         aoSalvar={c.zerar}
       />
       <ConfigDialog aberto={configurando} aoMudar={setConfigurando} config={c.config} aoSalvar={c.setConfig} />

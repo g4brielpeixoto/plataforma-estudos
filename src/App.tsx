@@ -9,6 +9,7 @@ import { Estudar } from './pages/Estudar'
 import { Historico } from './pages/Historico'
 import { Inicio } from './pages/Inicio'
 import { Perfil } from './pages/Perfil'
+import { Planner } from './pages/Planner'
 import { Usuarios } from './pages/Usuarios'
 
 /** Só deixa passar quem está logado e com a conta ativa */
@@ -53,6 +54,7 @@ const router = createHashRouter([
           { path: '/', element: <Inicio /> },
           { path: '/edital', element: <Edital /> },
           { path: '/edital/:id', element: <Disciplina /> },
+          { path: '/planner', element: <Planner /> },
           { path: '/estudar', element: <Estudar /> },
           { path: '/historico', element: <Historico /> },
           { path: '/perfil', element: <Perfil /> },

@@ -78,3 +78,24 @@ export interface Prova {
   data: string
   criado_em: string
 }
+
+export type TipoPlanner = 'estudo' | 'revisao' | 'resumo' | 'exercicios'
+
+export interface ItemPlanner {
+  id: string
+  user_id: string
+  /** yyyy-mm-dd */
+  data: string
+  /** dia em que foi planejado pela primeira vez */
+  data_original: string
+  disciplina_id: string
+  topico_id: string | null
+  tipo: TipoPlanner
+  minutos_previstos: number | null
+  observacao: string | null
+  ordem: number
+  adiamentos: number
+  concluido_em: string | null
+  estudo_id: string | null
+  criado_em: string
+}

@@ -1,6 +1,6 @@
-import { BookOpen, History, House, LogOut, Moon, PanelLeftClose, PanelLeftOpen, Sun, Timer, Users } from 'lucide-react'
+import { BookOpen, CalendarDays, History, House, LogOut, Moon, PanelLeftClose, PanelLeftOpen, Sun, Timer, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { NavLink, Outlet } from 'react-router'
+import { NavLink, Outlet, useMatch } from 'react-router'
 import { useAuth } from '@/contexts/AuthContext'
 import { Avatar } from './Avatar'
 import { cn } from '@/lib/utils'
@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 const itens = [
   { para: '/', rotulo: 'Início', icone: House, fim: true },
   { para: '/edital', rotulo: 'Edital', icone: BookOpen, fim: false },
+  { para: '/planner', rotulo: 'Planner', icone: CalendarDays, fim: false },
   { para: '/estudar', rotulo: 'Estudar', icone: Timer, fim: false },
   { para: '/historico', rotulo: 'Histórico', icone: History, fim: false },
 ]
@@ -44,6 +45,8 @@ export function Layout() {
   const { perfil, sair } = useAuth()
   const { escuro, alternar } = useTema()
   const master = perfil?.papel === 'master'
+  // o planner usa a largura toda para caberem os 7 dias lado a lado
+  const telaLarga = useMatch('/planner') !== null
   const todos = master ? [...itens, { para: '/usuarios', rotulo: 'Usuários', icone: Users, fim: false }] : itens
   const [recolhido, setRecolhido] = useState(() => {
     try {
@@ -173,13 +176,13 @@ export function Layout() {
         </div>
       </header>
 
-      <main className="mx-auto w-full min-w-0 max-w-6xl flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-10 lg:pt-10 lg:pb-12">
+      <main className={cn('mx-auto w-full min-w-0 flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-10 lg:pt-10 lg:pb-12', telaLarga ? 'max-w-[100rem]' : 'max-w-6xl')}>
         <Outlet />
       </main>
 
       {/* navegação inferior (celular e tablet) */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-linha/70 bg-superficie/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-linha/70 bg-superficie/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
         aria-label="Principal"
       >
         {itens.map(({ para, rotulo, icone: Icone, fim }) => (
@@ -193,7 +196,7 @@ export function Layout() {
           >
             {({ isActive }) => (
               <>
-                <span className={cn('rounded-full px-4 py-1 transition-colors', isActive && 'bg-nevoa')}>
+                <span className={cn('rounded-full px-3.5 py-1 transition-colors', isActive && 'bg-nevoa')}>
                   <Icone className="size-5" aria-hidden />
                 </span>
                 {rotulo}

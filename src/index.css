@@ -35,6 +35,17 @@
   --c-calor-2: #c0a0c3;
   --c-calor-3: #a788ab;
   --c-calor-4: #8f7193;
+  /* planner: cor de cada tipo de atividade (barra/texto e fundo do cartão) e cabeçalho dos dias */
+  --c-estudo: #7a5e7e;
+  --c-estudo-fundo: #efe3f0;
+  --c-revisao: #3d6493;
+  --c-revisao-fundo: #e4ecf7;
+  --c-resumo: #8a5f12;
+  --c-resumo-fundo: #f8edd5;
+  --c-exercicios: #1f6f78;
+  --c-exercicios-fundo: #ddf0f0;
+  --c-cabecalho: #3f3242;
+  --c-sobre-cabecalho: #f7f1f8;
   color-scheme: light;
 }
 
@@ -66,6 +77,16 @@
   --c-calor-2: #6e5574;
   --c-calor-3: #a788ab;
   --c-calor-4: #dfcae1;
+  --c-estudo: #dcc3df;
+  --c-estudo-fundo: #3b2d40;
+  --c-revisao: #a9c3ea;
+  --c-revisao-fundo: #243246;
+  --c-resumo: #ecc47c;
+  --c-resumo-fundo: #3b3020;
+  --c-exercicios: #84d3d6;
+  --c-exercicios-fundo: #1c3638;
+  --c-cabecalho: #4a3b52;
+  --c-sobre-cabecalho: #f1e9f2;
   color-scheme: dark;
 }
 
@@ -92,6 +113,16 @@
   --color-meta-questoes: var(--c-meta-questoes);
   --color-chama: var(--c-chama);
   --color-meta-questoes-texto: var(--c-meta-questoes-texto);
+  --color-estudo: var(--c-estudo);
+  --color-estudo-fundo: var(--c-estudo-fundo);
+  --color-revisao: var(--c-revisao);
+  --color-revisao-fundo: var(--c-revisao-fundo);
+  --color-resumo: var(--c-resumo);
+  --color-resumo-fundo: var(--c-resumo-fundo);
+  --color-exercicios: var(--c-exercicios);
+  --color-exercicios-fundo: var(--c-exercicios-fundo);
+  --color-cabecalho: var(--c-cabecalho);
+  --color-sobre-cabecalho: var(--c-sobre-cabecalho);
   --font-sans: 'Figtree', ui-sans-serif, system-ui, sans-serif;
   --font-serif: 'Literata', ui-serif, Georgia, serif;
 }
