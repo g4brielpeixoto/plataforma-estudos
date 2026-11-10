@@ -3,11 +3,10 @@ import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifi
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import * as Menu from '@radix-ui/react-dropdown-menu'
-import { formatDistanceToNowStrict } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { format } from 'date-fns'
 import { EllipsisVertical, GripVertical, IndentDecrease, IndentIncrease, ListPlus, Pencil, Trash2 } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
-import type { ResumoTopico } from '@/lib/indicadores'
+import { somarResumos, type ResumoTopico } from '@/lib/indicadores'
 import { definirNivel, filhosDe, moverParaPosicao, moverPorArrasto, numeracao, paiDe, podeRecuar } from '@/lib/topicos'
 import { cn, formatarDuracao } from '@/lib/utils'
 import type { Topico } from '@/types'
@@ -64,6 +63,13 @@ export function ListaTopicos({ topicos, visiveis, porTopico, podeArrastar, aoReo
       }}
     >
       <SortableContext items={visiveis.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+        <div className="hidden items-center gap-3 px-4 pt-3 pb-1 text-xs font-semibold tracking-[0.08em] whitespace-nowrap text-tinta-suave uppercase md:flex" aria-hidden>
+          <span className="flex-1">Tópico</span>
+          <span className={COL_QUESTOES}>Questões</span>
+          <span className={COL_DATA}>Último estudo</span>
+          <span className={COL_ESTUDO}>Estudo</span>
+          <span className="w-9 shrink-0" />
+        </div>
         <ul className="p-2">
           {visiveis.map((t) => {
             const pai = t.nivel === 1 ? paiDe(topicos, t.id) : undefined
@@ -76,7 +82,11 @@ export function ListaTopicos({ topicos, visiveis, porTopico, podeArrastar, aoReo
                 maximo={irmaos}
                 nomePai={pai?.nome}
                 qtdFilhos={t.nivel === 0 ? filhosDe(topicos, t.id).length : 0}
-                resumo={porTopico.get(t.id)}
+                resumo={
+                  t.nivel === 0 && filhosDe(topicos, t.id).length
+                    ? somarResumos([porTopico.get(t.id), ...filhosDe(topicos, t.id).map((f) => porTopico.get(f.id))])
+                    : porTopico.get(t.id)
+                }
                 podeArrastar={podeArrastar}
                 podeRecuar={podeRecuar(topicos, t.id)}
                 aoMoverPara={(n) => {
@@ -94,6 +104,39 @@ export function ListaTopicos({ topicos, visiveis, porTopico, podeArrastar, aoReo
         </ul>
       </SortableContext>
     </DndContext>
+  )
+}
+
+const COL_QUESTOES = 'w-32 shrink-0 text-center'
+const COL_DATA = 'w-28 shrink-0 text-center'
+const COL_ESTUDO = 'w-28 shrink-0 text-center'
+
+const dataCurta = (iso: string) => format(new Date(iso), 'dd/MM/yy')
+
+function Traco() {
+  return <span className="text-lilas" aria-label="sem registro">—</span>
+}
+
+/** "6/10 60%": acertos em verde, total e selo de aproveitamento */
+function Questoes({ r }: { r: ResumoTopico }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 numeros">
+      <span>
+        <span className="font-semibold text-bom">{r.questoesAcertadas}</span>
+        <span className="text-tinta-suave">/{r.questoesFeitas}</span>
+      </span>
+      <SeloAcerto pct={r.acertoPct} className="px-1.5 py-0 text-xs" />
+    </span>
+  )
+}
+
+/** "1h05min 2×": tempo total e quantas vezes o tópico foi estudado */
+function TempoSessoes({ r }: { r: ResumoTopico }) {
+  return (
+    <span className="inline-flex items-baseline gap-1 numeros" title={`${r.sessoes} ${r.sessoes === 1 ? 'sessão de estudo' : 'sessões de estudo'}`}>
+      <span className="text-tinta">{r.tempoSegundos > 0 ? formatarDuracao(r.tempoSegundos) : '0min'}</span>
+      <span className="text-xs text-tinta-suave">{r.sessoes}×</span>
+    </span>
   )
 }
 
@@ -250,26 +293,40 @@ function LinhaTopico({
             >
               {t.nome}
             </p>
-            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-tinta-suave numeros">
-              {r ? (
-                <>
-                  {r.tempoSegundos > 0 && <span>{formatarDuracao(r.tempoSegundos)}</span>}
-                  {r.questoesFeitas > 0 && (
-                    <span className="inline-flex items-center gap-1">
-                      {r.questoesAcertadas}/{r.questoesFeitas} <SeloAcerto pct={r.acertoPct} className="px-1 py-0 text-xs" />
-                    </span>
-                  )}
-                  {r.ultimoEstudo && <span>há {formatDistanceToNowStrict(new Date(r.ultimoEstudo), { locale: ptBR })}</span>}
-                </>
-              ) : (
-                <span>Ainda não estudado</span>
+            <p className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-sm text-tinta-suave numeros">
+              <span className="contents md:hidden">
+                {r ? (
+                  <>
+                    {r.questoesFeitas > 0 && <Questoes r={r} />}
+                    {r.ultimoEstudo && <span>{dataCurta(r.ultimoEstudo)}</span>}
+                    <TempoSessoes r={r} />
+                  </>
+                ) : (
+                  <span>Ainda não estudado</span>
+                )}
+              </span>
+              {qtdFilhos > 0 && (
+                <span>
+                  <span className="md:hidden">· </span>
+                  {qtdFilhos === 1 ? '1 subtópico' : `${qtdFilhos} subtópicos`}
+                </span>
               )}
-              {qtdFilhos > 0 && <span>· {qtdFilhos === 1 ? '1 subtópico' : `${qtdFilhos} subtópicos`}</span>}
             </p>
           </>
         )}
       </div>
 
+      <div className={cn(COL_QUESTOES, 'hidden text-sm md:flex md:justify-center')} title={qtdFilhos ? 'Inclui os subtópicos' : undefined}>
+        {r && r.questoesFeitas > 0 ? <Questoes r={r} /> : <Traco />}
+      </div>
+      <div className={cn(COL_DATA, 'hidden text-sm text-tinta-suave numeros md:block')} title={qtdFilhos ? 'Inclui os subtópicos' : undefined}>
+        {r?.ultimoEstudo ? dataCurta(r.ultimoEstudo) : <Traco />}
+      </div>
+      <div className={cn(COL_ESTUDO, 'hidden text-sm md:flex md:justify-center')} title={qtdFilhos ? 'Inclui os subtópicos' : undefined}>
+        {r ? <TempoSessoes r={r} /> : <Traco />}
+      </div>
+
+      {renomeando !== null && <span className="hidden w-9 shrink-0 md:block" />}
       {renomeando === null && (
         <Menu.Root>
           <Menu.Trigger asChild>

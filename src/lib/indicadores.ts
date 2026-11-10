@@ -122,3 +122,19 @@ export function resumirPorTopico(estudos: Estudo[]): Map<string, ResumoTopico> {
   for (const r of mapa.values()) r.acertoPct = porcentagem(r.questoesAcertadas, r.questoesFeitas)
   return mapa
 }
+
+/** Soma os resumos de vários tópicos (ex.: um tópico e os seus subtópicos) */
+export function somarResumos(lista: (ResumoTopico | undefined)[]): ResumoTopico | undefined {
+  const validos = lista.filter((r): r is ResumoTopico => !!r)
+  if (!validos.length) return undefined
+  const total: ResumoTopico = { tempoSegundos: 0, questoesFeitas: 0, questoesAcertadas: 0, acertoPct: null, ultimoEstudo: null, sessoes: 0 }
+  for (const r of validos) {
+    total.tempoSegundos += r.tempoSegundos
+    total.questoesFeitas += r.questoesFeitas
+    total.questoesAcertadas += r.questoesAcertadas
+    total.sessoes += r.sessoes
+    if (r.ultimoEstudo && (!total.ultimoEstudo || r.ultimoEstudo > total.ultimoEstudo)) total.ultimoEstudo = r.ultimoEstudo
+  }
+  total.acertoPct = porcentagem(total.questoesAcertadas, total.questoesFeitas)
+  return total
+}

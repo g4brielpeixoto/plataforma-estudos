@@ -31,7 +31,7 @@ src/
   lib/versiculos.ts       lista de versículos (Almeida Revista e Corrigida) do card da página inicial
   lib/supabase.ts         cliente (URL e chave publicável fixas, com override por env) + buscarTodos (paginação)
   components/ui.tsx       componentes base (Botao, Entrada, EntradaSenha, Selecao, Dialogo, Confirmar, Painel, SeloAcerto…)
-  components/ListaTopicos.tsx  lista de tópicos ordenável: arrastar pela alça ou tocar no número e digitar a posição
+  components/ListaTopicos.tsx  lista de tópicos ordenável (arrastar ou digitar a posição) com colunas Questões, Último estudo e Estudo; no tópico pai os números somam os subtópicos
   pages/                  Acesso (login/cadastro/esqueci/redefinir), Inicio, Edital, Disciplina, Estudar, Historico, Usuarios
 supabase/migrations/      SQL versionado (já aplicado no projeto de produção)
 supabase/definir-master.sql  define o e-mail do master
