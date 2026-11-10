@@ -1,4 +1,4 @@
-import { BookOpen, History, House, LogOut, Moon, Sun, Timer, Users } from 'lucide-react'
+import { BookOpen, History, House, LogOut, Moon, PanelLeftClose, PanelLeftOpen, Sun, Timer, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '@/contexts/AuthContext'
@@ -44,41 +44,94 @@ export function Layout() {
   const { escuro, alternar } = useTema()
   const master = perfil?.papel === 'master'
   const todos = master ? [...itens, { para: '/usuarios', rotulo: 'Usuários', icone: Users, fim: false }] : itens
+  const [recolhido, setRecolhido] = useState(() => {
+    try {
+      return localStorage.getItem('menu-recolhido') === '1'
+    } catch {
+      return false
+    }
+  })
+  const alternarMenu = () =>
+    setRecolhido((v) => {
+      try {
+        localStorage.setItem('menu-recolhido', v ? '0' : '1')
+      } catch {
+        /* sem armazenamento: só não fica salvo */
+      }
+      return !v
+    })
 
   return (
     <div className="min-h-dvh lg:flex">
-      {/* barra lateral (telas grandes) */}
-      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-linha/70 bg-superficie/70 px-4 py-6 lg:flex">
-        <Marca className="px-2" />
-        <nav className="mt-8 flex flex-col gap-1" aria-label="Principal">
+      {/* barra lateral (telas grandes): expandida com nomes ou recolhida só com ícones */}
+      <aside
+        className={cn(
+          'sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-linha/70 bg-superficie/70 py-6 transition-[width] duration-200 lg:flex',
+          recolhido ? 'w-[76px] px-3' : 'w-60 px-4',
+        )}
+      >
+        <div className={cn('flex items-center', recolhido ? 'flex-col gap-3' : 'justify-between gap-2 pl-2')}>
+          {recolhido ? <img src="./favicon.svg" alt="Estudos" className="size-8" /> : <Marca />}
+          <button
+            onClick={alternarMenu}
+            aria-label={recolhido ? 'Expandir menu' : 'Recolher menu'}
+            title={recolhido ? 'Expandir menu' : 'Recolher menu'}
+            aria-expanded={!recolhido}
+            className="grid size-9 shrink-0 place-items-center rounded-lg text-tinta-suave hover:bg-nevoa/60 hover:text-tinta"
+          >
+            {recolhido ? <PanelLeftOpen className="size-[18px]" aria-hidden /> : <PanelLeftClose className="size-[18px]" aria-hidden />}
+          </button>
+        </div>
+        <nav className={cn('flex flex-col gap-1', recolhido ? 'mt-5' : 'mt-8')} aria-label="Principal">
           {todos.map(({ para, rotulo, icone: Icone, fim }) => (
             <NavLink
               key={para}
               to={para}
               end={fim}
+              title={recolhido ? rotulo : undefined}
+              aria-label={recolhido ? rotulo : undefined}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-medium transition-colors',
+                  'flex items-center rounded-xl py-2.5 text-[15px] font-medium transition-colors',
+                  recolhido ? 'justify-center px-0' : 'gap-3 px-3',
                   isActive ? 'bg-nevoa text-tinta' : 'text-tinta-suave hover:bg-nevoa/50 hover:text-tinta',
                 )
               }
             >
-              <Icone className="size-[18px]" aria-hidden />
-              {rotulo}
+              <Icone className="size-[18px] shrink-0" aria-hidden />
+              {!recolhido && rotulo}
             </NavLink>
           ))}
         </nav>
         <div className="mt-auto space-y-1 border-t border-linha/70 pt-4">
-          <p className="truncate px-3 pb-2 text-sm text-tinta-suave" title={perfil?.email}>
-            {perfil?.email}
-          </p>
-          <button onClick={alternar} className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-[15px] text-tinta-suave hover:bg-nevoa/50 hover:text-tinta">
-            {escuro ? <Sun className="size-[18px]" aria-hidden /> : <Moon className="size-[18px]" aria-hidden />}
-            {escuro ? 'Tema claro' : 'Tema escuro'}
+          {!recolhido && (
+            <p className="truncate px-3 pb-2 text-sm text-tinta-suave" title={perfil?.email}>
+              {perfil?.email}
+            </p>
+          )}
+          <button
+            onClick={alternar}
+            title={recolhido ? (escuro ? 'Tema claro' : 'Tema escuro') : undefined}
+            aria-label={recolhido ? (escuro ? 'Usar tema claro' : 'Usar tema escuro') : undefined}
+            className={cn(
+              'flex w-full items-center rounded-xl py-2 text-[15px] text-tinta-suave hover:bg-nevoa/50 hover:text-tinta',
+              recolhido ? 'justify-center' : 'gap-3 px-3',
+            )}
+          >
+            {escuro ? <Sun className="size-[18px] shrink-0" aria-hidden /> : <Moon className="size-[18px] shrink-0" aria-hidden />}
+            {!recolhido && (escuro ? 'Tema claro' : 'Tema escuro')}
           </button>
-          <button onClick={() => void sair()} className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-[15px] text-tinta-suave hover:bg-nevoa/50 hover:text-tinta">
-            <LogOut className="size-[18px]" aria-hidden />
-            Sair
+          <button
+            onClick={() => void sair()}
+            title={recolhido ? `Sair (${perfil?.email ?? ''})` : undefined}
+            aria-label={recolhido ? 'Sair' : undefined}
+            className={cn(
+              'flex w-full items-center rounded-xl py-2 text-[15px] text-tinta-suave hover:bg-nevoa/50 hover:text-tinta',
+              recolhido ? 'justify-center' : 'gap-3 px-3',
+            )}
+          >
+            <LogOut className="size-[18px] shrink-0" aria-hidden />
+            {!recolhido && 'Sair'}
           </button>
         </div>
       </aside>
