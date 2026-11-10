@@ -1,11 +1,12 @@
 import { format } from 'date-fns'
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { CircleCheck } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { useDisciplinas, useSalvarEstudo, useTopicos } from '@/hooks/dados'
-import { formatarDuracao, mensagemErro } from '@/lib/utils'
+import { cn, formatarDuracao, mensagemErro } from '@/lib/utils'
 import type { Estudo, Origem } from '@/types'
-import { AreaTexto, Botao, Campo, Dialogo, Entrada, Selecao } from './ui'
+import { AreaTexto, Botao, Campo, Dialogo, Entrada, Interruptor, Selecao } from './ui'
 import { rotuloSelecao } from '@/lib/topicos'
 
 export interface ValoresIniciaisEstudo {
@@ -25,6 +26,16 @@ const ROTULO_ORIGEM: Record<Origem, string> = {
 }
 
 const paraLocal = (d: Date) => format(d, "yyyy-MM-dd'T'HH:mm")
+const CHAVE_CRIAR_NOVO = 'estudo:criar-novo'
+const LIMITE_OBSERVACAO = 500
+
+function lerCriarNovo() {
+  try {
+    return localStorage.getItem(CHAVE_CRIAR_NOVO) === '1'
+  } catch {
+    return false
+  }
+}
 const numero = (v: string) => (v.trim() === '' ? null : Math.max(0, Math.floor(Number(v))))
 
 export function EstudoDialog({
@@ -58,6 +69,22 @@ export function EstudoDialog({
   const [concluir, setConcluir] = useState(false)
   const [erro, setErro] = useState('')
   const [origem, setOrigem] = useState<Origem>('manual')
+  // "Salvar e criar novo": depois de salvar, o diálogo continua aberto com um registro em branco
+  const [criarNovo, setCriarNovo] = useState(lerCriarNovo)
+  const [salvosEmSequencia, setSalvosEmSequencia] = useState(0)
+  const [ultimoSalvo, setUltimoSalvo] = useState('')
+  const refTopico = useRef<HTMLSelectElement>(null)
+  // os valores iniciais (tempo do cronômetro, item do planner) valem só para o primeiro registro
+  const primeiro = salvosEmSequencia === 0
+
+  const alternarCriarNovo = (v: boolean) => {
+    setCriarNovo(v)
+    try {
+      localStorage.setItem(CHAVE_CRIAR_NOVO, v ? '1' : '0')
+    } catch {
+      /* sem armazenamento: só não fica salvo */
+    }
+  }
 
   const preencherDuracao = (segundos: number) => {
     const totalMin = Math.round(segundos / 60)
@@ -69,6 +96,8 @@ export function EstudoDialog({
   useEffect(() => {
     if (!aberto) return
     setErro('')
+    setSalvosEmSequencia(0)
+    setUltimoSalvo('')
     const todos = topicos.data ?? []
     if (editando) {
       const t = todos.find((x) => x.id === editando.topico_id)
@@ -131,11 +160,32 @@ export function EstudoDialog({
           observacao: observacao.trim() || null,
         },
         concluirTopico: topicoSelecionado && topicoSelecionado.concluido !== concluir ? concluir : undefined,
-        plannerItemId: editando ? undefined : iniciais?.plannerItemId,
+        plannerItemId: editando || !primeiro ? undefined : iniciais?.plannerItemId,
       })
-      toast.success(editando ? 'Estudo atualizado.' : iniciais?.plannerItemId ? 'Estudo salvo e item do planner concluído.' : 'Estudo salvo.')
-      aoMudar(false)
+      const doPlanner = !editando && primeiro && iniciais?.plannerItemId
+      toast.success(editando ? 'Estudo atualizado.' : doPlanner ? 'Estudo salvo e item do planner concluído.' : 'Estudo salvo.')
       aoSalvar?.()
+      if (editando || !criarNovo) return aoMudar(false)
+
+      // novo registro em branco: mantém a disciplina e o dia, limpa o resto
+      const partes = [topicoSelecionado?.nome ?? 'Estudo']
+      if (segundos) partes.push(formatarDuracao(segundos))
+      if (qFeitas) partes.push(`${qAcertadas ?? 0}/${qFeitas} questões`)
+      setUltimoSalvo(partes.join(', '))
+      setSalvosEmSequencia((n) => n + 1)
+      setTopicoId('')
+      setHoras('')
+      setMinutos('')
+      setFeitas('')
+      setAcertadas('')
+      setObservacao('')
+      setConcluir(false)
+      setOrigem('manual')
+      // volta ao topo (onde aparece o aviso de salvo) e deixa o cursor no tópico
+      requestAnimationFrame(() => {
+        refTopico.current?.closest('[role="dialog"]')?.scrollTo({ top: 0 })
+        refTopico.current?.focus({ preventScroll: true })
+      })
     } catch (err) {
       setErro(mensagemErro(err))
     }
@@ -150,9 +200,9 @@ export function EstudoDialog({
       aoMudar={aoMudar}
       titulo={editando ? 'Editar estudo' : 'Salvar estudo'}
       descricao={
-        (duracaoInicial && origem !== 'manual'
+        (primeiro && duracaoInicial && origem !== 'manual'
           ? `${ROTULO_ORIGEM[origem]}: ${formatarDuracao(duracaoInicial)} cronometrados. Diga o que você estudou.`
-          : 'Registre o que você estudou.') + (!editando && iniciais?.plannerItemId ? ' Ao salvar, o item do planner fica marcado como feito.' : '')
+          : 'Registre o que você estudou.') + (!editando && primeiro && iniciais?.plannerItemId ? ' Ao salvar, o item do planner fica marcado como feito.' : '')
       }
     >
       {semDisciplinas ? (
@@ -165,6 +215,14 @@ export function EstudoDialog({
         </div>
       ) : (
         <form onSubmit={enviar} className="space-y-4">
+          {ultimoSalvo && (
+            <p role="status" className="flex items-start gap-2 rounded-xl bg-bom-fundo px-3 py-2.5 text-sm text-tinta">
+              <CircleCheck className="mt-px size-4 shrink-0 text-bom" aria-hidden />
+              <span className="min-w-0">
+                <strong className="font-semibold">{salvosEmSequencia === 1 ? 'Estudo salvo' : `${salvosEmSequencia} estudos salvos`}:</strong> {ultimoSalvo}. Agora registre o próximo.
+              </span>
+            </p>
+          )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Campo rotulo="Disciplina" htmlFor="e-disciplina">
               <Selecao
@@ -185,7 +243,7 @@ export function EstudoDialog({
               </Selecao>
             </Campo>
             <Campo rotulo="Tópico" htmlFor="e-topico">
-              <Selecao id="e-topico" value={topicoId} onChange={(e) => escolherTopico(e.target.value)} disabled={!disciplinaId}>
+              <Selecao ref={refTopico} id="e-topico" value={topicoId} onChange={(e) => escolherTopico(e.target.value)} disabled={!disciplinaId}>
                 <option value="">{disciplinaId && topicosDaDisciplina.length === 0 ? 'Disciplina sem tópicos' : 'Escolha…'}</option>
                 {topicosDaDisciplina.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -221,7 +279,20 @@ export function EstudoDialog({
           </div>
 
           <Campo rotulo="Observação (opcional)" htmlFor="e-obs">
-            <AreaTexto id="e-obs" rows={2} className="min-h-0" value={observacao} onChange={(e) => setObservacao(e.target.value)} placeholder="Ex.: revisar súmulas, errei por falta de atenção…" />
+            <div className="relative">
+              <AreaTexto
+                id="e-obs"
+                rows={2}
+                maxLength={LIMITE_OBSERVACAO}
+                className="min-h-0 pb-6"
+                value={observacao}
+                onChange={(e) => setObservacao(e.target.value)}
+                placeholder="Ex.: revisar súmulas, errei por falta de atenção…"
+              />
+              <span className="pointer-events-none absolute right-3 bottom-2 text-xs text-tinta-suave numeros" aria-hidden>
+                {observacao.length}/{LIMITE_OBSERVACAO}
+              </span>
+            </div>
           </Campo>
 
           {topicoSelecionado && (
@@ -237,27 +308,37 @@ export function EstudoDialog({
             </p>
           )}
 
-          <div className="flex flex-wrap justify-end gap-2 pt-1">
-            {aoSoConcluir && !editando && (
-              <Botao
-                type="button"
-                variante="fantasma"
-                className="mr-auto px-2"
-                title="Para quando o estudo já foi registrado de outro jeito"
-                onClick={() => {
-                  aoSoConcluir()
-                  aoMudar(false)
-                }}
-              >
-                Só marcar como feito
-              </Botao>
+          <div className="-mx-5 border-t border-linha/70 px-5 pt-4 sm:-mx-6 sm:px-6">
+            {!editando && (
+              <Interruptor
+                ligado={criarNovo}
+                aoMudar={alternarCriarNovo}
+                rotulo="Salvar e criar novo"
+                descricao="Salva este registro e abre um novo em seguida, com a mesma disciplina e o mesmo dia."
+              />
             )}
-            <Botao type="button" variante="secundario" onClick={() => aoMudar(false)}>
-              Cancelar
-            </Botao>
-            <Botao type="submit" carregando={salvar.isPending}>
-              {editando ? 'Salvar alterações' : 'Salvar estudo'}
-            </Botao>
+            <div className={cn('flex flex-wrap justify-end gap-2', !editando && 'mt-4')}>
+              {aoSoConcluir && !editando && primeiro && (
+                <Botao
+                  type="button"
+                  variante="fantasma"
+                  className="mr-auto px-2"
+                  title="Para quando o estudo já foi registrado de outro jeito"
+                  onClick={() => {
+                    aoSoConcluir()
+                    aoMudar(false)
+                  }}
+                >
+                  Só marcar como feito
+                </Botao>
+              )}
+              <Botao type="button" variante="secundario" onClick={() => aoMudar(false)}>
+                {salvosEmSequencia > 0 ? 'Fechar' : 'Cancelar'}
+              </Botao>
+              <Botao type="submit" carregando={salvar.isPending}>
+                {editando ? 'Salvar alterações' : 'Salvar estudo'}
+              </Botao>
+            </div>
           </div>
         </form>
       )}

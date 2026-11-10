@@ -1,6 +1,6 @@
 import * as RadixDialog from '@radix-ui/react-dialog'
 import { Eye, EyeOff, LoaderCircle, X } from 'lucide-react'
-import { forwardRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { forwardRef, useId, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { classesNivel, cn, nivelAcerto } from '@/lib/utils'
 
 /* Componentes base da interface, no estilo shadcn/ui (código próprio, sem dependência externa). */
@@ -90,6 +90,41 @@ export function Campo({ rotulo, dica, erro, children, htmlFor }: { rotulo: strin
       </label>
       {children}
       {erro ? <p className="text-sm text-ruim">{erro}</p> : dica ? <p className="text-sm text-tinta-suave">{dica}</p> : null}
+    </div>
+  )
+}
+
+/** Interruptor liga/desliga com rótulo e descrição (clicar no texto também alterna) */
+export function Interruptor({ ligado, aoMudar, rotulo, descricao, className }: { ligado: boolean; aoMudar: (ligado: boolean) => void; rotulo: string; descricao?: string; className?: string }) {
+  const id = useId()
+  return (
+    <div className={cn('flex items-start gap-3', className)}>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={ligado}
+        aria-labelledby={`${id}-r`}
+        aria-describedby={descricao ? `${id}-d` : undefined}
+        onClick={() => aoMudar(!ligado)}
+        className={cn('relative mt-0.5 inline-flex h-6 w-10 shrink-0 items-center rounded-full transition-colors', ligado ? 'bg-primaria' : 'bg-linha')}
+      >
+        <span
+          className={cn(
+            'size-5 rounded-full shadow-sm transition-transform',
+            ligado ? 'translate-x-[18px] bg-superficie dark:bg-sobre-primaria' : 'translate-x-0.5 bg-superficie dark:bg-tinta-suave',
+          )}
+        />
+      </button>
+      <div className="min-w-0 cursor-pointer select-none" onClick={() => aoMudar(!ligado)}>
+        <p id={`${id}-r`} className="text-[15px] leading-6 font-semibold text-tinta">
+          {rotulo}
+        </p>
+        {descricao && (
+          <p id={`${id}-d`} className="text-sm text-tinta-suave">
+            {descricao}
+          </p>
+        )}
+      </div>
     </div>
   )
 }

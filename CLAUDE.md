@@ -30,7 +30,7 @@ src/
   lib/constancia.ts       dias estudados (≥ 20 min), sequência, faixas do mapa de calor, semana atual
   lib/versiculos.ts       lista de versículos (Almeida Revista e Corrigida); o do dia muda à meia-noite de Brasília (America/Sao_Paulo), igual para todos
   lib/supabase.ts         cliente (URL e chave publicável fixas, com override por env) + buscarTodos (paginação)
-  components/ui.tsx       componentes base (Botao, Entrada, EntradaSenha, Selecao, Dialogo, Confirmar, Painel, SeloAcerto…)
+  components/ui.tsx       componentes base (Botao, Entrada, EntradaSenha, Selecao, Interruptor, Dialogo, Confirmar, Painel, SeloAcerto…)
   components/ListaTopicos.tsx  lista de tópicos ordenável (arrastar ou digitar a posição) com colunas Questões, Último estudo e Estudo; no tópico pai os números somam os subtópicos
   lib/foto.ts             prepara a foto de perfil (recorte quadrado 320px JPEG), iniciais, primeiro nome
   components/Avatar.tsx   foto redonda ou iniciais
@@ -68,6 +68,7 @@ Tabelas em `public`: `perfis`, `convites`, `disciplinas`, `topicos`, `estudos`, 
   - **Play:** vai para Estudar com `state.planner` e começa a contar com a disciplina/tópico do item (`plannerId` no estado do cronômetro). Ao salvar, o item é concluído. Se já houver tempo de outro estudo no relógio, avisa e não troca.
   - **Atrasados:** item pendente com `data` antes de hoje. Fica vermelho no dia e aparece na caixa "Atrasados" (Hoje / Amanhã / Próx. semana / Reagendar todos: a partir de hoje ou amanhã, N por dia). Mover um item pendente de hoje ou do passado para um dia à frente soma 1 em `adiamentos` (mostrado como "adiado N×"); reorganizar o futuro não conta. Nada é movido sozinho.
   - Mover vários itens usa `useAtualizarItensPlanner` (upsert com atualização otimista).
+- **Salvar estudo** (`EstudoDialog`): interruptor "Salvar e criar novo" (preferência salva no navegador, `estudo:criar-novo`). Ligado, ao salvar o diálogo continua aberto, mostra o que foi salvo e abre um registro em branco mantendo disciplina e dia; tempo do cronômetro e item do planner valem só para o primeiro registro. Observação com contador de 500 caracteres.
 - Faixas de acerto: ≥ 80% verde, 60–79% amarelo, < 60% vermelho (`nivelAcerto` em `lib/utils.ts`).
 - Pomodoro: só o tempo de foco conta como estudo; ao fim de cada fase o relógio para e espera o usuário.
 - **Subtópicos (até 3 níveis):** `topicos.nivel` (0 tópico, 1 subtópico, 2 subtópico do subtópico). A lista da disciplina é única e ordenada; cada item pertence ao item acima com um nível a menos. Regras em `lib/topicos.ts` (numeração 4 / 4.2 / 4.2.1; arrastar leva a subárvore; recuar/avançar; posição digitada é entre os irmãos) — testadas com casos de borda. Seta para recolher/expandir, salva no navegador por disciplina. Nos números do item pai entram todos os subtópicos. Importação: cada recuo maior (espaços ou tab) desce um nível.
