@@ -4,12 +4,15 @@ import { Carregando } from './components/ui'
 import { useAuth } from './contexts/AuthContext'
 import { Cadastro, ContaDesativada, EsqueciSenha, Login, RedefinirSenha } from './pages/Acesso'
 import { Disciplina } from './pages/Disciplina'
+import { BaralhoFlash } from './pages/BaralhoFlash'
 import { Edital } from './pages/Edital'
 import { Estudar } from './pages/Estudar'
+import { Flashcards } from './pages/Flashcards'
 import { Historico } from './pages/Historico'
 import { Inicio } from './pages/Inicio'
 import { Perfil } from './pages/Perfil'
 import { Planner } from './pages/Planner'
+import { RevisaoFlash } from './pages/RevisaoFlash'
 import { Usuarios } from './pages/Usuarios'
 
 /** Só deixa passar quem está logado e com a conta ativa */
@@ -55,12 +58,16 @@ const router = createHashRouter([
           { path: '/edital', element: <Edital /> },
           { path: '/edital/:id', element: <Disciplina /> },
           { path: '/planner', element: <Planner /> },
+          { path: '/flashcards', element: <Flashcards /> },
+          { path: '/flashcards/:id', element: <BaralhoFlash /> },
           { path: '/estudar', element: <Estudar /> },
           { path: '/historico', element: <Historico /> },
           { path: '/perfil', element: <Perfil /> },
           { element: <SoMaster />, children: [{ path: '/usuarios', element: <Usuarios /> }] },
         ],
       },
+      // revisão em tela cheia, sem o menu
+      { path: '/flashcards/estudar/:escopo', element: <RevisaoFlash /> },
     ],
   },
   { path: '*', element: <Navigate to="/" replace /> },

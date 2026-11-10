@@ -240,3 +240,90 @@ input[type='checkbox']:checked::after {
     transform: scaleX(1);
   }
 }
+
+/* conteúdo dos flashcards (HTML simples vindo do editor ou do Anki) */
+.texto-rico ul {
+  list-style: disc;
+  padding-left: 1.4em;
+}
+.texto-rico ol {
+  list-style: decimal;
+  padding-left: 1.4em;
+}
+.texto-rico b {
+  font-weight: 700;
+}
+.texto-rico i {
+  font-style: italic;
+}
+.texto-rico u {
+  text-decoration: underline;
+}
+.texto-rico s {
+  text-decoration: line-through;
+}
+.texto-rico hr {
+  border: 0;
+  border-top: 1px solid var(--c-linha);
+  margin: 1.1em 0;
+}
+.texto-rico table {
+  margin: 0.6em auto;
+  border-collapse: collapse;
+}
+.texto-rico td,
+.texto-rico th {
+  border: 1px solid var(--c-linha);
+  padding: 0.3em 0.6em;
+}
+.texto-rico th {
+  font-weight: 600;
+  background: var(--c-superficie-2);
+}
+.texto-rico code,
+.texto-rico pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  background: var(--c-superficie-2);
+  border-radius: 6px;
+  padding: 0.1em 0.35em;
+}
+.texto-rico pre {
+  padding: 0.6em 0.8em;
+  text-align: left;
+  white-space: pre-wrap;
+}
+.texto-rico blockquote {
+  border-left: 3px solid var(--c-lilas);
+  padding-left: 0.8em;
+  text-align: left;
+}
+.texto-rico sub,
+.texto-rico sup {
+  font-size: 0.75em;
+}
+/* o cartão na revisão: centralizado e grande, como no Anki */
+.conteudo-cartao {
+  font-size: 1.3rem;
+  line-height: 1.6;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.conteudo-cartao ul,
+.conteudo-cartao ol {
+  display: inline-block;
+  text-align: left;
+}
+@media (min-width: 640px) {
+  .conteudo-cartao {
+    font-size: 1.45rem;
+  }
+}
+/* omissão: [...] na frente e a resposta destacada no verso */
+.omissao {
+  font-weight: 700;
+  color: var(--c-revisao);
+}
+.omissao-resposta {
+  border-bottom: 2px solid currentColor;
+}

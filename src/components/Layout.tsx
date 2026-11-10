@@ -1,4 +1,4 @@
-import { BookOpen, CalendarDays, History, House, LogOut, Moon, PanelLeftClose, PanelLeftOpen, Sun, Timer, Users } from 'lucide-react'
+import { BookOpen, CalendarDays, History, House, Layers, LogOut, Moon, PanelLeftClose, PanelLeftOpen, Sun, Timer, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useMatch } from 'react-router'
 import { useAuth } from '@/contexts/AuthContext'
@@ -9,6 +9,7 @@ const itens = [
   { para: '/', rotulo: 'Início', icone: House, fim: true },
   { para: '/edital', rotulo: 'Edital', icone: BookOpen, fim: false },
   { para: '/planner', rotulo: 'Planner', icone: CalendarDays, fim: false },
+  { para: '/flashcards', rotulo: 'Flashcards', icone: Layers, fim: false },
   { para: '/estudar', rotulo: 'Estudar', icone: Timer, fim: false },
   { para: '/historico', rotulo: 'Histórico', icone: History, fim: false },
 ]
@@ -182,7 +183,7 @@ export function Layout() {
 
       {/* navegação inferior (celular e tablet) */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-linha/70 bg-superficie/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-linha/70 bg-superficie/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
         aria-label="Principal"
       >
         {itens.map(({ para, rotulo, icone: Icone, fim }) => (
@@ -191,12 +192,12 @@ export function Layout() {
             to={para}
             end={fim}
             className={({ isActive }) =>
-              cn('flex flex-col items-center gap-1 py-2.5 text-xs font-medium', isActive ? 'text-primaria' : 'text-tinta-suave')
+              cn('flex min-w-0 flex-col items-center gap-1 py-2.5 text-[11px] font-medium sm:text-xs', isActive ? 'text-primaria' : 'text-tinta-suave')
             }
           >
             {({ isActive }) => (
               <>
-                <span className={cn('rounded-full px-3.5 py-1 transition-colors', isActive && 'bg-nevoa')}>
+                <span className={cn('rounded-full px-3 py-1 transition-colors', isActive && 'bg-nevoa')}>
                   <Icone className="size-5" aria-hidden />
                 </span>
                 {rotulo}

@@ -99,3 +99,65 @@ export interface ItemPlanner {
   estudo_id: string | null
   criado_em: string
 }
+
+export type TipoNotaFlash = 'basico' | 'omissao'
+/** 0 novo, 1 aprendendo, 2 revisão, 3 reaprendendo (mesmos números do FSRS) */
+export type EstadoCartao = 0 | 1 | 2 | 3
+/** 1 errei, 2 difícil, 3 bom, 4 fácil */
+export type RespostaFlash = 1 | 2 | 3 | 4
+
+/** O conteúdo do flashcard. Uma nota de omissão gera um cartão por número ({{c1::}}, {{c2::}}…) */
+export interface FlashNota {
+  id: string
+  user_id: string
+  disciplina_id: string
+  topico_id: string | null
+  tipo: TipoNotaFlash
+  /** básico: pergunta; omissão: texto com {{c1::…}} (HTML simples, já limpo) */
+  frente: string
+  /** básico: resposta; omissão: texto extra do verso */
+  verso: string
+  origem_anki: string | null
+  criado_em: string
+  atualizado_em: string
+}
+
+/** O que é revisado, com o agendamento (FSRS) */
+export interface FlashCartao {
+  id: string
+  user_id: string
+  nota_id: string
+  /** 0 no básico; número da omissão na omissão */
+  ordem: number
+  estado: EstadoCartao
+  vence_em: string
+  estabilidade: number
+  dificuldade: number
+  dias_agendados: number
+  passo: number
+  repeticoes: number
+  lapsos: number
+  ultima_revisao: string | null
+  suspenso: boolean
+  posicao: number
+  criado_em: string
+}
+
+export interface FlashRevisao {
+  id: string
+  user_id: string
+  cartao_id: string
+  resposta: RespostaFlash
+  estado_antes: EstadoCartao
+  dias_agendados: number
+  duracao_ms: number
+  revisado_em: string
+}
+
+export interface FlashConfig {
+  user_id: string
+  novos_por_dia: number
+  revisoes_por_dia: number
+  retencao: number
+  atualizado_em: string
+}

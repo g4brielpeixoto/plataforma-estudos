@@ -1,4 +1,4 @@
-import { ArrowLeft, FileUp, ListChecks, Pencil, Plus } from 'lucide-react'
+import { ArrowLeft, FileUp, Layers, ListChecks, Pencil, Plus } from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router'
 import { toast } from 'sonner'
@@ -6,7 +6,7 @@ import { DisciplinaDialog } from '@/components/DisciplinaDialog'
 import { ImportarDialog } from '@/components/ImportarDialog'
 import { ListaTopicos } from '@/components/ListaTopicos'
 import { BarraProgresso, Botao, Carregando, Confirmar, Dialogo, Entrada, Painel, Vazio } from '@/components/ui'
-import { useDisciplinas, useEstudos, useExcluirTopico, useReordenarTopicos, useSalvarTopico, useTopicos } from '@/hooks/dados'
+import { useDisciplinas, useEstudos, useExcluirTopico, useFlashNotas, useReordenarTopicos, useSalvarTopico, useTopicos } from '@/hooks/dados'
 import { calcularIndicadores, resumirPorTopico } from '@/lib/indicadores'
 import { descendentesDe, inserirFilho } from '@/lib/topicos'
 import { cn, formatarDuracao, mensagemErro, normalizar } from '@/lib/utils'
@@ -22,6 +22,7 @@ export function Disciplina() {
   const salvarTopico = useSalvarTopico()
   const reordenar = useReordenarTopicos()
   const excluirTopico = useExcluirTopico()
+  const flashNotas = useFlashNotas()
 
   const [novo, setNovo] = useState('')
   const [filtro, setFiltro] = useState<Filtro>('todos')
@@ -37,6 +38,7 @@ export function Disciplina() {
   const estudosMeus = useMemo(() => (estudos.data ?? []).filter((e) => idsMeus.has(e.topico_id)), [estudos.data, idsMeus])
   const porTopico = useMemo(() => resumirPorTopico(estudosMeus), [estudosMeus])
   const ind = calcularIndicadores(estudosMeus, meus)
+  const qtdFlash = useMemo(() => (flashNotas.data ?? []).filter((n) => n.disciplina_id === id).length, [flashNotas.data, id])
 
   if (disciplinas.isLoading || topicos.isLoading) return <Carregando />
   if (!disciplina)
@@ -128,7 +130,13 @@ export function Disciplina() {
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Link
+            to={`/flashcards/${disciplina.id}`}
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-linha bg-superficie px-4 text-[15px] font-medium text-tinta hover:bg-nevoa/60"
+          >
+            <Layers className="size-4" aria-hidden /> Flashcards{qtdFlash ? ` (${qtdFlash})` : ''}
+          </Link>
           <Botao variante="secundario" onClick={() => setEditandoDisciplina(true)}>
             <Pencil className="size-4" aria-hidden /> Editar
           </Botao>

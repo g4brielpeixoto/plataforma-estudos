@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { caminhoDaFoto } from '@/lib/foto'
 import { buscarTodos, supabase } from '@/lib/supabase'
-import type { Convite, Disciplina, Estudo, ItemPlanner, Metas, NivelTopico, NovoEstudo, Perfil, Prova, Topico } from '@/types'
+import { camposDeNovo } from '@/lib/flashcards/agenda'
+import type { CartaoImportado } from '@/lib/flashcards/anki'
+import type { Convite, Disciplina, Estudo, FlashCartao, FlashConfig, FlashNota, FlashRevisao, ItemPlanner, Metas, NivelTopico, NovoEstudo, Perfil, Prova, Topico } from '@/types'
 
 /*
   Acesso aos dados. Toda leitura usa o React Query (cache + recarga automática);
@@ -18,6 +20,10 @@ export const chaves = {
   metas: ['metas'] as const,
   provas: ['provas'] as const,
   planner: ['planner'] as const,
+  flashNotas: ['flash', 'notas'] as const,
+  flashCartoes: ['flash', 'cartoes'] as const,
+  flashRevisoes: ['flash', 'revisoes'] as const,
+  flashConfig: ['flash', 'config'] as const,
 }
 
 // ---------- leituras ----------
@@ -108,6 +114,46 @@ export function usePlanner() {
   })
 }
 
+// revisões de flashcards: só o último ano (é o que as estatísticas usam)
+const DIAS_REVISOES = 400
+
+export function useFlashNotas() {
+  return useQuery({
+    queryKey: chaves.flashNotas,
+    queryFn: () => buscarTodos<FlashNota>((de, ate) => supabase.from('flash_notas').select('*').order('criado_em').order('id').range(de, ate)),
+  })
+}
+
+export function useFlashCartoes() {
+  return useQuery({
+    queryKey: chaves.flashCartoes,
+    queryFn: () => buscarTodos<FlashCartao>((de, ate) => supabase.from('flash_cartoes').select('*').order('posicao').order('id').range(de, ate)),
+  })
+}
+
+export function useFlashRevisoes() {
+  return useQuery({
+    queryKey: chaves.flashRevisoes,
+    queryFn: () => {
+      const desde = new Date(Date.now() - DIAS_REVISOES * 86_400_000).toISOString()
+      return buscarTodos<FlashRevisao>((de, ate) =>
+        supabase.from('flash_revisoes').select('*').gte('revisado_em', desde).order('revisado_em').order('id').range(de, ate),
+      )
+    },
+  })
+}
+
+export function useFlashConfig() {
+  return useQuery({
+    queryKey: chaves.flashConfig,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('flash_config').select('*').maybeSingle()
+      if (error) throw error
+      return (data as FlashConfig | null) ?? null
+    },
+  })
+}
+
 // ---------- escritas ----------
 
 function useInvalidar() {
@@ -136,7 +182,7 @@ export function useExcluirDisciplina() {
       const { error } = await supabase.from('disciplinas').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => invalidar('disciplinas', 'topicos', 'estudos'),
+    onSuccess: () => invalidar('disciplinas', 'topicos', 'estudos', 'planner', 'flashNotas', 'flashCartoes', 'flashRevisoes'),
   })
 }
 
@@ -201,7 +247,7 @@ export function useExcluirTopico() {
       const { error } = await supabase.from('topicos').delete().in('id', ids)
       if (error) throw error
     },
-    onSuccess: () => invalidar('topicos', 'estudos'),
+    onSuccess: () => invalidar('topicos', 'estudos', 'planner', 'flashNotas'),
   })
 }
 
@@ -449,5 +495,220 @@ export function useDesmarcarItemPlanner() {
       }
     },
     onSuccess: () => invalidar('planner', 'estudos'),
+  })
+}
+
+// ---------- flashcards ----------
+
+export type DadosNotaFlash = Pick<FlashNota, 'disciplina_id' | 'topico_id' | 'tipo' | 'frente' | 'verso'>
+
+function* lotes<T>(lista: T[], tamanho: number) {
+  for (let i = 0; i < lista.length; i += tamanho) yield lista.slice(i, i + tamanho)
+}
+
+/** Cria ou edita uma nota e acerta os cartões dela (um por número de omissão; um só no básico) */
+export function useSalvarNotaFlash() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async ({ id, dados, ordens, posicao }: { id?: string; dados: DadosNotaFlash; ordens: number[]; posicao: number }) => {
+      const novoCartao = (notaId: string, ordem: number) => ({ nota_id: notaId, ordem, posicao, suspenso: false, ...camposDeNovo() })
+      if (!id) {
+        const notaId = crypto.randomUUID()
+        const { error } = await supabase.from('flash_notas').insert({ id: notaId, ...dados })
+        if (error) throw error
+        const { error: e2 } = await supabase.from('flash_cartoes').insert(ordens.map((o) => novoCartao(notaId, o)))
+        if (e2) {
+          await supabase.from('flash_notas').delete().eq('id', notaId)
+          throw e2
+        }
+        return notaId
+      }
+      const { error } = await supabase.from('flash_notas').update({ ...dados, atualizado_em: new Date().toISOString() }).eq('id', id)
+      if (error) throw error
+      const { data: atuais, error: e2 } = await supabase.from('flash_cartoes').select('id, ordem').eq('nota_id', id)
+      if (e2) throw e2
+      const existentes = (atuais ?? []) as { id: string; ordem: number }[]
+      const faltam = ordens.filter((o) => !existentes.some((a) => a.ordem === o))
+      const sobram = existentes.filter((a) => !ordens.includes(a.ordem)).map((a) => a.id)
+      if (faltam.length) {
+        const { error: e3 } = await supabase.from('flash_cartoes').insert(faltam.map((o) => novoCartao(id, o)))
+        if (e3) throw e3
+      }
+      if (sobram.length) {
+        const { error: e4 } = await supabase.from('flash_cartoes').delete().in('id', sobram)
+        if (e4) throw e4
+      }
+      return id
+    },
+    onSuccess: () => invalidar('flashNotas', 'flashCartoes', 'flashRevisoes'),
+  })
+}
+
+export function useExcluirNotasFlash() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      for (const lote of lotes(ids, 200)) {
+        const { error } = await supabase.from('flash_notas').delete().in('id', lote)
+        if (error) throw error
+      }
+    },
+    onSuccess: () => invalidar('flashNotas', 'flashCartoes', 'flashRevisoes'),
+  })
+}
+
+/** Muda vários cartões de uma vez (suspender, reativar, esquecer) */
+export function useAtualizarCartoesFlash() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async ({ ids, campos }: { ids: string[]; campos: Partial<Omit<FlashCartao, 'id' | 'user_id' | 'nota_id'>> }) => {
+      for (const lote of lotes(ids, 200)) {
+        const { error } = await supabase.from('flash_cartoes').update(campos).in('id', lote)
+        if (error) throw error
+      }
+    },
+    onSuccess: () => invalidar('flashCartoes'),
+  })
+}
+
+export function useSalvarFlashConfig() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async (c: Pick<FlashConfig, 'novos_por_dia' | 'revisoes_por_dia' | 'retencao'>) => {
+      const { error } = await supabase.from('flash_config').upsert({ ...c, atualizado_em: new Date().toISOString() })
+      if (error) throw error
+    },
+    onSuccess: () => invalidar('flashConfig'),
+  })
+}
+
+type CamposResposta = Omit<FlashCartao, 'user_id' | 'nota_id' | 'ordem' | 'suspenso' | 'posicao' | 'criado_em'>
+const camposDaAgenda = ({ id: _id, ...c }: FlashCartao): Omit<CamposResposta, 'id'> => ({
+  estado: c.estado,
+  vence_em: c.vence_em,
+  estabilidade: c.estabilidade,
+  dificuldade: c.dificuldade,
+  dias_agendados: c.dias_agendados,
+  passo: c.passo,
+  repeticoes: c.repeticoes,
+  lapsos: c.lapsos,
+  ultima_revisao: c.ultima_revisao,
+})
+
+/**
+  Resposta na sessão de revisão: grava o novo agendamento e o registro da revisão.
+  Atualiza o cache na hora e não recarrega tudo a cada cartão.
+*/
+export function useResponderFlash() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ cartao, revisao }: { cartao: FlashCartao; revisao: Omit<FlashRevisao, 'user_id'> }) => {
+      const { error } = await supabase.from('flash_cartoes').update(camposDaAgenda(cartao)).eq('id', cartao.id)
+      if (error) throw error
+      const { error: e2 } = await supabase.from('flash_revisoes').insert(revisao)
+      if (e2) throw e2
+    },
+    onMutate: ({ cartao, revisao }) => {
+      qc.setQueryData<FlashCartao[]>(chaves.flashCartoes, (l) => l?.map((c) => (c.id === cartao.id ? cartao : c)))
+      qc.setQueryData<FlashRevisao[]>(chaves.flashRevisoes, (l) => (l ? [...l, { ...revisao, user_id: '' }] : l))
+    },
+  })
+}
+
+/** Desfaz a última resposta: volta o agendamento anterior e apaga o registro da revisão */
+export function useDesfazerFlash() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ anterior, revisaoId }: { anterior: FlashCartao; revisaoId: string }) => {
+      const { error } = await supabase.from('flash_revisoes').delete().eq('id', revisaoId)
+      if (error) throw error
+      const { error: e2 } = await supabase.from('flash_cartoes').update(camposDaAgenda(anterior)).eq('id', anterior.id)
+      if (e2) throw e2
+    },
+    onMutate: ({ anterior, revisaoId }) => {
+      qc.setQueryData<FlashCartao[]>(chaves.flashCartoes, (l) => l?.map((c) => (c.id === anterior.id ? anterior : c)))
+      qc.setQueryData<FlashRevisao[]>(chaves.flashRevisoes, (l) => l?.filter((r) => r.id !== revisaoId))
+    },
+  })
+}
+
+export interface NotaParaImportar {
+  id: string
+  origem: string
+  /** disciplina existente, ou o nome de uma disciplina nova (em `novasDisciplinas`) */
+  disciplinaId: string | null
+  novaDisciplina: string | null
+  topicoId: string | null
+  tipo: FlashNota['tipo']
+  frente: string
+  verso: string
+  cartoes: CartaoImportado[]
+}
+
+export interface PlanoImportacaoFlash {
+  novasDisciplinas: { nome: string; cor: string; ordem: number }[]
+  notas: NotaParaImportar[]
+}
+
+/** Grava a importação do Anki em lotes: disciplinas novas, depois notas e cartões */
+export function useImportarFlashcards() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async ({ plano, aoProgredir }: { plano: PlanoImportacaoFlash; aoProgredir?: (feitas: number, total: number) => void }) => {
+      const idsNovas = new Map<string, string>()
+      if (plano.novasDisciplinas.length) {
+        const { data, error } = await supabase.from('disciplinas').insert(plano.novasDisciplinas).select('id, nome')
+        if (error) throw error
+        for (const d of data as { id: string; nome: string }[]) idsNovas.set(d.nome, d.id)
+      }
+      const total = plano.notas.length
+      let feitas = 0
+      let cartoes = 0
+      // lotes de até 400 notas ou ~300 KB de texto
+      const grupos: NotaParaImportar[][] = []
+      let atual: NotaParaImportar[] = []
+      let tamanho = 0
+      for (const n of plano.notas) {
+        const t = n.frente.length + n.verso.length + 200
+        if (atual.length && (atual.length >= 400 || tamanho + t > 300_000)) {
+          grupos.push(atual)
+          atual = []
+          tamanho = 0
+        }
+        atual.push(n)
+        tamanho += t
+      }
+      if (atual.length) grupos.push(atual)
+
+      for (const grupo of grupos) {
+        const linhasNotas = grupo.map((n) => ({
+          id: n.id,
+          disciplina_id: n.disciplinaId ?? idsNovas.get(n.novaDisciplina ?? '') ?? '',
+          topico_id: n.topicoId,
+          tipo: n.tipo,
+          frente: n.frente,
+          verso: n.verso,
+          origem_anki: n.origem,
+        }))
+        const { error } = await supabase.from('flash_notas').insert(linhasNotas)
+        if (error) throw error
+        const linhasCartoes = grupo.flatMap((n) =>
+          n.cartoes.map((c) => ({ nota_id: n.id, ordem: c.ordem, suspenso: c.suspenso, posicao: c.posicao, ...(c.agenda ?? camposDeNovo()) })),
+        )
+        for (const lote of lotes(linhasCartoes, 1000)) {
+          const { error: e2 } = await supabase.from('flash_cartoes').insert(lote)
+          if (e2) {
+            // não deixa nota sem cartão: desfaz o lote inteiro
+            await supabase.from('flash_notas').delete().in('id', grupo.map((n) => n.id))
+            throw e2
+          }
+        }
+        feitas += grupo.length
+        cartoes += linhasCartoes.length
+        aoProgredir?.(feitas, total)
+      }
+      return { notas: feitas, cartoes, disciplinasNovas: idsNovas.size }
+    },
+    onSettled: () => invalidar('disciplinas', 'flashNotas', 'flashCartoes'),
   })
 }
