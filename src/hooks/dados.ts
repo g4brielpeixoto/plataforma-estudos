@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { caminhoDaFoto } from '@/lib/foto'
 import { buscarTodos, supabase } from '@/lib/supabase'
 import type { Convite, Disciplina, Estudo, Metas, NivelTopico, NovoEstudo, Perfil, Topico } from '@/types'
 
@@ -298,5 +299,30 @@ export function useSalvarMetas() {
       if (error) throw error
     },
     onSuccess: () => invalidar('metas'),
+  })
+}
+
+/** Salva nome e foto do próprio perfil. A foto nova vai para o armazenamento e a antiga é apagada. */
+export function useSalvarPerfil() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async ({ userId, nome, novaFoto, removerFoto, fotoAtual }: { userId: string; nome: string | null; novaFoto: Blob | null; removerFoto: boolean; fotoAtual: string | null }) => {
+      let foto_url = fotoAtual
+      if (novaFoto) {
+        const caminho = `${userId}/foto-${Date.now()}.jpg`
+        const { error } = await supabase.storage.from('avatares').upload(caminho, novaFoto, { contentType: 'image/jpeg', cacheControl: '31536000', upsert: false })
+        if (error) throw new Error('Não foi possível enviar a foto. Tente de novo.')
+        foto_url = supabase.storage.from('avatares').getPublicUrl(caminho).data.publicUrl
+      } else if (removerFoto) {
+        foto_url = null
+      }
+      const { error } = await supabase.from('perfis').update({ nome, foto_url }).eq('user_id', userId)
+      if (error) throw error
+      if (fotoAtual && fotoAtual !== foto_url) {
+        const antiga = caminhoDaFoto(fotoAtual)
+        if (antiga) await supabase.storage.from('avatares').remove([antiga]) // se falhar, só sobra um arquivo
+      }
+    },
+    onSuccess: () => invalidar('perfis'),
   })
 }

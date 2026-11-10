@@ -16,6 +16,8 @@ interface AuthValor {
   enviarRecuperacao: (email: string) => Promise<void>
   redefinirSenha: (senha: string) => Promise<void>
   sair: () => Promise<void>
+  /** busca o perfil de novo (depois de editar nome ou foto) */
+  recarregarPerfil: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthValor | null>(null)
@@ -52,15 +54,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const usuarioAtual = useRef<string | null>(null)
 
-  const carregarPerfil = useCallback(async (s: Session | null) => {
+  const carregarPerfil = useCallback(async (s: Session | null, silencioso = false) => {
     usuarioAtual.current = s?.user.id ?? null
     if (!s) {
       setPerfil(null)
       return
     }
-    setPerfil(undefined)
+    if (!silencioso) setPerfil(undefined)
     const { data, error } = await supabase.from('perfis').select('*').eq('user_id', s.user.id).maybeSingle()
     if (usuarioAtual.current !== s.user.id) return
+    if (error && silencioso) return
     setPerfil(error ? null : ((data as Perfil | null) ?? null))
   }, [])
 
@@ -129,6 +132,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     async sair() {
       await supabase.auth.signOut()
+    },
+    async recarregarPerfil() {
+      await carregarPerfil(sessao, true)
     },
   }
 

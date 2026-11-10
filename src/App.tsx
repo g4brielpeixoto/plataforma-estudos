@@ -8,6 +8,7 @@ import { Edital } from './pages/Edital'
 import { Estudar } from './pages/Estudar'
 import { Historico } from './pages/Historico'
 import { Inicio } from './pages/Inicio'
+import { Perfil } from './pages/Perfil'
 import { Usuarios } from './pages/Usuarios'
 
 /** Só deixa passar quem está logado e com a conta ativa */
@@ -54,6 +55,7 @@ const router = createHashRouter([
           { path: '/edital/:id', element: <Disciplina /> },
           { path: '/estudar', element: <Estudar /> },
           { path: '/historico', element: <Historico /> },
+          { path: '/perfil', element: <Perfil /> },
           { element: <SoMaster />, children: [{ path: '/usuarios', element: <Usuarios /> }] },
         ],
       },

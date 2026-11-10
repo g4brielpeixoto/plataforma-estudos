@@ -8,6 +8,10 @@ export interface Perfil {
   email: string
   papel: Papel
   ativo: boolean
+  /** como a pessoa quer ser chamada (opcional) */
+  nome: string | null
+  /** link público da foto de perfil (opcional) */
+  foto_url: string | null
   criado_em: string
 }
 

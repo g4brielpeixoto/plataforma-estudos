@@ -32,7 +32,9 @@ src/
   lib/supabase.ts         cliente (URL e chave publicável fixas, com override por env) + buscarTodos (paginação)
   components/ui.tsx       componentes base (Botao, Entrada, EntradaSenha, Selecao, Dialogo, Confirmar, Painel, SeloAcerto…)
   components/ListaTopicos.tsx  lista de tópicos ordenável (arrastar ou digitar a posição) com colunas Questões, Último estudo e Estudo; no tópico pai os números somam os subtópicos
-  pages/                  Acesso (login/cadastro/esqueci/redefinir), Inicio, Edital, Disciplina, Estudar, Historico, Usuarios
+  lib/foto.ts             prepara a foto de perfil (recorte quadrado 320px JPEG), iniciais, primeiro nome
+  components/Avatar.tsx   foto redonda ou iniciais
+  pages/                  Acesso (login/cadastro/esqueci/redefinir), Inicio, Edital, Disciplina, Estudar, Historico, Perfil, Usuarios
 supabase/migrations/      SQL versionado (já aplicado no projeto de produção)
 supabase/definir-master.sql  define o e-mail do master
 ```
@@ -44,6 +46,7 @@ Tabelas em `public`: `perfis`, `convites`, `disciplinas`, `topicos`, `estudos`, 
 - **Cadastro só por convite:** trigger `privado.tratar_novo_usuario` em `auth.users` recusa e-mails fora de `convites` (o Supabase devolve "Database error saving new user", traduzido no front) e cria o `perfil` com o papel do convite.
 - **Master:** único que vê/cria/cancela convites e ativa/desativa usuários comuns. Não consegue criar outro master pelo app (só via SQL).
 - **Usuário desativado** (`perfis.ativo = false`) perde acesso a todos os dados pelo RLS.
+- **Perfil:** `perfis.nome` e `perfis.foto_url`, editáveis pelo próprio usuário (policy `perfis_update_proprio` + grant só nessas colunas e em `ativo`). O trigger `privado.proteger_ativo` impede mudar `ativo` sem ser master e o master de mudar o próprio. Fotos no bucket público `avatares`, pasta `<user_id>/`, 2 MB, jpeg/png/webp; a foto antiga é apagada ao trocar.
 - `user_id` tem default `auth.uid()`: **não envie user_id** nos inserts.
 - Estudo precisa de tempo > 0 ou questões > 0; acertos ≤ feitas (constraints no banco).
 - Mudanças de schema: crie um novo arquivo em `supabase/migrations/` e aplique no projeto (MCP do Supabase ou SQL Editor). Depois rode os advisors de segurança.
@@ -51,6 +54,7 @@ Tabelas em `public`: `perfis`, `convites`, `disciplinas`, `topicos`, `estudos`, 
 ## Regras de negócio
 
 - **Tempo de estudo** = soma de `duracao_segundos` no período. **Desempenho** = acertadas ÷ feitas no período. **Progresso no edital** = tópicos `concluido` ÷ total (não depende do período).
+- **Saudação:** "Bom dia/Boa tarde/Boa noite, <primeiro nome>!" (hora do aparelho); sem nome, mostra link para o perfil.
 - **Início:** Tempo de estudo (pizza por disciplina: hoje/semana/mês/total, comparação com o mesmo trecho do período anterior), Metas semanais (segunda a domingo), Constância (dias seguidos com ≥ 20 min), Heatmap dos últimos 12 meses (0: < 20 min, 1: < 1h, 2: < 2h, 3: < 4h, 4: ≥ 4h).
 - Faixas de acerto: ≥ 80% verde, 60–79% amarelo, < 60% vermelho (`nivelAcerto` em `lib/utils.ts`).
 - Pomodoro: só o tempo de foco conta como estudo; ao fim de cada fase o relógio para e espera o usuário.

@@ -4,6 +4,7 @@ import { Plus, Timer } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Avatar } from '@/components/Avatar'
 import { Constancia } from '@/components/Constancia'
 import { EstudoDialog } from '@/components/EstudoDialog'
 import { FiltroPeriodo, PainelIndicadores } from '@/components/Indicadores'
@@ -12,7 +13,9 @@ import { MetasSemanais } from '@/components/MetasSemanais'
 import { TempoPizza } from '@/components/TempoPizza'
 import { BarraProgresso, Botao, Carregando, Painel, SeloAcerto } from '@/components/ui'
 import { VersiculoCard } from '@/components/VersiculoCard'
+import { useAuth } from '@/contexts/AuthContext'
 import { useDisciplinas, useEstudos, useTopicos } from '@/hooks/dados'
+import { primeiroNome } from '@/lib/foto'
 import { calcularIndicadores, filtrarPorPeriodo, intervaloDoPeriodo, resumirPorTopico, type Periodo } from '@/lib/indicadores'
 import { formatarDuracao, porcentagem } from '@/lib/utils'
 import type { Estudo } from '@/types'
@@ -83,6 +86,8 @@ export function Inicio() {
   const disciplinas = useDisciplinas()
   const topicos = useTopicos()
   const navegar = useNavigate()
+  const { perfil } = useAuth()
+  const nome = primeiroNome(perfil?.nome)
   const [periodo, setPeriodo] = useState<Periodo>({ preset: '7d' })
   const [adicionando, setAdicionando] = useState(false)
 
@@ -123,9 +128,22 @@ export function Inicio() {
   return (
     <>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-tinta-suave">{format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}</p>
-          <h1 className="font-serif text-[1.85rem] leading-tight font-medium tracking-[-0.01em] text-tinta">{saudacao()}!</h1>
+        <div className="flex min-w-0 items-center gap-4">
+          <Link to="/perfil" aria-label="Meu perfil" className="shrink-0 rounded-full">
+            <Avatar nome={perfil?.nome} email={perfil?.email} foto={perfil?.foto_url} tamanho={56} />
+          </Link>
+          <div className="min-w-0">
+            <p className="text-tinta-suave">{format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}</p>
+            <h1 className="font-serif text-[1.85rem] leading-tight font-medium tracking-[-0.01em] text-tinta">
+              {saudacao()}
+              {nome ? `, ${nome}` : ''}!
+            </h1>
+            {!nome && (
+              <Link to="/perfil" className="text-sm font-medium text-primaria-forte underline-offset-2 hover:underline dark:text-primaria">
+                Adicione seu nome e sua foto
+              </Link>
+            )}
+          </div>
         </div>
         <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
           <Botao variante="secundario" onClick={() => setAdicionando(true)} className="h-11 px-3 text-sm sm:h-10 sm:px-4 sm:text-[15px]">

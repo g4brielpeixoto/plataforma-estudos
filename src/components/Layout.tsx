@@ -2,6 +2,7 @@ import { BookOpen, History, House, LogOut, Moon, PanelLeftClose, PanelLeftOpen, 
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '@/contexts/AuthContext'
+import { Avatar } from './Avatar'
 import { cn } from '@/lib/utils'
 
 const itens = [
@@ -104,11 +105,26 @@ export function Layout() {
           ))}
         </nav>
         <div className="mt-auto space-y-1 border-t border-linha/70 pt-4">
-          {!recolhido && (
-            <p className="truncate px-3 pb-2 text-sm text-tinta-suave" title={perfil?.email}>
-              {perfil?.email}
-            </p>
-          )}
+          <NavLink
+            to="/perfil"
+            title={recolhido ? 'Meu perfil' : undefined}
+            aria-label={recolhido ? 'Meu perfil' : undefined}
+            className={({ isActive }) =>
+              cn(
+                'mb-1 flex items-center rounded-xl py-2 transition-colors',
+                recolhido ? 'justify-center' : 'gap-3 px-2',
+                isActive ? 'bg-nevoa' : 'hover:bg-nevoa/50',
+              )
+            }
+          >
+            <Avatar nome={perfil?.nome} email={perfil?.email} foto={perfil?.foto_url} tamanho={34} />
+            {!recolhido && (
+              <span className="min-w-0 leading-tight">
+                <span className="block truncate text-[15px] font-medium text-tinta">{perfil?.nome || 'Meu perfil'}</span>
+                <span className="block truncate text-xs text-tinta-suave">{perfil?.email}</span>
+              </span>
+            )}
+          </NavLink>
           <button
             onClick={alternar}
             title={recolhido ? (escuro ? 'Tema claro' : 'Tema escuro') : undefined}
@@ -145,6 +161,9 @@ export function Layout() {
               <Users className="size-5" />
             </NavLink>
           )}
+          <NavLink to="/perfil" aria-label="Meu perfil" className={({ isActive }) => cn('rounded-full p-1', isActive && 'bg-nevoa')}>
+            <Avatar nome={perfil?.nome} email={perfil?.email} foto={perfil?.foto_url} tamanho={30} />
+          </NavLink>
           <button onClick={alternar} aria-label={escuro ? 'Usar tema claro' : 'Usar tema escuro'} className="rounded-lg p-2 text-tinta-suave">
             {escuro ? <Sun className="size-5" /> : <Moon className="size-5" />}
           </button>

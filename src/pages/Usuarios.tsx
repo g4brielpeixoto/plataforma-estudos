@@ -3,6 +3,7 @@ import { ptBR } from 'date-fns/locale'
 import { Copy, MailPlus, UserCheck, UserX, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
+import { Avatar } from '@/components/Avatar'
 import { Botao, CabecalhoPagina, Carregando, Confirmar, Entrada, Painel, Vazio } from '@/components/ui'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAlterarAtivo, useCancelarConvite, useConvidar, useConvites, usePerfis } from '@/hooks/dados'
@@ -121,8 +122,10 @@ export function Usuarios() {
             <ul className="mt-3 divide-y divide-linha/70">
               {perfis.data.map((p) => (
                 <li key={p.user_id} className="flex items-center justify-between gap-3 py-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-[15px] text-tinta">
+                  <Avatar nome={p.nome} email={p.email} foto={p.foto_url} tamanho={36} />
+                  <div className="min-w-0 flex-1">
+                    {p.nome && <p className="truncate text-[15px] font-medium text-tinta">{p.nome}</p>}
+                    <p className={p.nome ? 'truncate text-sm text-tinta-suave' : 'truncate text-[15px] text-tinta'}>
                       {p.email}
                       {p.user_id === eu?.user_id && <span className="text-tinta-suave"> (você)</span>}
                     </p>
