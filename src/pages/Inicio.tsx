@@ -6,6 +6,7 @@ import { Link, useNavigate } from 'react-router'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Avatar } from '@/components/Avatar'
 import { Constancia } from '@/components/Constancia'
+import { ContagemProvas } from '@/components/ContagemProvas'
 import { EstudoDialog } from '@/components/EstudoDialog'
 import { FiltroPeriodo, PainelIndicadores } from '@/components/Indicadores'
 import { MapaCalor } from '@/components/MapaCalor'
@@ -155,7 +156,10 @@ export function Inicio() {
         </div>
       </div>
 
-      <VersiculoCard className="mb-8" />
+      <div className="mb-8 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,25rem)]">
+        <ContagemProvas className="lg:order-2" />
+        <VersiculoCard className="lg:order-1" />
+      </div>
 
       {carregando ? (
         <Carregando />

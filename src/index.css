@@ -176,3 +176,33 @@ input[type='checkbox']:checked::after {
     opacity: 1;
   }
 }
+
+/* card de contagem das provas: entra de baixo (próxima) ou de cima (anterior) */
+@keyframes prova-entra-baixo {
+  from {
+    opacity: 0;
+    transform: translateY(55%);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes prova-entra-cima {
+  from {
+    opacity: 0;
+    transform: translateY(-55%);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes progresso-prova {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}

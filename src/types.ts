@@ -69,3 +69,12 @@ export interface Metas {
   questoes_semana: number | null
   atualizado_em: string
 }
+
+export interface Prova {
+  id: string
+  user_id: string
+  nome: string
+  /** yyyy-mm-dd */
+  data: string
+  criado_em: string
+}

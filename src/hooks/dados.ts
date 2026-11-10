@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { caminhoDaFoto } from '@/lib/foto'
 import { buscarTodos, supabase } from '@/lib/supabase'
-import type { Convite, Disciplina, Estudo, Metas, NivelTopico, NovoEstudo, Perfil, Topico } from '@/types'
+import type { Convite, Disciplina, Estudo, Metas, NivelTopico, NovoEstudo, Perfil, Prova, Topico } from '@/types'
 
 /*
   Acesso aos dados. Toda leitura usa o React Query (cache + recarga automática);
@@ -16,6 +16,7 @@ export const chaves = {
   perfis: ['perfis'] as const,
   convites: ['convites'] as const,
   metas: ['metas'] as const,
+  provas: ['provas'] as const,
 }
 
 // ---------- leituras ----------
@@ -81,6 +82,17 @@ export function useMetas() {
       const { data, error } = await supabase.from('metas').select('*').maybeSingle()
       if (error) throw error
       return (data as Metas | null) ?? null
+    },
+  })
+}
+
+export function useProvas() {
+  return useQuery({
+    queryKey: chaves.provas,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('provas').select('*').order('data').order('criado_em')
+      if (error) throw error
+      return data as Prova[]
     },
   })
 }
@@ -324,5 +336,28 @@ export function useSalvarPerfil() {
       }
     },
     onSuccess: () => invalidar('perfis'),
+  })
+}
+
+export function useSalvarProva() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async ({ id, nome, data }: { id?: string; nome: string; data: string }) => {
+      const dados = { nome: nome.trim(), data }
+      const { error } = id ? await supabase.from('provas').update(dados).eq('id', id) : await supabase.from('provas').insert(dados)
+      if (error) throw error
+    },
+    onSuccess: () => invalidar('provas'),
+  })
+}
+
+export function useExcluirProva() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('provas').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => invalidar('provas'),
   })
 }
