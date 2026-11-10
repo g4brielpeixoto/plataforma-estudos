@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { dataBrasilia, indiceDoDia, VERSICULOS } from '@/lib/versiculos'
 import { cn } from '@/lib/utils'
 
-export function VersiculoCard({ compacto = false, className }: { compacto?: boolean; className?: string }) {
+/** Versículo do dia (horário de Brasília); troca sozinho à meia-noite se a página ficar aberta */
+function useVersiculoDoDia() {
   const [dia, setDia] = useState(() => dataBrasilia())
   const [indice, setIndice] = useState(() => indiceDoDia())
-  const v = VERSICULOS[indice]
 
   // se a página ficar aberta, troca para o versículo do novo dia à meia-noite de Brasília
   useEffect(() => {
@@ -18,6 +18,27 @@ export function VersiculoCard({ compacto = false, className }: { compacto?: bool
     }, 60_000)
     return () => window.clearInterval(id)
   }, [dia])
+  return { v: VERSICULOS[indice], indice }
+}
+
+/** Versículo em formato de card pequeno, para a linha de resumos da página inicial */
+export function VersiculoMini({ className }: { className?: string }) {
+  const { v, indice } = useVersiculoDoDia()
+  return (
+    <figure className={cn('relative flex flex-col justify-center overflow-hidden rounded-2xl border border-linha/70 bg-nevoa/70 px-5 pt-9 pb-5', className)}>
+      <span aria-hidden className="pointer-events-none absolute top-1 left-4 font-serif text-[4.5rem] leading-none text-lilas select-none">
+        “
+      </span>
+      <blockquote key={indice} className="relative animate-[aparecer_400ms_ease-out]">
+        <p className="text-center font-serif text-[0.97rem] leading-relaxed text-tinta italic [text-wrap:pretty]">{v.texto}</p>
+      </blockquote>
+      <figcaption className="relative mt-2 text-center text-sm font-semibold text-primaria-forte dark:text-primaria">{v.referencia}</figcaption>
+    </figure>
+  )
+}
+
+export function VersiculoCard({ compacto = false, className }: { compacto?: boolean; className?: string }) {
+  const { v, indice } = useVersiculoDoDia()
 
   return (
     <figure

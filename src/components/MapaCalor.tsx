@@ -57,7 +57,7 @@ export function MapaCalor({ estudos, className }: { estudos: Estudo[]; className
 
   return (
     <Painel className={cn('p-5 sm:p-6', className)}>
-      <h2 className="font-semibold text-tinta">Heatmap de estudos</h2>
+      <h2 className="text-sm font-semibold tracking-[0.08em] text-tinta-suave uppercase">Heatmap de estudos</h2>
       <p className="mt-1 max-w-prose text-sm text-tinta-suave">
         Intensidade de estudo ao longo do ano — quanto mais <span className="dark:hidden">escuro</span><span className="hidden dark:inline">forte a cor</span>, mais horas. Um dia conta a partir de 20 minutos, como no calendário.
       </p>

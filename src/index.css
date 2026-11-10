@@ -28,6 +28,7 @@
   --c-ruim: #b0443f;
   --c-ruim-fundo: #f6e0de;
   --c-meta-questoes: #2fc49b;
+  --c-chama: #d9822b;
   --c-meta-questoes-texto: #11694f;
   --c-calor-0: #ece4ed;
   --c-calor-1: #dfcae1;
@@ -58,6 +59,7 @@
   --c-ruim: #ec958f;
   --c-ruim-fundo: #3d2221;
   --c-meta-questoes: #4fd1ab;
+  --c-chama: #f0a95b;
   --c-meta-questoes-texto: #7fe0c2;
   --c-calor-0: #30273a;
   --c-calor-1: #4b3a51;
@@ -88,6 +90,7 @@
   --color-ruim: var(--c-ruim);
   --color-ruim-fundo: var(--c-ruim-fundo);
   --color-meta-questoes: var(--c-meta-questoes);
+  --color-chama: var(--c-chama);
   --color-meta-questoes-texto: var(--c-meta-questoes-texto);
   --font-sans: 'Figtree', ui-sans-serif, system-ui, sans-serif;
   --font-serif: 'Literata', ui-serif, Georgia, serif;
