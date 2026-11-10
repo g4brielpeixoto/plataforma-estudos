@@ -2,13 +2,13 @@ import { CircleCheck, Lock, LogOut } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { Marca } from '@/components/Layout'
-import { Botao, Campo, Entrada } from '@/components/ui'
+import { Botao, Campo, Entrada, EntradaSenha } from '@/components/ui'
 import { VersiculoCard } from '@/components/VersiculoCard'
 import { useAuth } from '@/contexts/AuthContext'
 
 function Moldura({ titulo, subtitulo, children, rodape }: { titulo: string; subtitulo?: string; children: ReactNode; rodape?: ReactNode }) {
   return (
-    <div className="grid min-h-dvh lg:grid-cols-[1fr_1.1fr]">
+    <div className="grid min-h-dvh grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
       <div className="flex flex-col px-5 py-8 sm:px-10">
         <Marca />
         <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10">
@@ -70,7 +70,7 @@ export function Login() {
           <Entrada id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
         </Campo>
         <Campo rotulo="Senha" htmlFor="senha">
-          <Entrada id="senha" type="password" autoComplete="current-password" required value={senha} onChange={(e) => setSenha(e.target.value)} />
+          <EntradaSenha id="senha" autoComplete="current-password" required value={senha} onChange={(e) => setSenha(e.target.value)} />
         </Campo>
         <div className="flex justify-end">
           <Link to="/esqueci-senha" className="text-sm font-medium text-primaria-forte underline-offset-2 hover:underline">
@@ -126,10 +126,10 @@ export function Cadastro() {
           <Entrada id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
         </Campo>
         <Campo rotulo="Senha" htmlFor="senha" dica="Pelo menos 6 caracteres.">
-          <Entrada id="senha" type="password" autoComplete="new-password" required value={senha} onChange={(e) => setSenha(e.target.value)} />
+          <EntradaSenha id="senha" autoComplete="new-password" required value={senha} onChange={(e) => setSenha(e.target.value)} />
         </Campo>
         <Campo rotulo="Repita a senha" htmlFor="confirmacao">
-          <Entrada id="confirmacao" type="password" autoComplete="new-password" required value={confirmacao} onChange={(e) => setConfirmacao(e.target.value)} />
+          <EntradaSenha id="confirmacao" autoComplete="new-password" required value={confirmacao} onChange={(e) => setConfirmacao(e.target.value)} />
         </Campo>
         {erro && <Aviso tipo="erro">{erro}</Aviso>}
         <Botao type="submit" className="w-full" carregando={enviando}>
@@ -230,10 +230,10 @@ export function RedefinirSenha() {
     <Moldura titulo="Nova senha" subtitulo={`Defina a nova senha de ${sessao.user.email}.`}>
       <form onSubmit={enviar} className="space-y-4">
         <Campo rotulo="Nova senha" htmlFor="senha" dica="Pelo menos 6 caracteres.">
-          <Entrada id="senha" type="password" autoComplete="new-password" required value={senha} onChange={(e) => setSenha(e.target.value)} />
+          <EntradaSenha id="senha" autoComplete="new-password" required value={senha} onChange={(e) => setSenha(e.target.value)} />
         </Campo>
         <Campo rotulo="Repita a nova senha" htmlFor="confirmacao">
-          <Entrada id="confirmacao" type="password" autoComplete="new-password" required value={confirmacao} onChange={(e) => setConfirmacao(e.target.value)} />
+          <EntradaSenha id="confirmacao" autoComplete="new-password" required value={confirmacao} onChange={(e) => setConfirmacao(e.target.value)} />
         </Campo>
         {erro && <Aviso tipo="erro">{erro}</Aviso>}
         <Botao type="submit" className="w-full" carregando={enviando}>

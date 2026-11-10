@@ -60,7 +60,7 @@ export function Usuarios() {
     <>
       <CabecalhoPagina titulo="Usuários" subtitulo="Só quem você convidar consegue criar conta." />
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_1.2fr]">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
         <Painel className="p-5 sm:p-6">
           <h2 className="font-semibold text-tinta">Convidar alguém</h2>
           <p className="mt-1 text-sm text-tinta-suave">Cadastre o e-mail e envie o link de cadastro. A pessoa cria a própria senha e já entra.</p>

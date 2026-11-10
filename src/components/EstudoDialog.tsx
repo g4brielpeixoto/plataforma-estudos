@@ -158,7 +158,7 @@ export function EstudoDialog({
         </div>
       ) : (
         <form onSubmit={enviar} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Campo rotulo="Disciplina" htmlFor="e-disciplina">
               <Selecao
                 id="e-disciplina"
@@ -190,7 +190,7 @@ export function EstudoDialog({
             </Campo>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-[1.4fr_1fr]">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
             <Campo rotulo="Quando" htmlFor="e-data">
               <Entrada id="e-data" type="datetime-local" required value={dataHora} onChange={(e) => setDataHora(e.target.value)} />
             </Campo>

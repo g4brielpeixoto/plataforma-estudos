@@ -128,7 +128,7 @@ export function Estudar() {
         ))}
       </div>
 
-      <div className="mb-8 grid gap-2 sm:grid-cols-2">
+      <div className="mb-8 grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Selecao
           aria-label="Disciplina que você vai estudar"
           value={c.disciplinaId}

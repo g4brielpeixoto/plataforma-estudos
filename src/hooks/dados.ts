@@ -127,17 +127,33 @@ export function useSalvarTopico() {
   })
 }
 
-/** Troca a ordem de dois tópicos (setas de subir/descer) */
-export function useTrocarOrdemTopicos() {
-  const invalidar = useInvalidar()
+/**
+ * Grava a nova ordem dos tópicos de uma disciplina (arrastar ou digitar a posição).
+ * Atualiza a tela na hora (otimista) e envia tudo numa única requisição (upsert por id).
+ */
+export function useReordenarTopicos() {
+  const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ([a, b]: [Topico, Topico]) => {
-      const r1 = await supabase.from('topicos').update({ ordem: b.ordem }).eq('id', a.id)
-      if (r1.error) throw r1.error
-      const r2 = await supabase.from('topicos').update({ ordem: a.ordem }).eq('id', b.id)
-      if (r2.error) throw r2.error
+    mutationFn: async (ordenados: Topico[]) => {
+      const linhas = ordenados.map((t, i) => ({ id: t.id, disciplina_id: t.disciplina_id, nome: t.nome, ordem: i }))
+      const { error } = await supabase.from('topicos').upsert(linhas, { onConflict: 'id' })
+      if (error) throw error
     },
-    onSuccess: () => invalidar('topicos'),
+    onMutate: async (ordenados) => {
+      await qc.cancelQueries({ queryKey: chaves.topicos })
+      const anterior = qc.getQueryData<Topico[]>(chaves.topicos)
+      const novaOrdem = new Map(ordenados.map((t, i) => [t.id, i]))
+      qc.setQueryData<Topico[]>(chaves.topicos, (lista) =>
+        (lista ?? [])
+          .map((t) => (novaOrdem.has(t.id) ? { ...t, ordem: novaOrdem.get(t.id)! } : t))
+          .sort((a, b) => a.ordem - b.ordem || a.criado_em.localeCompare(b.criado_em)),
+      )
+      return { anterior }
+    },
+    onError: (_erro, _vars, contexto) => {
+      if (contexto?.anterior) qc.setQueryData(chaves.topicos, contexto.anterior)
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: chaves.topicos }),
   })
 }
 

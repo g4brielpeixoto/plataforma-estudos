@@ -4,7 +4,7 @@ App pessoal e multiusuário para acompanhar estudos de concurso: edital (discipl
 
 ## Stack
 
-- **Frontend:** React 19 + TypeScript + Vite, Tailwind CSS v4, React Router (`createHashRouter`), TanStack Query, Recharts, lucide-react, sonner (toasts), date-fns (locale `ptBR`), Radix Dialog.
+- **Frontend:** React 19 + TypeScript + Vite, Tailwind CSS v4, React Router (`createHashRouter`), TanStack Query, Recharts, lucide-react, sonner (toasts), date-fns (locale `ptBR`), Radix Dialog, dnd-kit (arrastar tópicos).
 - **Backend:** Supabase (Postgres + Auth + API REST automática). Não existe servidor próprio: toda regra de acesso está no banco (RLS).
 - **Deploy:** GitHub Actions → GitHub Pages a cada push na `main` (`.github/workflows/deploy.yml`). `base: './'` + rotas em hash, então funciona em qualquer subcaminho.
 
@@ -29,7 +29,8 @@ src/
   lib/importacao.ts       parser da importação em lote (# = disciplina, linha = tópico)
   lib/versiculos.ts       lista de versículos (Almeida Revista e Corrigida) do card da página inicial
   lib/supabase.ts         cliente (URL e chave publicável fixas, com override por env) + buscarTodos (paginação)
-  components/ui.tsx       componentes base (Botao, Entrada, Selecao, Dialogo, Confirmar, Painel, SeloAcerto…)
+  components/ui.tsx       componentes base (Botao, Entrada, EntradaSenha, Selecao, Dialogo, Confirmar, Painel, SeloAcerto…)
+  components/ListaTopicos.tsx  lista de tópicos ordenável: arrastar pela alça ou tocar no número e digitar a posição
   pages/                  Acesso (login/cadastro/esqueci/redefinir), Inicio, Edital, Disciplina, Estudar, Historico, Usuarios
 supabase/migrations/      SQL versionado (já aplicado no projeto de produção)
 supabase/definir-master.sql  define o e-mail do master
@@ -51,6 +52,7 @@ Tabelas em `public`: `perfis`, `convites`, `disciplinas`, `topicos`, `estudos`. 
 - **Tempo de estudo** = soma de `duracao_segundos` no período. **Desempenho** = acertadas ÷ feitas no período. **Progresso no edital** = tópicos `concluido` ÷ total (não depende do período).
 - Faixas de acerto: ≥ 80% verde, 60–79% amarelo, < 60% vermelho (`nivelAcerto` em `lib/utils.ts`).
 - Pomodoro: só o tempo de foco conta como estudo; ao fim de cada fase o relógio para e espera o usuário.
+- Ordem dos tópicos: `useReordenarTopicos` grava a lista inteira numa só requisição (upsert por `id`, `ordem` = posição) com atualização otimista.
 - Os dados são carregados inteiros por usuário (`buscarTodos`) e agregados no front. Escala pessoal, funciona bem até dezenas de milhares de estudos.
 
 ## Visual
@@ -62,3 +64,4 @@ Paleta lilás definida em `src/index.css` como variáveis CSS (`--c-*`) e expost
 - Nomes de variáveis, componentes e textos em português; textos curtos, voz ativa, sentence case.
 - Erros mostrados ao usuário dizem o que aconteceu e como resolver.
 - Sempre `npm run build` sem erros antes de commitar.
+- Grids sempre com `grid-cols-1` (ou `minmax(0,…)`) na base, para conteúdo longo não estourar a largura no celular.

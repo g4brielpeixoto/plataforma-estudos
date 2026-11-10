@@ -155,7 +155,7 @@ export function Inicio() {
           </div>
           <PainelIndicadores dados={ind} className="mb-5" />
 
-          <div className="mb-5 grid gap-5 lg:grid-cols-2">
+          <div className="mb-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
             <Painel className="p-5">
               <h3 className="font-semibold text-tinta">Tempo de estudo {serie.porDia ? 'por dia' : 'por semana'}</h3>
               <div className="mt-4 h-52" role="img" aria-label={`Gráfico de barras do tempo de estudo ${serie.porDia ? 'por dia' : 'por semana'}`}>
@@ -201,7 +201,7 @@ export function Inicio() {
             </Painel>
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-[1.3fr_1fr]">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
             <Painel className="p-5">
               <h3 className="font-semibold text-tinta">Por disciplina</h3>
               <ul className="mt-4 space-y-4">

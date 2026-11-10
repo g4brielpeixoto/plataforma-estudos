@@ -86,7 +86,7 @@ export function ImportarDialog({
           : 'Cole a lista de tópicos, um por linha. A numeração é mantida.'
       }
     >
-      <div className="grid gap-5 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <div>
           <AreaTexto
             aria-label="Texto para importar"

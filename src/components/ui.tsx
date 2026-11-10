@@ -1,6 +1,6 @@
 import * as RadixDialog from '@radix-ui/react-dialog'
-import { LoaderCircle, X } from 'lucide-react'
-import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { Eye, EyeOff, LoaderCircle, X } from 'lucide-react'
+import { forwardRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { classesNivel, cn, nivelAcerto } from '@/lib/utils'
 
 /* Componentes base da interface, no estilo shadcn/ui (código próprio, sem dependência externa). */
@@ -49,6 +49,25 @@ const campoBase =
 
 export const Entrada = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Entrada({ className, ...props }, ref) {
   return <input ref={ref} className={cn(campoBase, 'h-10', className)} {...props} />
+})
+
+/** Campo de senha com botão para mostrar/ocultar o que foi digitado */
+export const EntradaSenha = forwardRef<HTMLInputElement, Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>>(function EntradaSenha({ className, ...props }, ref) {
+  const [visivel, setVisivel] = useState(false)
+  return (
+    <div className="relative">
+      <input ref={ref} type={visivel ? 'text' : 'password'} className={cn(campoBase, 'h-10 pr-11', className)} {...props} />
+      <button
+        type="button"
+        onClick={() => setVisivel((v) => !v)}
+        aria-label={visivel ? 'Ocultar senha' : 'Mostrar senha'}
+        aria-pressed={visivel}
+        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-tinta-suave hover:text-tinta"
+      >
+        {visivel ? <EyeOff className="size-[18px]" aria-hidden /> : <Eye className="size-[18px]" aria-hidden />}
+      </button>
+    </div>
+  )
 })
 
 export const AreaTexto = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function AreaTexto({ className, ...props }, ref) {
