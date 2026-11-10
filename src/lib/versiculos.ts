@@ -72,8 +72,14 @@ export const VERSICULOS: Versiculo[] = [
   { referencia: 'Isaías 30:15', texto: 'Em vos converterdes e em repousardes, estaria a vossa salvação; no sossego e na confiança, estaria a vossa força.' },
 ]
 
-/** O mesmo versículo o dia inteiro; muda à meia-noite */
-export function indiceDoDia(data = new Date()): number {
-  const dias = Math.floor(new Date(data.getFullYear(), data.getMonth(), data.getDate()).getTime() / 86_400_000)
-  return ((dias * 7) % VERSICULOS.length + VERSICULOS.length) % VERSICULOS.length
+/** Data de hoje no horário de Brasília (yyyy-mm-dd), seja qual for o fuso do aparelho */
+export function dataBrasilia(agora = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(agora)
+}
+
+/** O mesmo versículo o dia inteiro, para todos; muda à meia-noite de Brasília */
+export function indiceDoDia(agora = new Date()): number {
+  const dias = Math.floor(Date.parse(`${dataBrasilia(agora)}T00:00:00Z`) / 86_400_000)
+  const n = VERSICULOS.length
+  return (((dias * 7) % n) + n) % n
 }

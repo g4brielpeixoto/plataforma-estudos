@@ -28,7 +28,7 @@ src/
   lib/indicadores.ts      cálculo dos 3 indicadores, filtro de período, resumo por tópico
   lib/importacao.ts       parser da importação em lote (# = disciplina, linha = tópico)
   lib/constancia.ts       dias estudados (≥ 20 min), sequência, faixas do mapa de calor, semana atual
-  lib/versiculos.ts       lista de versículos (Almeida Revista e Corrigida) do card da página inicial
+  lib/versiculos.ts       lista de versículos (Almeida Revista e Corrigida); o do dia muda à meia-noite de Brasília (America/Sao_Paulo), igual para todos
   lib/supabase.ts         cliente (URL e chave publicável fixas, com override por env) + buscarTodos (paginação)
   components/ui.tsx       componentes base (Botao, Entrada, EntradaSenha, Selecao, Dialogo, Confirmar, Painel, SeloAcerto…)
   components/ListaTopicos.tsx  lista de tópicos ordenável (arrastar ou digitar a posição) com colunas Questões, Último estudo e Estudo; no tópico pai os números somam os subtópicos
