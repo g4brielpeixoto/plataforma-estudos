@@ -5,9 +5,10 @@ import { toast } from 'sonner'
 import { DisciplinaDialog } from '@/components/DisciplinaDialog'
 import { ImportarDialog } from '@/components/ImportarDialog'
 import { ListaTopicos } from '@/components/ListaTopicos'
-import { BarraProgresso, Botao, Carregando, Confirmar, Entrada, Painel, Vazio } from '@/components/ui'
+import { BarraProgresso, Botao, Carregando, Confirmar, Dialogo, Entrada, Painel, Vazio } from '@/components/ui'
 import { useDisciplinas, useEstudos, useExcluirTopico, useReordenarTopicos, useSalvarTopico, useTopicos } from '@/hooks/dados'
 import { calcularIndicadores, resumirPorTopico } from '@/lib/indicadores'
+import { filhosDe } from '@/lib/topicos'
 import { cn, formatarDuracao, mensagemErro, normalizar } from '@/lib/utils'
 import type { Topico } from '@/types'
 
@@ -27,6 +28,8 @@ export function Disciplina() {
   const [importando, setImportando] = useState(false)
   const [editandoDisciplina, setEditandoDisciplina] = useState(false)
   const [excluindo, setExcluindo] = useState<Topico | null>(null)
+  const [subDe, setSubDe] = useState<Topico | null>(null)
+  const [nomeSub, setNomeSub] = useState('')
 
   const disciplina = disciplinas.data?.find((d) => d.id === id)
   const meus = useMemo(() => (topicos.data ?? []).filter((t) => t.disciplina_id === id), [topicos.data, id])
@@ -61,6 +64,35 @@ export function Disciplina() {
   const alternarConcluido = (t: Topico) =>
     salvarTopico.mutate({ id: t.id, concluido: !t.concluido }, { onError: (e) => toast.error(mensagemErro(e)) })
 
+  const filhosExcluindo = excluindo && excluindo.nivel === 0 ? filhosDe(meus, excluindo.id) : []
+
+  /** Cria o subtópico logo depois do último subtópico do pai, numa única gravação */
+  const adicionarSubtopico = (e: FormEvent) => {
+    e.preventDefault()
+    const nome = nomeSub.trim()
+    if (!nome || !subDe) return
+    if (meus.some((t) => normalizar(t.nome) === normalizar(nome))) return toast.error('Já existe um tópico com esse nome.')
+    const novoTopico: Topico = {
+      id: crypto.randomUUID(),
+      user_id: subDe.user_id,
+      disciplina_id: subDe.disciplina_id,
+      nome,
+      ordem: 0,
+      nivel: 1,
+      concluido: false,
+      concluido_em: null,
+      criado_em: new Date().toISOString(),
+    }
+    const irmaos = filhosDe(meus, subDe.id)
+    const depoisDe = irmaos.length ? irmaos[irmaos.length - 1].id : subDe.id
+    const i = meus.findIndex((t) => t.id === depoisDe)
+    const nova = [...meus.slice(0, i + 1), novoTopico, ...meus.slice(i + 1)]
+    reordenar.mutate(nova, {
+      onSuccess: () => setSubDe(null),
+      onError: (err) => toast.error(mensagemErro(err)),
+    })
+  }
+
   const renomear = async (t: Topico, nome: string) => {
     try {
       await salvarTopico.mutateAsync({ id: t.id, nome })
@@ -74,7 +106,7 @@ export function Disciplina() {
   const confirmarExclusao = async () => {
     if (!excluindo) return
     try {
-      await excluirTopico.mutateAsync(excluindo.id)
+      await excluirTopico.mutateAsync([excluindo.id, ...filhosExcluindo.map((f) => f.id)])
       toast.success('Tópico excluído.')
       setExcluindo(null)
     } catch (err) {
@@ -144,7 +176,9 @@ export function Disciplina() {
         )}
         {meus.length > 1 && (
           <p className="px-5 pt-2 text-sm text-tinta-suave">
-            {filtro === 'todos' ? 'Arraste pela alça ou toque no número para mudar a ordem.' : 'Toque no número para mudar a ordem. Para arrastar, volte para Todos.'}
+            {filtro === 'todos'
+              ? 'Arraste pela alça ou toque no número para mudar a ordem. Subtópicos ficam no menu ⋮ de cada tópico.'
+              : 'Toque no número para mudar a ordem. Para arrastar, volte para Todos.'}
           </p>
         )}
 
@@ -171,6 +205,10 @@ export function Disciplina() {
             aoAlternarConcluido={alternarConcluido}
             aoRenomear={renomear}
             aoExcluir={setExcluindo}
+            aoAdicionarSubtopico={(pai) => {
+              setNomeSub('')
+              setSubDe(pai)
+            }}
           />
         )}
       </Painel>
@@ -183,11 +221,28 @@ export function Disciplina() {
         proximaOrdem={0}
         coresUsadas={(disciplinas.data ?? []).map((d) => d.cor)}
       />
+      <Dialogo aberto={!!subDe} aoMudar={(a) => !a && setSubDe(null)} titulo="Novo subtópico" descricao={subDe ? `Dentro de "${subDe.nome}"` : undefined} largura="max-w-md">
+        <form onSubmit={adicionarSubtopico} className="space-y-4">
+          <Entrada autoFocus value={nomeSub} onChange={(e) => setNomeSub(e.target.value)} placeholder="Ex.: Jornada de trabalho 2" aria-label="Nome do subtópico" />
+          <div className="flex justify-end gap-2">
+            <Botao type="button" variante="secundario" onClick={() => setSubDe(null)}>
+              Cancelar
+            </Botao>
+            <Botao type="submit" carregando={reordenar.isPending}>
+              Adicionar subtópico
+            </Botao>
+          </div>
+        </form>
+      </Dialogo>
       <Confirmar
         aberto={!!excluindo}
         aoMudar={(a) => !a && setExcluindo(null)}
-        titulo="Excluir tópico?"
-        texto={`"${excluindo?.nome ?? ''}" e os estudos registrados nele serão excluídos. Isso não pode ser desfeito.`}
+        titulo={excluindo?.nivel === 1 ? 'Excluir subtópico?' : 'Excluir tópico?'}
+        texto={
+          filhosExcluindo.length
+            ? `"${excluindo?.nome ?? ''}", os ${filhosExcluindo.length === 1 ? 'seu subtópico' : `seus ${filhosExcluindo.length} subtópicos`} e os estudos registrados neles serão excluídos. Isso não pode ser desfeito.`
+            : `"${excluindo?.nome ?? ''}" e os estudos registrados nele serão excluídos. Isso não pode ser desfeito.`
+        }
         textoBotao="Excluir tópico"
         carregando={excluirTopico.isPending}
         aoConfirmar={() => void confirmarExclusao()}

@@ -6,6 +6,7 @@ import { useDisciplinas, useSalvarEstudo, useTopicos } from '@/hooks/dados'
 import { formatarDuracao, mensagemErro } from '@/lib/utils'
 import type { Estudo, Origem } from '@/types'
 import { AreaTexto, Botao, Campo, Dialogo, Entrada, Selecao } from './ui'
+import { rotuloSelecao } from '@/lib/topicos'
 
 export interface ValoresIniciaisEstudo {
   duracaoSegundos?: number
@@ -182,8 +183,8 @@ export function EstudoDialog({
                 <option value="">{disciplinaId && topicosDaDisciplina.length === 0 ? 'Disciplina sem tópicos' : 'Escolha…'}</option>
                 {topicosDaDisciplina.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.concluido ? '✓ ' : ''}
-                    {t.nome}
+                    {rotuloSelecao(t)}
+                    {t.concluido ? ' ✓' : ''}
                   </option>
                 ))}
               </Selecao>

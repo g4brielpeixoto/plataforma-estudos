@@ -10,15 +10,23 @@ export function limparLinha(linha: string): string {
     .trim()
 }
 
+export interface NovoTopico {
+  nome: string
+  nivel: 0 | 1
+}
+
 export interface PreviaTopicos {
-  novos: string[]
+  novos: NovoTopico[]
   repetidos: string[]
 }
+
+/** Linha recuada (tab ou 2+ espaços no começo) vira subtópico do tópico de cima */
+const recuada = (linha: string) => /^(\t| {2,})\S/.test(linha)
 
 /** Uma linha = um tópico. Ignora linhas vazias e tópicos que já existem ou se repetem. */
 export function analisarTopicos(texto: string, existentes: string[]): PreviaTopicos {
   const vistos = new Set(existentes.map(normalizar))
-  const novos: string[] = []
+  const novos: NovoTopico[] = []
   const repetidos: string[] = []
   for (const bruta of texto.split(/\r?\n/)) {
     const linha = limparLinha(bruta)
@@ -29,7 +37,8 @@ export function analisarTopicos(texto: string, existentes: string[]): PreviaTopi
       continue
     }
     vistos.add(chave)
-    novos.push(linha)
+    const temAnterior = novos.length > 0 || existentes.length > 0
+    novos.push({ nome: linha, nivel: recuada(bruta) && temAnterior ? 1 : 0 })
   }
   return { novos, repetidos }
 }
@@ -37,7 +46,7 @@ export function analisarTopicos(texto: string, existentes: string[]): PreviaTopi
 export interface DisciplinaPrevia {
   nome: string
   existente: Disciplina | null
-  novos: string[]
+  novos: NovoTopico[]
   repetidos: string[]
 }
 
@@ -61,7 +70,7 @@ export function analisarEdital(texto: string, disciplinas: Disciplina[], topicos
     const linha = limparLinha(bruta)
     if (!linha) continue
     if (grupos.length === 0) semDisciplina.push(linha)
-    else grupos[grupos.length - 1].linhas.push(linha)
+    else grupos[grupos.length - 1].linhas.push(recuada(bruta) ? `  ${linha}` : linha)
   }
 
   // junta grupos repetidos (a mesma disciplina aparecendo duas vezes)

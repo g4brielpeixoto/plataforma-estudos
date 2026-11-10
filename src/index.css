@@ -115,8 +115,34 @@ body {
   outline-offset: 2px;
 }
 
+/* checkbox próprio: o nativo fica preto no tema escuro de alguns celulares */
 input[type='checkbox'] {
-  accent-color: var(--c-primaria);
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  border: 2px solid var(--c-lilas);
+  border-radius: 6px;
+  background: var(--c-superficie);
+  cursor: pointer;
+  display: inline-grid;
+  place-content: center;
+  transition: background-color 120ms, border-color 120ms;
+}
+input[type='checkbox']:hover {
+  border-color: var(--c-primaria);
+}
+input[type='checkbox']:checked {
+  background: var(--c-primaria);
+  border-color: var(--c-primaria);
+}
+input[type='checkbox']:checked::after {
+  content: '';
+  width: 0.7rem;
+  height: 0.7rem;
+  background: var(--c-sobre-primaria);
+  clip-path: polygon(14% 44%, 0 59%, 39% 98%, 100% 21%, 86% 7%, 38% 70%);
 }
 
 @media (prefers-reduced-motion: reduce) {

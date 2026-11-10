@@ -32,6 +32,8 @@ export interface Topico {
   disciplina_id: string
   nome: string
   ordem: number
+  /** 0 = tópico; 1 = subtópico do tópico de nível 0 logo acima */
+  nivel: 0 | 1
   concluido: boolean
   concluido_em: string | null
   criado_em: string

@@ -10,6 +10,7 @@ import { useDisciplinas, useEstudos, useExcluirEstudo, useTopicos } from '@/hook
 import { calcularIndicadores, filtrarPorPeriodo, type Periodo } from '@/lib/indicadores'
 import { cn, formatarDuracao, mensagemErro, porcentagem } from '@/lib/utils'
 import type { Estudo } from '@/types'
+import { rotuloSelecao } from '@/lib/topicos'
 
 /** Questões, tempo e horário de um estudo */
 function Numeros({ estudo: e, className }: { estudo: Estudo; className?: string }) {
@@ -124,7 +125,7 @@ export function Historico() {
               <option value="">Todos os tópicos</option>
               {topicosDaDisciplina.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.nome}
+                  {rotuloSelecao(t)}
                 </option>
               ))}
             </Selecao>

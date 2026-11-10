@@ -119,10 +119,11 @@ export function useExcluirDisciplina() {
 export function useSalvarTopico() {
   const invalidar = useInvalidar()
   return useMutation({
-    mutationFn: async (t: { id?: string; disciplina_id?: string; nome?: string; ordem?: number; concluido?: boolean }) => {
+    mutationFn: async (t: { id?: string; disciplina_id?: string; nome?: string; ordem?: number; nivel?: 0 | 1; concluido?: boolean }) => {
       const dados: Partial<Topico> = {}
       if (t.nome !== undefined) dados.nome = t.nome.trim()
       if (t.ordem !== undefined) dados.ordem = t.ordem
+      if (t.nivel !== undefined) dados.nivel = t.nivel
       if (t.concluido !== undefined) {
         dados.concluido = t.concluido
         dados.concluido_em = t.concluido ? new Date().toISOString() : null
@@ -147,17 +148,17 @@ export function useReordenarTopicos() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (ordenados: Topico[]) => {
-      const linhas = ordenados.map((t, i) => ({ id: t.id, disciplina_id: t.disciplina_id, nome: t.nome, ordem: i }))
+      const linhas = ordenados.map((t, i) => ({ id: t.id, disciplina_id: t.disciplina_id, nome: t.nome, ordem: i, nivel: t.nivel }))
       const { error } = await supabase.from('topicos').upsert(linhas, { onConflict: 'id' })
       if (error) throw error
     },
     onMutate: async (ordenados) => {
       await qc.cancelQueries({ queryKey: chaves.topicos })
       const anterior = qc.getQueryData<Topico[]>(chaves.topicos)
-      const novaOrdem = new Map(ordenados.map((t, i) => [t.id, i]))
+      const novaOrdem = new Map(ordenados.map((t, i) => [t.id, { ordem: i, nivel: t.nivel }]))
       qc.setQueryData<Topico[]>(chaves.topicos, (lista) =>
         (lista ?? [])
-          .map((t) => (novaOrdem.has(t.id) ? { ...t, ordem: novaOrdem.get(t.id)! } : t))
+          .map((t) => (novaOrdem.has(t.id) ? { ...t, ...novaOrdem.get(t.id)! } : t))
           .sort((a, b) => a.ordem - b.ordem || a.criado_em.localeCompare(b.criado_em)),
       )
       return { anterior }
@@ -172,8 +173,8 @@ export function useReordenarTopicos() {
 export function useExcluirTopico() {
   const invalidar = useInvalidar()
   return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('topicos').delete().eq('id', id)
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.from('topicos').delete().in('id', ids)
       if (error) throw error
     },
     onSuccess: () => invalidar('topicos', 'estudos'),
@@ -184,7 +185,7 @@ export interface ItemImportacao {
   /** id da disciplina existente, ou null para criar */
   disciplinaId: string | null
   disciplinaNome: string
-  topicos: string[]
+  topicos: { nome: string; nivel: 0 | 1 }[]
 }
 
 /** Importação em lote: cria disciplinas novas e adiciona os tópicos no fim de cada uma */
@@ -202,12 +203,13 @@ export function useImportar() {
         if (error) throw error
         for (const d of data ?? []) idsPorNome.set(d.nome, d.id)
       }
-      const linhas: { disciplina_id: string; nome: string; ordem: number }[] = []
+      const linhas: { disciplina_id: string; nome: string; ordem: number; nivel: 0 | 1 }[] = []
       for (const item of itens) {
         const id = item.disciplinaId ?? idsPorNome.get(item.disciplinaNome)
         if (!id) continue
         const maior = topicosExistentes.filter((t) => t.disciplina_id === id).reduce((m, t) => Math.max(m, t.ordem), -1)
-        item.topicos.forEach((nome, i) => linhas.push({ disciplina_id: id, nome, ordem: maior + 1 + i }))
+        const temAnterior = topicosExistentes.some((t) => t.disciplina_id === id)
+        item.topicos.forEach((t, i) => linhas.push({ disciplina_id: id, nome: t.nome, ordem: maior + 1 + i, nivel: i === 0 && !temAnterior ? 0 : t.nivel }))
       }
       for (let i = 0; i < linhas.length; i += 500) {
         const { error } = await supabase.from('topicos').insert(linhas.slice(i, i + 500))

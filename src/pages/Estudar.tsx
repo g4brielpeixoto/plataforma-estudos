@@ -6,6 +6,7 @@ import { Botao, Campo, Dialogo, Entrada, Selecao } from '@/components/ui'
 import { useDisciplinas, useEstudos, useTopicos } from '@/hooks/dados'
 import { CONFIG_PADRAO, useCronometro, type ConfigPomodoro, type Modo } from '@/hooks/useCronometro'
 import { cn, formatarDuracao, formatarRelogio } from '@/lib/utils'
+import { rotuloSelecao } from '@/lib/topicos'
 
 const MODOS: { valor: Modo; rotulo: string }[] = [
   { valor: 'cronometro', rotulo: 'Cronômetro' },
@@ -152,7 +153,7 @@ export function Estudar() {
           <option value="">Tópico (opcional)</option>
           {topicosDaDisciplina.map((t) => (
             <option key={t.id} value={t.id}>
-              {t.nome}
+              {rotuloSelecao(t)}
             </option>
           ))}
         </Selecao>
