@@ -27,6 +27,7 @@ src/
   hooks/useCronometro.ts  cronômetro/timer/pomodoro; tempo derivado de Date.now(), estado no localStorage
   lib/indicadores.ts      cálculo dos 3 indicadores, filtro de período, resumo por tópico
   lib/importacao.ts       parser da importação em lote (# = disciplina, linha = tópico)
+  lib/constancia.ts       dias estudados (≥ 20 min), sequência, faixas do mapa de calor, semana atual
   lib/versiculos.ts       lista de versículos (Almeida Revista e Corrigida) do card da página inicial
   lib/supabase.ts         cliente (URL e chave publicável fixas, com override por env) + buscarTodos (paginação)
   components/ui.tsx       componentes base (Botao, Entrada, EntradaSenha, Selecao, Dialogo, Confirmar, Painel, SeloAcerto…)
@@ -38,7 +39,7 @@ supabase/definir-master.sql  define o e-mail do master
 
 ## Banco (Supabase, projeto `qudoenqafdaayrdnxkel`, região sa-east-1)
 
-Tabelas em `public`: `perfis`, `convites`, `disciplinas`, `topicos`, `estudos`. Funções auxiliares em `privado` (fora da API).
+Tabelas em `public`: `perfis`, `convites`, `disciplinas`, `topicos`, `estudos`, `metas` (metas semanais de minutos e questões, uma linha por usuário). Funções auxiliares em `privado` (fora da API).
 
 - **Cadastro só por convite:** trigger `privado.tratar_novo_usuario` em `auth.users` recusa e-mails fora de `convites` (o Supabase devolve "Database error saving new user", traduzido no front) e cria o `perfil` com o papel do convite.
 - **Master:** único que vê/cria/cancela convites e ativa/desativa usuários comuns. Não consegue criar outro master pelo app (só via SQL).
@@ -50,6 +51,7 @@ Tabelas em `public`: `perfis`, `convites`, `disciplinas`, `topicos`, `estudos`. 
 ## Regras de negócio
 
 - **Tempo de estudo** = soma de `duracao_segundos` no período. **Desempenho** = acertadas ÷ feitas no período. **Progresso no edital** = tópicos `concluido` ÷ total (não depende do período).
+- **Início:** Tempo de estudo (pizza por disciplina: hoje/semana/mês/total, comparação com o mesmo trecho do período anterior), Metas semanais (segunda a domingo), Constância (dias seguidos com ≥ 20 min), Heatmap dos últimos 12 meses (0: < 20 min, 1: < 1h, 2: < 2h, 3: < 4h, 4: ≥ 4h).
 - Faixas de acerto: ≥ 80% verde, 60–79% amarelo, < 60% vermelho (`nivelAcerto` em `lib/utils.ts`).
 - Pomodoro: só o tempo de foco conta como estudo; ao fim de cada fase o relógio para e espera o usuário.
 - Ordem dos tópicos: `useReordenarTopicos` grava a lista inteira numa só requisição (upsert por `id`, `ordem` = posição) com atualização otimista.

@@ -54,3 +54,10 @@ export type NovoEstudo = Pick<
   Estudo,
   'topico_id' | 'data_hora' | 'duracao_segundos' | 'questoes_feitas' | 'questoes_acertadas' | 'origem' | 'observacao'
 >
+
+export interface Metas {
+  user_id: string
+  minutos_semana: number | null
+  questoes_semana: number | null
+  atualizado_em: string
+}

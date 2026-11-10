@@ -4,8 +4,12 @@ import { Plus, Timer } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Constancia } from '@/components/Constancia'
 import { EstudoDialog } from '@/components/EstudoDialog'
 import { FiltroPeriodo, PainelIndicadores } from '@/components/Indicadores'
+import { MapaCalor } from '@/components/MapaCalor'
+import { MetasSemanais } from '@/components/MetasSemanais'
+import { TempoPizza } from '@/components/TempoPizza'
 import { BarraProgresso, Botao, Carregando, Painel, SeloAcerto } from '@/components/ui'
 import { VersiculoCard } from '@/components/VersiculoCard'
 import { useDisciplinas, useEstudos, useTopicos } from '@/hooks/dados'
@@ -149,6 +153,13 @@ export function Inicio() {
         </Painel>
       ) : (
         <>
+          <div className="mb-5 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <TempoPizza estudos={estudos.data ?? []} topicos={topicos.data ?? []} disciplinas={disciplinas.data ?? []} className="md:row-span-2 xl:row-span-1" />
+            <MetasSemanais estudos={estudos.data ?? []} />
+            <Constancia estudos={estudos.data ?? []} />
+          </div>
+          <MapaCalor estudos={estudos.data ?? []} className="mb-10" />
+
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-tinta">Seu desempenho</h2>
             <FiltroPeriodo valor={periodo} aoMudar={setPeriodo} />

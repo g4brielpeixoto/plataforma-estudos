@@ -27,6 +27,13 @@
   --c-medio-fundo: #f7ecd2;
   --c-ruim: #b0443f;
   --c-ruim-fundo: #f6e0de;
+  --c-meta-questoes: #2fc49b;
+  --c-meta-questoes-texto: #11694f;
+  --c-calor-0: #ece4ed;
+  --c-calor-1: #dfcae1;
+  --c-calor-2: #c0a0c3;
+  --c-calor-3: #a788ab;
+  --c-calor-4: #8f7193;
   color-scheme: light;
 }
 
@@ -50,6 +57,13 @@
   --c-medio-fundo: #3a2f17;
   --c-ruim: #ec958f;
   --c-ruim-fundo: #3d2221;
+  --c-meta-questoes: #4fd1ab;
+  --c-meta-questoes-texto: #7fe0c2;
+  --c-calor-0: #30273a;
+  --c-calor-1: #4b3a51;
+  --c-calor-2: #6e5574;
+  --c-calor-3: #a788ab;
+  --c-calor-4: #dfcae1;
   color-scheme: dark;
 }
 
@@ -73,6 +87,8 @@
   --color-medio-fundo: var(--c-medio-fundo);
   --color-ruim: var(--c-ruim);
   --color-ruim-fundo: var(--c-ruim-fundo);
+  --color-meta-questoes: var(--c-meta-questoes);
+  --color-meta-questoes-texto: var(--c-meta-questoes-texto);
   --font-sans: 'Figtree', ui-sans-serif, system-ui, sans-serif;
   --font-serif: 'Literata', ui-serif, Georgia, serif;
 }

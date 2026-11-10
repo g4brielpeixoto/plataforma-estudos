@@ -15,6 +15,12 @@ export function formatarDuracao(segundos: number): string {
   return `${h}h${String(m).padStart(2, '0')}min`
 }
 
+/** Sempre com minutos: 14580 s → "4h03min"; 72000 s → "20h00min" */
+export function formatarHorasMinutos(segundos: number): string {
+  const totalMin = Math.floor(segundos / 60)
+  return `${Math.floor(totalMin / 60)}h${String(totalMin % 60).padStart(2, '0')}min`
+}
+
 /** Relógio "01:05:09" ou "05:09" */
 export function formatarRelogio(ms: number): { principal: string; segundos: string } {
   const total = Math.max(0, Math.floor(ms / 1000))

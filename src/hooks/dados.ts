@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { buscarTodos, supabase } from '@/lib/supabase'
-import type { Convite, Disciplina, Estudo, NovoEstudo, Perfil, Topico } from '@/types'
+import type { Convite, Disciplina, Estudo, Metas, NovoEstudo, Perfil, Topico } from '@/types'
 
 /*
   Acesso aos dados. Toda leitura usa o React Query (cache + recarga automática);
@@ -14,6 +14,7 @@ export const chaves = {
   estudos: ['estudos'] as const,
   perfis: ['perfis'] as const,
   convites: ['convites'] as const,
+  metas: ['metas'] as const,
 }
 
 // ---------- leituras ----------
@@ -68,6 +69,17 @@ export function useConvites(habilitado: boolean) {
       const { data, error } = await supabase.from('convites').select('*').order('criado_em', { ascending: false })
       if (error) throw error
       return data as Convite[]
+    },
+  })
+}
+
+export function useMetas() {
+  return useQuery({
+    queryKey: chaves.metas,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('metas').select('*').maybeSingle()
+      if (error) throw error
+      return (data as Metas | null) ?? null
     },
   })
 }
@@ -271,5 +283,18 @@ export function useAlterarAtivo() {
       if (error) throw error
     },
     onSuccess: () => invalidar('perfis'),
+  })
+}
+
+export function useSalvarMetas() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async ({ userId, minutos, questoes }: { userId: string; minutos: number | null; questoes: number | null }) => {
+      const { error } = await supabase
+        .from('metas')
+        .upsert({ user_id: userId, minutos_semana: minutos, questoes_semana: questoes, atualizado_em: new Date().toISOString() }, { onConflict: 'user_id' })
+      if (error) throw error
+    },
+    onSuccess: () => invalidar('metas'),
   })
 }
