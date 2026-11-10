@@ -1,100 +1,163 @@
 import { arrayMove } from '@dnd-kit/sortable'
-import type { Topico } from '@/types'
+import type { NivelTopico, Topico } from '@/types'
 
 /*
-  Tópicos e subtópicos ficam numa lista única, na ordem da disciplina.
-  Um subtópico (nivel 1) pertence ao tópico de nível 0 que vem logo antes dele.
-  Assim a ordem continua simples (um número só) e o recuo é só uma marcação.
+  Tópicos ficam numa lista única, na ordem da disciplina, com um nível:
+  0 = tópico, 1 = subtópico, 2 = subtópico do subtópico.
+  Cada item pertence ao item mais próximo acima dele com um nível a menos.
+  A "subárvore" de um item é ele mais os itens seguintes com nível maior.
 */
 
-export interface Bloco {
-  pai: Topico
-  filhos: Topico[]
-}
+export const NIVEL_MAXIMO: NivelTopico = 2
 
-/** Garante que a lista não comece com um subtópico */
+/** Garante uma árvore válida: começa no nível 0 e nunca pula mais de um nível para baixo */
 export function normalizar(lista: Topico[]): Topico[] {
-  return lista.map((t, i) => (i === 0 && t.nivel !== 0 ? { ...t, nivel: 0 } : t))
+  let anterior = -1
+  return lista.map((t) => {
+    const nivel = Math.max(0, Math.min(t.nivel, anterior + 1, NIVEL_MAXIMO)) as NivelTopico
+    anterior = nivel
+    return nivel === t.nivel ? t : { ...t, nivel }
+  })
 }
 
-export function emBlocos(lista: Topico[]): Bloco[] {
-  const blocos: Bloco[] = []
-  for (const t of normalizar(lista)) {
-    if (t.nivel === 0 || blocos.length === 0) blocos.push({ pai: t, filhos: [] })
-    else blocos[blocos.length - 1].filhos.push(t)
-  }
-  return blocos
+/** Índice (exclusivo) onde termina a subárvore que começa em i */
+export function fimSubarvore(lista: Topico[], i: number): number {
+  let j = i + 1
+  while (j < lista.length && lista[j].nivel > lista[i].nivel) j++
+  return j
 }
 
-export const achatar = (blocos: Bloco[]) => blocos.flatMap((b) => [b.pai, ...b.filhos])
+const indice = (lista: Topico[], id: string) => lista.findIndex((t) => t.id === id)
 
-/** Numeração exibida: "2" para tópicos, "2.1" para subtópicos */
+/** Todos os itens abaixo de um tópico (filhos, netos) */
+export function descendentesDe(lista: Topico[], id: string): Topico[] {
+  const i = indice(lista, id)
+  return i < 0 ? [] : lista.slice(i + 1, fimSubarvore(lista, i))
+}
+
+/** Só os filhos diretos */
+export function filhosDe(lista: Topico[], id: string): Topico[] {
+  const i = indice(lista, id)
+  if (i < 0) return []
+  return descendentesDe(lista, id).filter((t) => t.nivel === lista[i].nivel + 1)
+}
+
+export function paiDe(lista: Topico[], id: string): Topico | undefined {
+  const i = indice(lista, id)
+  if (i <= 0 || lista[i].nivel === 0) return undefined
+  for (let k = i - 1; k >= 0; k--) if (lista[k].nivel === lista[i].nivel - 1) return lista[k]
+  return undefined
+}
+
+/** Itens no mesmo nível e com o mesmo pai */
+export function irmaosDe(lista: Topico[], id: string): Topico[] {
+  const pai = paiDe(lista, id)
+  return pai ? filhosDe(lista, pai.id) : lista.filter((t) => t.nivel === 0)
+}
+
+/** Numeração exibida: "4", "4.2", "4.2.1" */
 export function numeracao(lista: Topico[]): Map<string, string> {
   const mapa = new Map<string, string>()
-  emBlocos(lista).forEach((b, i) => {
-    mapa.set(b.pai.id, String(i + 1))
-    b.filhos.forEach((f, j) => mapa.set(f.id, `${i + 1}.${j + 1}`))
-  })
+  const contador = [0, 0, 0]
+  for (const t of normalizar(lista)) {
+    contador[t.nivel]++
+    for (let k = t.nivel + 1; k < contador.length; k++) contador[k] = 0
+    mapa.set(t.id, contador.slice(0, t.nivel + 1).join('.'))
+  }
   return mapa
 }
 
-/** Subtópicos de um tópico */
-export function filhosDe(lista: Topico[], id: string): Topico[] {
-  return emBlocos(lista).find((b) => b.pai.id === id)?.filhos ?? []
-}
-
-/** Tópico pai de um subtópico */
-export function paiDe(lista: Topico[], id: string): Topico | undefined {
-  return emBlocos(lista).find((b) => b.filhos.some((f) => f.id === id))?.pai
-}
-
 /**
- * Arrastar: um tópico leva junto os seus subtópicos e só pousa entre blocos;
- * um subtópico se move sozinho e passa a pertencer ao tópico que ficar acima dele.
+ * Arrastar: o item leva junto tudo o que está abaixo dele.
+ * Ele pousa antes (subindo) ou depois (descendo) do alvo — ou do "ancestral" do alvo
+ * que tem o mesmo nível dele — e mantém o nível sempre que possível.
  */
 export function moverPorArrasto(lista: Topico[], idAtivo: string, idAlvo: string): Topico[] {
-  const ativo = lista.find((t) => t.id === idAtivo)
-  if (!ativo || idAtivo === idAlvo) return lista
-  if (ativo.nivel === 0) {
-    const blocos = emBlocos(lista)
-    const de = blocos.findIndex((b) => b.pai.id === idAtivo)
-    const para = blocos.findIndex((b) => b.pai.id === idAlvo || b.filhos.some((f) => f.id === idAlvo))
-    if (de < 0 || para < 0) return lista
-    return achatar(arrayMove(blocos, de, para))
-  }
-  const de = lista.findIndex((t) => t.id === idAtivo)
-  const para = lista.findIndex((t) => t.id === idAlvo)
-  return normalizar(arrayMove(lista, de, para))
+  const L = normalizar(lista)
+  const a = indice(L, idAtivo)
+  const alvo = indice(L, idAlvo)
+  if (a < 0 || alvo < 0) return lista
+  const fimA = fimSubarvore(L, a)
+  if (alvo >= a && alvo < fimA) return lista
+
+  const nivelA = L[a].nivel
+  let ancora = L[alvo]
+  while (ancora.nivel > nivelA) ancora = paiDe(L, ancora.id) ?? ancora
+
+  const fatia = L.slice(a, fimA)
+  const resto = [...L.slice(0, a), ...L.slice(fimA)]
+  let pos = indice(resto, ancora.id)
+  if (alvo > a) pos = fimSubarvore(resto, pos)
+
+  const anterior = pos > 0 ? resto[pos - 1].nivel : -1
+  const delta = Math.min(nivelA, anterior + 1) - nivelA
+  const movida = fatia.map((t) => ({ ...t, nivel: (t.nivel + delta) as NivelTopico }))
+  return normalizar([...resto.slice(0, pos), ...movida, ...resto.slice(pos)])
 }
 
-/** Digitar a posição: tópicos entre tópicos; subtópicos entre os irmãos */
+/** Digitar a posição: o item (com o que está abaixo dele) muda de lugar entre os irmãos */
 export function moverParaPosicao(lista: Topico[], id: string, posicao: number): Topico[] {
-  const blocos = emBlocos(lista)
-  const bi = blocos.findIndex((b) => b.pai.id === id)
-  if (bi >= 0) {
-    const para = Math.max(0, Math.min(blocos.length - 1, Math.round(posicao) - 1))
-    return para === bi ? lista : achatar(arrayMove(blocos, bi, para))
+  const L = normalizar(lista)
+  const pai = paiDe(L, id)
+  const ini = pai ? indice(L, pai.id) + 1 : 0
+  const fim = pai ? fimSubarvore(L, indice(L, pai.id)) : L.length
+  const blocos: Topico[][] = []
+  for (let k = ini; k < fim; ) {
+    const e = fimSubarvore(L, k)
+    blocos.push(L.slice(k, e))
+    k = e
   }
-  const b = blocos.find((x) => x.filhos.some((f) => f.id === id))
-  if (!b) return lista
-  const ci = b.filhos.findIndex((f) => f.id === id)
-  const para = Math.max(0, Math.min(b.filhos.length - 1, Math.round(posicao) - 1))
-  if (para === ci) return lista
-  b.filhos = arrayMove(b.filhos, ci, para)
-  return achatar(blocos)
+  const de = blocos.findIndex((b) => b[0].id === id)
+  if (de < 0 || !Number.isFinite(posicao)) return lista
+  const para = Math.max(0, Math.min(blocos.length - 1, Math.round(posicao) - 1))
+  if (para === de) return lista
+  return [...L.slice(0, ini), ...arrayMove(blocos, de, para).flat(), ...L.slice(fim)]
 }
 
-/** Tornar subtópico do tópico de cima (só para tópico sem subtópicos e que não é o primeiro) */
+/** Profundidade máxima dentro da subárvore (o próprio item incluso) */
+function nivelMaisFundo(lista: Topico[], i: number): number {
+  let m: number = lista[i].nivel
+  for (let k = i + 1; k < fimSubarvore(lista, i); k++) m = Math.max(m, lista[k].nivel)
+  return m
+}
+
+/** Pode virar filho do irmão de cima? (precisa ter irmão acima e não passar do 3º nível) */
 export function podeRecuar(lista: Topico[], id: string): boolean {
-  const i = lista.findIndex((t) => t.id === id)
-  return i > 0 && lista[i].nivel === 0 && filhosDe(lista, id).length === 0
+  const L = normalizar(lista)
+  const i = indice(L, id)
+  return i > 0 && L[i - 1].nivel >= L[i].nivel && nivelMaisFundo(L, i) < NIVEL_MAXIMO
 }
 
-export function definirNivel(lista: Topico[], id: string, nivel: 0 | 1): Topico[] {
-  return normalizar(lista.map((t) => (t.id === id ? { ...t, nivel } : t)))
+/** Vira filho do irmão de cima, levando junto o que está abaixo */
+export function recuar(lista: Topico[], id: string): Topico[] {
+  if (!podeRecuar(lista, id)) return lista
+  const L = normalizar(lista)
+  const i = indice(L, id)
+  const fim = fimSubarvore(L, i)
+  return L.map((t, k) => (k >= i && k < fim ? { ...t, nivel: (t.nivel + 1) as NivelTopico } : t))
 }
 
-/** Rótulo para listas de seleção: subtópicos com recuo */
+/** Sobe um nível: sai de dentro do pai e passa a vir logo depois dele */
+export function avancar(lista: Topico[], id: string): Topico[] {
+  const L = normalizar(lista)
+  const i = indice(L, id)
+  const pai = paiDe(L, id)
+  if (i < 0 || !pai) return lista
+  const fim = fimSubarvore(L, i)
+  const fatia = L.slice(i, fim).map((t) => ({ ...t, nivel: (t.nivel - 1) as NivelTopico }))
+  const resto = [...L.slice(0, i), ...L.slice(fim)]
+  const pos = fimSubarvore(resto, indice(resto, pai.id))
+  return normalizar([...resto.slice(0, pos), ...fatia, ...resto.slice(pos)])
+}
+
+/** Insere um novo item como último filho de `pai` */
+export function inserirFilho(lista: Topico[], pai: Topico, novo: Topico): Topico[] {
+  const L = normalizar(lista)
+  const pos = fimSubarvore(L, indice(L, pai.id))
+  return [...L.slice(0, pos), { ...novo, nivel: Math.min(pai.nivel + 1, NIVEL_MAXIMO) as NivelTopico }, ...L.slice(pos)]
+}
+
+/** Rótulo para listas de seleção: recuo conforme o nível */
 export function rotuloSelecao(t: Topico): string {
-  return t.nivel === 1 ? ` ↳ ${t.nome}` : t.nome
+  return t.nivel === 0 ? t.nome : `${' '.repeat(t.nivel)}↳ ${t.nome}`
 }

@@ -1,5 +1,7 @@
 export type Papel = 'master' | 'usuario'
 export type Origem = 'manual' | 'cronometro' | 'timer' | 'pomodoro'
+/** 0 = tópico, 1 = subtópico, 2 = subtópico do subtópico */
+export type NivelTopico = 0 | 1 | 2
 
 export interface Perfil {
   user_id: string
@@ -32,8 +34,8 @@ export interface Topico {
   disciplina_id: string
   nome: string
   ordem: number
-  /** 0 = tópico; 1 = subtópico do tópico de nível 0 logo acima */
-  nivel: 0 | 1
+  /** 0 = tópico, 1 = subtópico, 2 = subtópico do subtópico (pertence ao item acima com um nível a menos) */
+  nivel: NivelTopico
   concluido: boolean
   concluido_em: string | null
   criado_em: string

@@ -9,6 +9,7 @@ import { AreaTexto, Botao, Dialogo } from './ui'
 const EXEMPLO_EDITAL = `# Direito do Trabalho
 6.1 Jornada de trabalho
     Jornada de trabalho 2
+        Jornada parcial
 6.2 Horas suplementares
 6.3 Contrato a tempo parcial
 6.4 Intervalos
@@ -18,6 +19,7 @@ const EXEMPLO_EDITAL = `# Direito do Trabalho
 
 const EXEMPLO_TOPICOS = `6.1 Jornada de trabalho
     Jornada de trabalho 2
+        Jornada parcial
 6.2 Horas suplementares
 6.3 Contrato a tempo parcial
 6.4 Intervalos`
@@ -99,7 +101,7 @@ export function ImportarDialog({
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
           />
-          <p className="mt-2 text-sm text-tinta-suave">Comece a linha com espaços ou tab para criar um subtópico. Linhas vazias e tópicos repetidos são ignorados.</p>
+          <p className="mt-2 text-sm text-tinta-suave">Recue a linha com espaços ou tab para criar um subtópico; recue mais para um subtópico do subtópico. Linhas vazias e tópicos repetidos são ignorados.</p>
         </div>
 
         <div className="flex flex-col rounded-2xl bg-superficie-2 p-4">
@@ -125,8 +127,8 @@ export function ImportarDialog({
                       </p>
                       <ul className="mt-1 space-y-0.5 border-l-2 border-lilas pl-3">
                         {d.novos.map((t) => (
-                          <li key={t.nome} className={t.nivel === 1 ? 'pl-4 text-tinta-suave' : 'text-tinta'}>
-                            {t.nivel === 1 && <span aria-hidden>↳ </span>}
+                          <li key={t.nome} className={t.nivel > 0 ? 'text-tinta-suave' : 'text-tinta'} style={{ paddingLeft: t.nivel * 16 }}>
+                            {t.nivel > 0 && <span aria-hidden>↳ </span>}
                             {t.nome}
                           </li>
                         ))}

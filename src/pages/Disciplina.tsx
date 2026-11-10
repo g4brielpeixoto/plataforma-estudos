@@ -8,7 +8,7 @@ import { ListaTopicos } from '@/components/ListaTopicos'
 import { BarraProgresso, Botao, Carregando, Confirmar, Dialogo, Entrada, Painel, Vazio } from '@/components/ui'
 import { useDisciplinas, useEstudos, useExcluirTopico, useReordenarTopicos, useSalvarTopico, useTopicos } from '@/hooks/dados'
 import { calcularIndicadores, resumirPorTopico } from '@/lib/indicadores'
-import { filhosDe } from '@/lib/topicos'
+import { descendentesDe, inserirFilho } from '@/lib/topicos'
 import { cn, formatarDuracao, mensagemErro, normalizar } from '@/lib/utils'
 import type { Topico } from '@/types'
 
@@ -64,9 +64,9 @@ export function Disciplina() {
   const alternarConcluido = (t: Topico) =>
     salvarTopico.mutate({ id: t.id, concluido: !t.concluido }, { onError: (e) => toast.error(mensagemErro(e)) })
 
-  const filhosExcluindo = excluindo && excluindo.nivel === 0 ? filhosDe(meus, excluindo.id) : []
+  const filhosExcluindo = excluindo ? descendentesDe(meus, excluindo.id) : []
 
-  /** Cria o subtópico logo depois do último subtópico do pai, numa única gravação */
+  /** Cria o subtópico como último item dentro do pai, numa única gravação */
   const adicionarSubtopico = (e: FormEvent) => {
     e.preventDefault()
     const nome = nomeSub.trim()
@@ -83,10 +83,7 @@ export function Disciplina() {
       concluido_em: null,
       criado_em: new Date().toISOString(),
     }
-    const irmaos = filhosDe(meus, subDe.id)
-    const depoisDe = irmaos.length ? irmaos[irmaos.length - 1].id : subDe.id
-    const i = meus.findIndex((t) => t.id === depoisDe)
-    const nova = [...meus.slice(0, i + 1), novoTopico, ...meus.slice(i + 1)]
+    const nova = inserirFilho(meus, subDe, novoTopico)
     reordenar.mutate(nova, {
       onSuccess: () => setSubDe(null),
       onError: (err) => toast.error(mensagemErro(err)),
@@ -237,10 +234,10 @@ export function Disciplina() {
       <Confirmar
         aberto={!!excluindo}
         aoMudar={(a) => !a && setExcluindo(null)}
-        titulo={excluindo?.nivel === 1 ? 'Excluir subtópico?' : 'Excluir tópico?'}
+        titulo={excluindo && excluindo.nivel > 0 ? 'Excluir subtópico?' : 'Excluir tópico?'}
         texto={
           filhosExcluindo.length
-            ? `"${excluindo?.nome ?? ''}", os ${filhosExcluindo.length === 1 ? 'seu subtópico' : `seus ${filhosExcluindo.length} subtópicos`} e os estudos registrados neles serão excluídos. Isso não pode ser desfeito.`
+            ? `"${excluindo?.nome ?? ''}", ${filhosExcluindo.length === 1 ? 'o subtópico dentro dele' : `os ${filhosExcluindo.length} subtópicos dentro dele`} e os estudos registrados neles serão excluídos. Isso não pode ser desfeito.`
             : `"${excluindo?.nome ?? ''}" e os estudos registrados nele serão excluídos. Isso não pode ser desfeito.`
         }
         textoBotao="Excluir tópico"

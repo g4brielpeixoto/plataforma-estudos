@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { buscarTodos, supabase } from '@/lib/supabase'
-import type { Convite, Disciplina, Estudo, Metas, NovoEstudo, Perfil, Topico } from '@/types'
+import type { Convite, Disciplina, Estudo, Metas, NivelTopico, NovoEstudo, Perfil, Topico } from '@/types'
 
 /*
   Acesso aos dados. Toda leitura usa o React Query (cache + recarga automática);
@@ -119,7 +119,7 @@ export function useExcluirDisciplina() {
 export function useSalvarTopico() {
   const invalidar = useInvalidar()
   return useMutation({
-    mutationFn: async (t: { id?: string; disciplina_id?: string; nome?: string; ordem?: number; nivel?: 0 | 1; concluido?: boolean }) => {
+    mutationFn: async (t: { id?: string; disciplina_id?: string; nome?: string; ordem?: number; nivel?: NivelTopico; concluido?: boolean }) => {
       const dados: Partial<Topico> = {}
       if (t.nome !== undefined) dados.nome = t.nome.trim()
       if (t.ordem !== undefined) dados.ordem = t.ordem
@@ -185,7 +185,7 @@ export interface ItemImportacao {
   /** id da disciplina existente, ou null para criar */
   disciplinaId: string | null
   disciplinaNome: string
-  topicos: { nome: string; nivel: 0 | 1 }[]
+  topicos: { nome: string; nivel: NivelTopico }[]
 }
 
 /** Importação em lote: cria disciplinas novas e adiciona os tópicos no fim de cada uma */
@@ -203,7 +203,7 @@ export function useImportar() {
         if (error) throw error
         for (const d of data ?? []) idsPorNome.set(d.nome, d.id)
       }
-      const linhas: { disciplina_id: string; nome: string; ordem: number; nivel: 0 | 1 }[] = []
+      const linhas: { disciplina_id: string; nome: string; ordem: number; nivel: NivelTopico }[] = []
       for (const item of itens) {
         const id = item.disciplinaId ?? idsPorNome.get(item.disciplinaNome)
         if (!id) continue

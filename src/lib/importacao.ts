@@ -1,4 +1,5 @@
-import type { Disciplina, Topico } from '@/types'
+import type { Disciplina, NivelTopico, Topico } from '@/types'
+import { NIVEL_MAXIMO } from './topicos'
 import { normalizar } from './utils'
 
 /** Limpa uma linha colada: tira marcadores de lista (-, •, *) e espaços, mas mantém a numeração (6.2, 1., I -) */
@@ -12,7 +13,7 @@ export function limparLinha(linha: string): string {
 
 export interface NovoTopico {
   nome: string
-  nivel: 0 | 1
+  nivel: NivelTopico
 }
 
 export interface PreviaTopicos {
@@ -20,25 +21,43 @@ export interface PreviaTopicos {
   repetidos: string[]
 }
 
-/** Linha recuada (tab ou 2+ espaços no começo) vira subtópico do tópico de cima */
-const recuada = (linha: string) => /^(\t| {2,})\S/.test(linha)
+/** Largura do recuo no começo da linha (tab vale 4 espaços) */
+const larguraRecuo = (linha: string) => {
+  const m = linha.match(/^[\t ]*/)?.[0] ?? ''
+  return [...m].reduce((s, c) => s + (c === '\t' ? 4 : 1), 0)
+}
 
-/** Uma linha = um tópico. Ignora linhas vazias e tópicos que já existem ou se repetem. */
+/**
+ * Uma linha = um tópico. Quanto mais recuada a linha (espaços ou tab), mais fundo o nível:
+ * cada recuo maior que o da linha de cima desce um nível (até o 3º).
+ * Ignora linhas vazias e tópicos que já existem ou se repetem.
+ */
 export function analisarTopicos(texto: string, existentes: string[]): PreviaTopicos {
   const vistos = new Set(existentes.map(normalizar))
   const novos: NovoTopico[] = []
   const repetidos: string[] = []
+  // larguras de recuo de cada nível no caminho atual; com tópicos já existentes, coluna 0 = nível 0
+  const pilha: number[] = existentes.length ? [0] : []
   for (const bruta of texto.split(/\r?\n/)) {
     const linha = limparLinha(bruta)
     if (!linha) continue
+    const largura = larguraRecuo(bruta)
+    let nivel: number
+    if (!pilha.length) {
+      pilha.push(largura)
+      nivel = 0
+    } else {
+      while (pilha.length > 1 && largura < pilha[pilha.length - 1]) pilha.pop()
+      if (largura > pilha[pilha.length - 1] + 1 && pilha.length <= NIVEL_MAXIMO) pilha.push(largura)
+      nivel = pilha.length - 1
+    }
     const chave = normalizar(linha)
     if (vistos.has(chave)) {
       repetidos.push(linha)
       continue
     }
     vistos.add(chave)
-    const temAnterior = novos.length > 0 || existentes.length > 0
-    novos.push({ nome: linha, nivel: recuada(bruta) && temAnterior ? 1 : 0 })
+    novos.push({ nome: linha, nivel: nivel as NivelTopico })
   }
   return { novos, repetidos }
 }
@@ -70,7 +89,7 @@ export function analisarEdital(texto: string, disciplinas: Disciplina[], topicos
     const linha = limparLinha(bruta)
     if (!linha) continue
     if (grupos.length === 0) semDisciplina.push(linha)
-    else grupos[grupos.length - 1].linhas.push(recuada(bruta) ? `  ${linha}` : linha)
+    else grupos[grupos.length - 1].linhas.push(`${bruta.match(/^[\t ]*/)?.[0] ?? ''}${linha}`)
   }
 
   // junta grupos repetidos (a mesma disciplina aparecendo duas vezes)

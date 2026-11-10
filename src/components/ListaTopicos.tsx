@@ -4,10 +4,10 @@ import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalList
 import { CSS } from '@dnd-kit/utilities'
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { format } from 'date-fns'
-import { EllipsisVertical, GripVertical, IndentDecrease, IndentIncrease, ListPlus, Pencil, Trash2 } from 'lucide-react'
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { ChevronRight, EllipsisVertical, GripVertical, IndentDecrease, IndentIncrease, ListPlus, Pencil, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { somarResumos, type ResumoTopico } from '@/lib/indicadores'
-import { definirNivel, filhosDe, moverParaPosicao, moverPorArrasto, numeracao, paiDe, podeRecuar } from '@/lib/topicos'
+import { avancar, descendentesDe, filhosDe, irmaosDe, moverParaPosicao, moverPorArrasto, NIVEL_MAXIMO, numeracao, paiDe, podeRecuar, recuar } from '@/lib/topicos'
 import { cn, formatarDuracao } from '@/lib/utils'
 import type { Topico } from '@/types'
 import { Botao, Entrada, SeloAcerto } from './ui'
@@ -18,7 +18,7 @@ interface Props {
   /** os que aparecem no filtro atual */
   visiveis: Topico[]
   porTopico: Map<string, ResumoTopico>
-  /** arrastar só faz sentido com a lista completa */
+  /** arrastar e recolher só fazem sentido com a lista completa */
   podeArrastar: boolean
   /** recebe a lista inteira na nova ordem (e com os níveis atualizados) */
   aoReordenar: (novaOrdem: Topico[]) => void
@@ -33,12 +33,53 @@ const instrucoes = {
     'Para mover um tópico, pressione espaço ou Enter, use as setas para cima e para baixo e pressione espaço ou Enter de novo para soltar. Esc cancela. Um tópico leva junto os seus subtópicos.',
 }
 
+/** Tópicos recolhidos ficam salvos no navegador, por disciplina */
+function useRecolhidos(disciplinaId: string | undefined) {
+  const chave = `recolhidos:${disciplinaId ?? ''}`
+  const ler = () => {
+    try {
+      return new Set<string>(JSON.parse(localStorage.getItem(chave) ?? '[]'))
+    } catch {
+      return new Set<string>()
+    }
+  }
+  const [recolhidos, setRecolhidos] = useState<Set<string>>(ler)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => setRecolhidos(ler()), [chave])
+  const salvar = (novo: Set<string>) => {
+    setRecolhidos(novo)
+    try {
+      localStorage.setItem(chave, JSON.stringify([...novo]))
+    } catch {
+      /* sem armazenamento: só não fica salvo */
+    }
+  }
+  return [recolhidos, salvar] as const
+}
+
 export function ListaTopicos({ topicos, visiveis, porTopico, podeArrastar, aoReordenar, aoAlternarConcluido, aoRenomear, aoExcluir, aoAdicionarSubtopico }: Props) {
   const sensores = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
-  const numeros = numeracao(topicos)
+  const numeros = useMemo(() => numeracao(topicos), [topicos])
+  const [recolhidos, setRecolhidos] = useRecolhidos(topicos[0]?.disciplina_id)
+
+  const comFilhos = useMemo(() => new Set(topicos.filter((t) => filhosDe(topicos, t.id).length > 0).map((t) => t.id)), [topicos])
+  const ocultos = useMemo(() => {
+    const s = new Set<string>()
+    for (const id of recolhidos) if (comFilhos.has(id)) for (const d of descendentesDe(topicos, id)) s.add(d.id)
+    return s
+  }, [recolhidos, comFilhos, topicos])
+  const exibidos = podeArrastar ? visiveis.filter((t) => !ocultos.has(t.id)) : visiveis
+  const algumRecolhido = [...recolhidos].some((id) => comFilhos.has(id))
+
+  const alternarRecolhido = (id: string) => {
+    const novo = new Set(recolhidos)
+    if (novo.has(id)) novo.delete(id)
+    else novo.add(id)
+    setRecolhidos(novo)
+  }
 
   const aoSoltar = ({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) return
@@ -62,42 +103,62 @@ export function ListaTopicos({ topicos, visiveis, porTopico, podeArrastar, aoReo
         },
       }}
     >
-      <SortableContext items={visiveis.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-        <div className="hidden items-center gap-3 px-4 pt-3 pb-1 text-xs font-semibold tracking-[0.08em] whitespace-nowrap text-tinta-suave uppercase md:flex" aria-hidden>
-          <span className="flex-1">Tópico</span>
-          <span className={COL_QUESTOES}>Questões</span>
-          <span className={COL_DATA}>Último estudo</span>
-          <span className={COL_ESTUDO}>Estudo</span>
-          <span className="w-9 shrink-0" />
+      <SortableContext items={exibidos.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+        <div className="flex items-center gap-3 px-4 pt-3 pb-1 text-[11px] font-semibold tracking-[0.06em] whitespace-nowrap text-tinta-suave uppercase">
+          <span className="flex min-w-0 flex-1 items-center gap-3">
+            <span className="hidden md:inline" aria-hidden>
+              Tópico
+            </span>
+            {podeArrastar && comFilhos.size > 0 && (
+              <button
+                onClick={() => setRecolhidos(algumRecolhido ? new Set() : new Set(comFilhos))}
+                className="rounded-md px-1.5 py-0.5 text-xs font-medium tracking-normal normal-case text-primaria-forte hover:bg-superficie-2 dark:text-primaria"
+              >
+                {algumRecolhido ? 'Expandir tudo' : 'Recolher tudo'}
+              </button>
+            )}
+          </span>
+          <span className={cn(COL_QUESTOES, 'hidden md:block')} aria-hidden>
+            Questões
+          </span>
+          <span className={cn(COL_DATA, 'hidden md:block')} aria-hidden>
+            Último estudo
+          </span>
+          <span className={cn(COL_ESTUDO, 'hidden md:block')} aria-hidden>
+            Estudo
+          </span>
+          <span className="hidden w-9 shrink-0 md:block" />
         </div>
         <ul className="p-2">
-          {visiveis.map((t) => {
-            const pai = t.nivel === 1 ? paiDe(topicos, t.id) : undefined
-            const irmaos = pai ? filhosDe(topicos, pai.id).length : topicos.filter((x) => x.nivel === 0).length
+          {exibidos.map((t) => {
+            const pai = paiDe(topicos, t.id)
+            const descendentes = descendentesDe(topicos, t.id)
             return (
               <LinhaTopico
                 key={t.id}
                 topico={t}
                 numero={numeros.get(t.id) ?? ''}
-                maximo={irmaos}
+                maximo={irmaosDe(topicos, t.id).length}
                 nomePai={pai?.nome}
-                qtdFilhos={t.nivel === 0 ? filhosDe(topicos, t.id).length : 0}
-                resumo={
-                  t.nivel === 0 && filhosDe(topicos, t.id).length
-                    ? somarResumos([porTopico.get(t.id), ...filhosDe(topicos, t.id).map((f) => porTopico.get(f.id))])
-                    : porTopico.get(t.id)
-                }
+                qtdFilhos={filhosDe(topicos, t.id).length}
+                resumo={descendentes.length ? somarResumos([porTopico.get(t.id), ...descendentes.map((f) => porTopico.get(f.id))]) : porTopico.get(t.id)}
                 podeArrastar={podeArrastar}
+                recolhido={podeArrastar && comFilhos.has(t.id) ? recolhidos.has(t.id) : undefined}
+                aoAlternarRecolhido={() => alternarRecolhido(t.id)}
                 podeRecuar={podeRecuar(topicos, t.id)}
                 aoMoverPara={(n) => {
                   const nova = moverParaPosicao(topicos, t.id, n)
                   if (nova !== topicos) aoReordenar(nova)
                 }}
-                aoMudarNivel={(nivel) => aoReordenar(definirNivel(topicos, t.id, nivel))}
+                aoRecuar={() => aoReordenar(recuar(topicos, t.id))}
+                aoAvancar={() => aoReordenar(avancar(topicos, t.id))}
                 aoAlternarConcluido={() => aoAlternarConcluido(t)}
                 aoRenomear={(nome) => aoRenomear(t, nome)}
                 aoExcluir={() => aoExcluir(t)}
-                aoAdicionarSubtopico={() => aoAdicionarSubtopico(t)}
+                aoAdicionarSubtopico={() => {
+                  if (recolhidos.has(t.id)) alternarRecolhido(t.id)
+                  aoAdicionarSubtopico(t)
+                }}
               />
             )
           })}
@@ -107,14 +168,18 @@ export function ListaTopicos({ topicos, visiveis, porTopico, podeArrastar, aoReo
   )
 }
 
-const COL_QUESTOES = 'w-32 shrink-0 text-center'
-const COL_DATA = 'w-28 shrink-0 text-center'
-const COL_ESTUDO = 'w-28 shrink-0 text-center'
+const COL_QUESTOES = 'w-28 shrink-0 text-center'
+const COL_DATA = 'w-24 shrink-0 text-center'
+const COL_ESTUDO = 'w-24 shrink-0 text-center'
 
 const dataCurta = (iso: string) => format(new Date(iso), 'dd/MM/yy')
 
 function Traco() {
-  return <span className="text-lilas" aria-label="sem registro">—</span>
+  return (
+    <span className="text-lilas" aria-label="sem registro">
+      —
+    </span>
+  )
 }
 
 /** "6/10 60%": acertos em verde, total e selo de aproveitamento */
@@ -163,9 +228,12 @@ function LinhaTopico({
   qtdFilhos,
   resumo: r,
   podeArrastar,
+  recolhido,
+  aoAlternarRecolhido,
   podeRecuar,
   aoMoverPara,
-  aoMudarNivel,
+  aoRecuar,
+  aoAvancar,
   aoAlternarConcluido,
   aoRenomear,
   aoExcluir,
@@ -178,9 +246,13 @@ function LinhaTopico({
   qtdFilhos: number
   resumo?: ResumoTopico
   podeArrastar: boolean
+  /** undefined = não tem filhos (ou a lista está filtrada) */
+  recolhido?: boolean
+  aoAlternarRecolhido: () => void
   podeRecuar: boolean
   aoMoverPara: (n: number) => void
-  aoMudarNivel: (nivel: 0 | 1) => void
+  aoRecuar: () => void
+  aoAvancar: () => void
   aoAlternarConcluido: () => void
   aoRenomear: (nome: string) => Promise<boolean>
   aoExcluir: () => void
@@ -189,7 +261,7 @@ function LinhaTopico({
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: t.id, disabled: !podeArrastar })
   const [editandoNumero, setEditandoNumero] = useState<string | null>(null)
   const [renomeando, setRenomeando] = useState<string | null>(null)
-  const sub = t.nivel === 1
+  const sub = t.nivel > 0
   const posicaoAtual = numero.split('.').pop() ?? ''
 
   const confirmarNumero = () => {
@@ -208,7 +280,7 @@ function LinhaTopico({
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={cn(
-        'group relative flex items-center gap-2 rounded-xl py-2.5 pr-0.5 pl-0.5 sm:gap-3 sm:px-2',
+        'group relative flex items-center gap-1.5 rounded-xl py-2.5 pr-0.5 pl-0.5 sm:gap-2.5 sm:px-2',
         !sub && 'mt-1 before:absolute before:inset-x-2 before:-top-0.5 before:h-px before:bg-linha/60 first:mt-0 first:before:hidden',
         isDragging ? 'z-10 bg-superficie shadow-lg ring-1 ring-lilas' : 'hover:bg-superficie-2/70',
       )}
@@ -219,14 +291,35 @@ function LinhaTopico({
           {...attributes}
           {...listeners}
           aria-label={`Arrastar "${t.nome}" para mudar a ordem`}
-          className="-mr-1 flex h-9 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-lilas hover:text-tinta-suave active:cursor-grabbing sm:mr-0"
+          className="flex h-9 w-5 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-lilas hover:text-tinta-suave active:cursor-grabbing sm:w-6"
         >
           <GripVertical className="size-4" aria-hidden />
         </button>
       )}
 
-      {/* recuo do subtópico, com uma linha guia ligando ao tópico de cima */}
-      {sub && <span aria-hidden className="ml-1 h-9 w-5 shrink-0 rounded-bl-lg border-b-2 border-l-2 border-nevoa sm:ml-2 sm:w-6 -translate-y-3" />}
+      {/* recuo: uma linha guia ligando ao item de cima, mais funda a cada nível */}
+      {sub && (
+        <span
+          aria-hidden
+          className="h-9 w-3.5 shrink-0 -translate-y-3 rounded-bl-lg border-b-2 border-l-2 border-nevoa sm:w-5"
+          style={{ marginLeft: `calc(${t.nivel - 1} * var(--recuo-nivel))` }}
+        />
+      )}
+
+      {podeArrastar && (
+        <span className="flex w-5 shrink-0 justify-center">
+          {recolhido !== undefined && (
+            <button
+              onClick={aoAlternarRecolhido}
+              aria-expanded={!recolhido}
+              aria-label={recolhido ? `Mostrar os ${qtdFilhos} subtópicos de "${t.nome}"` : `Esconder os subtópicos de "${t.nome}"`}
+              className="grid size-6 place-items-center rounded-md text-tinta-suave hover:bg-nevoa hover:text-tinta"
+            >
+              <ChevronRight className={cn('size-4 transition-transform', !recolhido && 'rotate-90')} aria-hidden />
+            </button>
+          )}
+        </span>
+      )}
 
       {editandoNumero !== null ? (
         <input
@@ -252,7 +345,9 @@ function LinhaTopico({
           aria-label={`Posição ${numero}. Toque para mudar`}
           className={cn(
             'h-8 shrink-0 rounded-lg px-1.5 font-semibold numeros hover:bg-nevoa hover:text-tinta',
-            sub ? 'min-w-9 bg-transparent text-xs text-tinta-suave ring-1 ring-linha ring-inset' : 'min-w-8 bg-superficie-2 text-sm text-tinta-suave',
+            t.nivel === 0 && 'min-w-8 bg-superficie-2 text-sm text-tinta-suave',
+            t.nivel === 1 && 'min-w-9 bg-transparent text-xs text-tinta-suave ring-1 ring-linha ring-inset',
+            t.nivel === 2 && 'min-w-10 bg-transparent px-1 text-[11px] text-tinta-suave ring-1 ring-linha ring-inset',
           )}
         >
           {numero}
@@ -267,7 +362,7 @@ function LinhaTopico({
         aria-label={t.concluido ? `Desmarcar ${t.nome}` : `Marcar ${t.nome} como concluído`}
       />
 
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 pl-0.5">
         {renomeando !== null ? (
           <form onSubmit={salvarNome} className="flex gap-2">
             <Entrada
@@ -287,7 +382,9 @@ function LinhaTopico({
             <p
               className={cn(
                 'leading-snug break-words',
-                sub ? 'text-[14.5px]' : 'text-[15px] font-medium',
+                t.nivel === 0 && 'text-[15px] font-medium',
+                t.nivel === 1 && 'text-[14.5px]',
+                t.nivel === 2 && 'text-sm',
                 t.concluido ? 'text-tinta-suave line-through decoration-lilas' : 'text-tinta',
               )}
             >
@@ -335,20 +432,20 @@ function LinhaTopico({
             </Botao>
           </Menu.Trigger>
           <Menu.Portal>
-            <Menu.Content align="end" sideOffset={4} className="z-50 min-w-56 rounded-xl border border-linha bg-superficie p-1.5 shadow-xl">
-              {!sub && (
+            <Menu.Content align="end" sideOffset={4} className="z-50 min-w-60 rounded-xl border border-linha bg-superficie p-1.5 shadow-xl">
+              {t.nivel < NIVEL_MAXIMO && (
                 <ItemMenu icone={<ListPlus className="size-4" />} onSelect={aoAdicionarSubtopico}>
-                  Adicionar subtópico
+                  {t.nivel === 0 ? 'Adicionar subtópico' : 'Adicionar subtópico dentro deste'}
                 </ItemMenu>
               )}
               {podeRecuar && (
-                <ItemMenu icone={<IndentIncrease className="size-4" />} onSelect={() => aoMudarNivel(1)}>
-                  Tornar subtópico do de cima
+                <ItemMenu icone={<IndentIncrease className="size-4" />} onSelect={aoRecuar}>
+                  {t.nivel === 0 ? 'Tornar subtópico do de cima' : 'Colocar dentro do subtópico de cima'}
                 </ItemMenu>
               )}
               {sub && (
-                <ItemMenu icone={<IndentDecrease className="size-4" />} onSelect={() => aoMudarNivel(0)}>
-                  Transformar em tópico
+                <ItemMenu icone={<IndentDecrease className="size-4" />} onSelect={aoAvancar}>
+                  {t.nivel === 1 ? 'Transformar em tópico' : 'Transformar em subtópico'}
                 </ItemMenu>
               )}
               <ItemMenu icone={<Pencil className="size-4" />} onSelect={() => setRenomeando(t.nome)}>

@@ -54,7 +54,7 @@ Tabelas em `public`: `perfis`, `convites`, `disciplinas`, `topicos`, `estudos`, 
 - **Início:** Tempo de estudo (pizza por disciplina: hoje/semana/mês/total, comparação com o mesmo trecho do período anterior), Metas semanais (segunda a domingo), Constância (dias seguidos com ≥ 20 min), Heatmap dos últimos 12 meses (0: < 20 min, 1: < 1h, 2: < 2h, 3: < 4h, 4: ≥ 4h).
 - Faixas de acerto: ≥ 80% verde, 60–79% amarelo, < 60% vermelho (`nivelAcerto` em `lib/utils.ts`).
 - Pomodoro: só o tempo de foco conta como estudo; ao fim de cada fase o relógio para e espera o usuário.
-- **Subtópicos:** `topicos.nivel` (0 tópico, 1 subtópico). A lista da disciplina é única e ordenada; um subtópico pertence ao tópico de nível 0 logo acima. Regras em `lib/topicos.ts` (blocos, numeração 2 / 2.1, arrastar tópico leva os subtópicos, posição digitada do subtópico é entre os irmãos). Importação: linha começando com tab ou 2+ espaços vira subtópico.
+- **Subtópicos (até 3 níveis):** `topicos.nivel` (0 tópico, 1 subtópico, 2 subtópico do subtópico). A lista da disciplina é única e ordenada; cada item pertence ao item acima com um nível a menos. Regras em `lib/topicos.ts` (numeração 4 / 4.2 / 4.2.1; arrastar leva a subárvore; recuar/avançar; posição digitada é entre os irmãos) — testadas com casos de borda. Seta para recolher/expandir, salva no navegador por disciplina. Nos números do item pai entram todos os subtópicos. Importação: cada recuo maior (espaços ou tab) desce um nível.
 - Ordem dos tópicos: `useReordenarTopicos` grava a lista inteira numa só requisição (upsert por `id`, `ordem` = posição) com atualização otimista.
 - Os dados são carregados inteiros por usuário (`buscarTodos`) e agregados no front. Escala pessoal, funciona bem até dezenas de milhares de estudos.
 

@@ -106,6 +106,16 @@ body {
   font-feature-settings: 'tnum' 0;
 }
 
+/* recuo de cada nível de subtópico na lista do edital */
+:root {
+  --recuo-nivel: 14px;
+}
+@media (min-width: 640px) {
+  :root {
+    --recuo-nivel: 24px;
+  }
+}
+
 .numeros {
   font-variant-numeric: tabular-nums;
 }
