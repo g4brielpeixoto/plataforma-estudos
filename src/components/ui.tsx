@@ -29,7 +29,7 @@ export const Botao = forwardRef<HTMLButtonElement, BotaoProps>(function Botao(
       ref={ref}
       disabled={disabled || carregando}
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-xl transition-colors disabled:opacity-50 disabled:pointer-events-none select-none',
+        'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl transition-colors disabled:opacity-50 disabled:pointer-events-none select-none',
         tamanho === 'md' && 'h-10 px-4 text-[15px]',
         tamanho === 'sm' && 'h-8 px-3 text-sm rounded-lg',
         tamanho === 'icone' && 'h-9 w-9 rounded-lg',

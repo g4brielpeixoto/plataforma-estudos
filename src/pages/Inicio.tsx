@@ -123,11 +123,11 @@ export function Inicio() {
           <p className="text-tinta-suave">{format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}</p>
           <h1 className="font-serif text-[1.85rem] leading-tight font-medium tracking-[-0.01em] text-tinta">{saudacao()}!</h1>
         </div>
-        <div className="flex gap-2">
-          <Botao variante="secundario" onClick={() => setAdicionando(true)}>
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+          <Botao variante="secundario" onClick={() => setAdicionando(true)} className="h-11 px-3 text-sm sm:h-10 sm:px-4 sm:text-[15px]">
             <Plus className="size-4" aria-hidden /> Adicionar estudo
           </Botao>
-          <Botao onClick={() => navegar('/estudar')}>
+          <Botao onClick={() => navegar('/estudar')} className="h-11 px-3 text-sm sm:h-10 sm:px-4 sm:text-[15px]">
             <Timer className="size-4" aria-hidden /> Estudar agora
           </Botao>
         </div>
