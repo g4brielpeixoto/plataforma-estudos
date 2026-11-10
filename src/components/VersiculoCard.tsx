@@ -1,4 +1,3 @@
-import { RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { dataBrasilia, indiceDoDia, VERSICULOS } from '@/lib/versiculos'
 import { cn } from '@/lib/utils'
@@ -19,12 +18,6 @@ export function VersiculoCard({ compacto = false, className }: { compacto?: bool
     }, 60_000)
     return () => window.clearInterval(id)
   }, [dia])
-
-  const outro = () => {
-    let novo = indice
-    while (novo === indice) novo = Math.floor(Math.random() * VERSICULOS.length)
-    setIndice(novo)
-  }
 
   return (
     <figure
@@ -48,17 +41,8 @@ export function VersiculoCard({ compacto = false, className }: { compacto?: bool
           {v.texto}
         </p>
       </blockquote>
-      <figcaption className="relative mt-3 flex items-center justify-between gap-4">
+      <figcaption className="relative mt-3">
         <cite className="not-italic text-sm font-semibold text-primaria-forte">{v.referencia}</cite>
-        {!compacto && (
-          <button
-            onClick={outro}
-            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-tinta-suave hover:bg-perola/70 hover:text-tinta"
-          >
-            <RefreshCw className="size-4" aria-hidden />
-            Outro versículo
-          </button>
-        )}
       </figcaption>
     </figure>
   )
