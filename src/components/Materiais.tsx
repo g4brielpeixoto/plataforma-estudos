@@ -15,7 +15,20 @@ export function IconeMaterial({ url, className }: { url: string; className?: str
 }
 
 /** Links do tópico como etiquetas clicáveis (abrem em outra aba) */
-export function ChipsMateriais({ materiais, maximo = 3, aoVerTodos, className }: { materiais: Material[]; maximo?: number; aoVerTodos?: () => void; className?: string }) {
+export function ChipsMateriais({
+  materiais,
+  maximo = 3,
+  aoVerTodos,
+  origem,
+  className,
+}: {
+  materiais: Material[]
+  maximo?: number
+  aoVerTodos?: () => void
+  /** de onde veio o link, quando não é do próprio tópico (ex.: "do tópico 4 Licitações") */
+  origem?: (m: Material) => string | undefined
+  className?: string
+}) {
   if (!materiais.length) return null
   const visiveis = materiais.slice(0, maximo)
   const resto = materiais.length - visiveis.length
@@ -27,7 +40,7 @@ export function ChipsMateriais({ materiais, maximo = 3, aoVerTodos, className }:
           href={m.url}
           target="_blank"
           rel="noopener noreferrer"
-          title={`${nomeDoMaterial(m)} — abre em outra aba`}
+          title={`${nomeDoMaterial(m)}${origem?.(m) ? ` (${origem(m)})` : ''} — abre em outra aba`}
           className="inline-flex max-w-[14rem] items-center gap-1 rounded-md bg-nevoa/70 px-1.5 py-0.5 text-xs font-medium text-primaria-forte hover:bg-nevoa dark:text-primaria"
         >
           <IconeMaterial url={m.url} />

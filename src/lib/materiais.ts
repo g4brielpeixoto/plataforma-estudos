@@ -1,4 +1,5 @@
-import type { Material } from '@/types'
+import type { Material, Topico } from '@/types'
+import { ancestraisDe, topicosDaDisciplina } from './topicos'
 
 /*
   Materiais dos tópicos são só links. Aceitamos http e https (o banco recusa o resto);
@@ -57,4 +58,16 @@ export function porTopico(materiais: Material[]) {
     else mapa.set(m.topico_id, [m])
   }
   return mapa
+}
+
+/**
+  Materiais que valem para um tópico: os dele e os dos tópicos acima (pai, avô),
+  porque o subtópico faz parte do mesmo assunto. Do mais específico ao mais geral.
+*/
+export function materiaisDaFamilia(materiais: Material[], todos: Topico[], topicoId: string): { material: Material; de: Topico }[] {
+  const topico = todos.find((t) => t.id === topicoId)
+  if (!topico) return []
+  const familia = [topico, ...ancestraisDe(topicosDaDisciplina(todos, topico.disciplina_id), topicoId)]
+  const doTopico = porTopico(materiais)
+  return familia.flatMap((t) => (doTopico.get(t.id) ?? []).map((material) => ({ material, de: t })))
 }

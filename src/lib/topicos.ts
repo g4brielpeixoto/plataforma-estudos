@@ -49,6 +49,13 @@ export function paiDe(lista: Topico[], id: string): Topico | undefined {
   return undefined
 }
 
+/** Pai, avô… de um tópico, do mais próximo ao mais distante */
+export function ancestraisDe(lista: Topico[], id: string): Topico[] {
+  const acima: Topico[] = []
+  for (let atual = paiDe(lista, id); atual; atual = paiDe(lista, atual.id)) acima.push(atual)
+  return acima
+}
+
 /** Itens no mesmo nível e com o mesmo pai */
 export function irmaosDe(lista: Topico[], id: string): Topico[] {
   const pai = paiDe(lista, id)
@@ -176,6 +183,11 @@ export function numeracaoDeTodos(todos: Topico[]): Map<string, string> {
   }
   cacheNumeros.set(todos, mapa)
   return mapa
+}
+
+/** Tópicos de uma disciplina na ordem do edital (a lista completa pode vir de qualquer ordem) */
+export function topicosDaDisciplina(todos: Topico[], disciplinaId: string): Topico[] {
+  return todos.filter((t) => t.disciplina_id === disciplinaId).sort((a, b) => a.ordem - b.ordem || a.criado_em.localeCompare(b.criado_em))
 }
 
 /**

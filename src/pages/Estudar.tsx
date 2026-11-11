@@ -10,7 +10,10 @@ import { Botao, Campo, Dialogo, Entrada, Selecao } from '@/components/ui'
 import { useDisciplinas, useEstudos, useMateriais, usePlanner, useTopicos } from '@/hooks/dados'
 import { CONFIG_PADRAO, useCronometro, type ConfigPomodoro, type Modo } from '@/hooks/useCronometro'
 import type { PlayDoPlanner } from '@/hooks/usePlannerAcoes'
+import type { Material } from '@/types'
 import { concluido, COR_TIPO, ROTULO_TIPO } from '@/lib/planner'
+import { materiaisDaFamilia } from '@/lib/materiais'
+import { numeracaoDeTodos } from '@/lib/topicos'
 import { cn, formatarDuracao, formatarRelogio } from '@/lib/utils'
 
 const MODOS: { valor: Modo; rotulo: string }[] = [
@@ -74,7 +77,14 @@ export function Estudar() {
   const [minutosPersonalizados, setMinutosPersonalizados] = useState('')
   const planner = usePlanner()
   const materiais = useMateriais()
-  const materiaisDoTopico = c.topicoId ? (materiais.data ?? []).filter((m) => m.topico_id === c.topicoId) : []
+  // o subtópico também mostra os links do tópico acima dele (mesma família de assunto)
+  const materiaisDoTopico = useMemo(() => (c.topicoId ? materiaisDaFamilia(materiais.data ?? [], topicos.data ?? [], c.topicoId) : []), [materiais.data, topicos.data, c.topicoId])
+  const origemMaterial = (m: Material) => {
+    const de = materiaisDoTopico.find((f) => f.material.id === m.id)?.de
+    if (!de || de.id === c.topicoId) return undefined
+    const numero = numeracaoDeTodos(topicos.data ?? []).get(de.id)
+    return `do tópico ${numero ? `${numero} ` : ''}${de.nome}`
+  }
   const local = useLocation()
   const navegar = useNavigate()
   const playTratado = useRef<string | null>(null)
@@ -211,7 +221,7 @@ export function Estudar() {
       {materiaisDoTopico.length > 0 && (
         <div className="-mt-5 mb-8 flex flex-wrap items-center justify-center gap-2">
           <span className="text-sm text-tinta-suave">Material:</span>
-          <ChipsMateriais materiais={materiaisDoTopico} maximo={6} />
+          <ChipsMateriais materiais={materiaisDoTopico.map((f) => f.material)} maximo={8} origem={origemMaterial} />
         </div>
       )}
 
