@@ -102,6 +102,8 @@ Tabelas em `public`: `perfis`, `convites`, `disciplinas`, `topicos`, `estudos`, 
 
 Paleta lilás definida em `src/index.css` como variáveis CSS (`--c-*`) e exposta ao Tailwind (`bg-primaria`, `text-tinta`, `bg-nevoa`…). Tema escuro via classe `.dark` no `<html>`. Planner: `--c-estudo`, `--c-revisao`, `--c-resumo`, `--c-exercicios` (e `-fundo`), `--c-cabecalho` (cabeçalho escuro dos dias). Fontes: Figtree (interface) e Literata (títulos e versículo). Use os tokens, nunca cores soltas.
 
+Largura: o conteúdo ocupa toda a tela ao lado do menu (o `<main>` do `Layout` não tem `max-w`); só formulários e o relógio limitam a própria largura (Perfil, Estudar, revisão dos flashcards, visão Dia do planner). Para telas muito largas existe o breakpoint `3xl` (112rem), usado no grid do Edital; o heatmap aumenta os quadradinhos até 28 px para preencher a largura.
+
 ## Convenções
 
 - Nomes de variáveis, componentes e textos em português; textos curtos, voz ativa, sentence case.

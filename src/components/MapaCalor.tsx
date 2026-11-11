@@ -21,7 +21,7 @@ export function MapaCalor({ estudos, className }: { estudos: Estudo[]; className
   useEffect(() => {
     const el = rolagem.current
     if (!el) return
-    const medir = () => setCelula(Math.max(11, Math.min(18, Math.floor(el.clientWidth / semanas.length) - ESPACO)))
+    const medir = () => setCelula(Math.max(11, Math.min(28, Math.floor(el.clientWidth / semanas.length) - ESPACO)))
     medir()
     const obs = new ResizeObserver(medir)
     obs.observe(el)

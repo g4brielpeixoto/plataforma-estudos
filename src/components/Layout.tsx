@@ -1,6 +1,6 @@
 import { BookOpen, CalendarDays, History, House, Layers, LogOut, Moon, PanelLeftClose, PanelLeftOpen, ScanSearch, Sun, Timer, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { NavLink, Outlet, useMatch } from 'react-router'
+import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '@/contexts/AuthContext'
 import { Avatar } from './Avatar'
 import { cn } from '@/lib/utils'
@@ -50,7 +50,6 @@ export function Layout() {
   const { escuro, alternar } = useTema()
   const master = perfil?.papel === 'master'
   // o planner usa a largura toda para caberem os 7 dias lado a lado
-  const telaLarga = useMatch('/planner') !== null
   const todos = master ? [...itens, { para: '/usuarios', rotulo: 'Usuários', icone: Users, fim: false }] : itens
   const [recolhido, setRecolhido] = useState(() => {
     try {
@@ -183,7 +182,7 @@ export function Layout() {
         </div>
       </header>
 
-      <main className={cn('mx-auto w-full min-w-0 flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-10 lg:pt-10 lg:pb-12', telaLarga ? 'max-w-[100rem]' : 'max-w-6xl')}>
+      <main className="w-full min-w-0 flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-8 lg:pt-8 lg:pb-12 2xl:px-10">
         <Outlet />
       </main>
 

@@ -91,6 +91,7 @@
 }
 
 @theme inline {
+  --breakpoint-3xl: 112rem;
   --color-fundo: var(--c-fundo);
   --color-superficie: var(--c-superficie);
   --color-superficie-2: var(--c-superficie-2);
