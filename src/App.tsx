@@ -1,4 +1,5 @@
 import { Navigate, Outlet, RouterProvider, createHashRouter } from 'react-router'
+import { CronometroProvider } from './hooks/useCronometro'
 import { Layout } from './components/Layout'
 import { Carregando } from './components/ui'
 import { useAuth } from './contexts/AuthContext'
@@ -24,7 +25,12 @@ function AreaLogada() {
   if (perfil === undefined) return <Carregando texto="Carregando sua conta…" />
   if (perfil === null) return <ContaDesativada semPerfil />
   if (!perfil.ativo) return <ContaDesativada />
-  return <Outlet />
+  // um cronômetro só para o app inteiro: continua contando fora da tela Estudar
+  return (
+    <CronometroProvider>
+      <Outlet />
+    </CronometroProvider>
+  )
 }
 
 function SoMaster() {

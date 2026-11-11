@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useState } from 'react'
+import { createContext, createElement, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 
 /*
   Cronômetro, timer e pomodoro.
   O tempo é calculado a partir do horário de início (Date.now()), e não contando "ticks",
   por isso continua certo com a aba em segundo plano, a tela bloqueada ou a página recarregada.
   O estado fica salvo no navegador (localStorage).
+  Existe um relógio só para o app inteiro (CronometroProvider na área logada): ele continua
+  contando, avisando no fim do timer/fase e mostrando o tempo no título da aba em qualquer tela,
+  e a tela Estudar e o mini cronômetro flutuante (MiniCronometro) leem o mesmo estado.
 */
 
 export type Modo = 'cronometro' | 'timer' | 'pomodoro'
@@ -123,7 +126,7 @@ function pedirPermissaoNotificacao() {
 
 // ---------- hook ----------
 
-export function useCronometro() {
+function useMotorCronometro() {
   const [estado, setEstadoBruto] = useState<Estado>(() => {
     const salvo = ler(CHAVE_ESTADO, ESTADO_INICIAL)
     return salvo.rodando && !salvo.inicioEm ? { ...salvo, rodando: false } : salvo
@@ -270,4 +273,49 @@ export function useCronometro() {
     },
     setConfig,
   }
+}
+
+export type Cronometro = ReturnType<typeof useMotorCronometro>
+
+const ContextoCronometro = createContext<Cronometro | null>(null)
+
+export function CronometroProvider({ children }: { children: ReactNode }) {
+  return createElement(ContextoCronometro.Provider, { value: useMotorCronometro() }, children)
+}
+
+export function useCronometro(): Cronometro {
+  const c = useContext(ContextoCronometro)
+  if (!c) throw new Error('useCronometro precisa estar dentro do CronometroProvider')
+  return c
+}
+
+/** O que o relógio mostra agora: tempo (contando para cima ou para baixo), progresso e o texto do estado */
+export function mostrador(c: Cronometro) {
+  // contagem regressiva arredonda para cima: mostra 00:01 até acabar de fato
+  const restanteMs = c.modo === 'timer' ? c.alvoTimerMs - c.decorrido : c.duracaoFaseMs - c.decorrido
+  const exibidoMs = c.modo === 'cronometro' ? c.decorrido : Math.ceil(Math.max(0, restanteMs) / 1000) * 1000
+  const progresso =
+    c.modo === 'cronometro' ? (c.decorrido % 3_600_000) / 3_600_000 : c.modo === 'timer' ? c.decorrido / c.alvoTimerMs : c.decorrido / c.duracaoFaseMs
+  const naPausa = c.modo === 'pomodoro' && c.fase !== 'foco'
+  const timerAcabou = c.modo === 'timer' && c.decorrido >= c.alvoTimerMs
+  const status = c.rodando
+    ? naPausa
+      ? c.fase === 'pausaLonga'
+        ? 'Pausa longa'
+        : 'Pausa'
+      : 'Estudando'
+    : timerAcabou
+      ? 'Tempo esgotado'
+      : naPausa
+        ? c.fase === 'pausaLonga'
+          ? 'Hora da pausa longa'
+          : 'Hora da pausa'
+        : c.decorrido > 0
+          ? 'Pausado'
+          : c.modo === 'pomodoro' && c.ciclo > 0
+            ? 'Pronto para o próximo foco'
+            : 'Pronto para começar'
+  /** salvar só a partir de 1 minuto de estudo */
+  const podeSalvar = Math.round(c.estudadoMs / 60_000) >= 1
+  return { exibidoMs, progresso: Math.max(0, Math.min(1, progresso)), naPausa, timerAcabou, status, podeSalvar }
 }

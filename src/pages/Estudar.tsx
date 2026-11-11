@@ -8,7 +8,7 @@ import { SeletorTopico } from '@/components/SeletorTopico'
 import { ChipsMateriais } from '@/components/Materiais'
 import { Botao, Campo, Dialogo, Entrada, Selecao } from '@/components/ui'
 import { useDisciplinas, useEstudos, useMateriais, usePlanner, useTopicos } from '@/hooks/dados'
-import { CONFIG_PADRAO, useCronometro, type ConfigPomodoro, type Modo } from '@/hooks/useCronometro'
+import { CONFIG_PADRAO, mostrador, useCronometro, type ConfigPomodoro, type Modo } from '@/hooks/useCronometro'
 import type { PlayDoPlanner } from '@/hooks/usePlannerAcoes'
 import type { Material } from '@/types'
 import { concluido, COR_TIPO, ROTULO_TIPO } from '@/lib/planner'
@@ -89,12 +89,19 @@ export function Estudar() {
   const navegar = useNavigate()
   const playTratado = useRef<string | null>(null)
 
-  // play vindo do planner: escolhe a disciplina e o tópico do item e começa a contar
+  // play vindo do planner: escolhe a disciplina e o tópico do item e começa a contar.
+  // "salvar" vindo do mini cronômetro: abre o diálogo de salvar
   useEffect(() => {
-    const play = (local.state as { planner?: PlayDoPlanner } | null)?.planner
-    if (!play || playTratado.current === local.key) return
+    const pedido = local.state as { planner?: PlayDoPlanner; salvar?: boolean } | null
+    if (!pedido || playTratado.current === local.key) return
     playTratado.current = local.key
     navegar('/estudar', { replace: true, state: null })
+    if (pedido.salvar) {
+      if (mostrador(c).podeSalvar) abrirSalvar()
+      return
+    }
+    const play = pedido.planner
+    if (!play) return
     if (c.temTempo && c.plannerId !== play.id) {
       toast.error('Já existe um estudo em andamento. Salve ou zere o tempo atual e dê o play de novo no planner.')
       return
@@ -116,38 +123,13 @@ export function Estudar() {
   )
 
   // o que mostrar no relógio
-  const exibidoMs =
-    c.modo === 'cronometro' ? c.decorrido : c.modo === 'timer' ? c.alvoTimerMs - c.decorrido : c.duracaoFaseMs - c.decorrido
-  const progresso =
-    c.modo === 'cronometro' ? (c.decorrido % 3_600_000) / 3_600_000 : c.modo === 'timer' ? c.decorrido / c.alvoTimerMs : c.decorrido / c.duracaoFaseMs
+  const { exibidoMs, progresso, naPausa, timerAcabou, status, podeSalvar } = mostrador(c)
   const relogio = formatarRelogio(exibidoMs)
-
-  const naPausa = c.modo === 'pomodoro' && c.fase !== 'foco'
-  const timerAcabou = c.modo === 'timer' && c.decorrido >= c.alvoTimerMs
-  const status = c.rodando
-    ? naPausa
-      ? c.fase === 'pausaLonga'
-        ? 'Pausa longa'
-        : 'Pausa'
-      : 'Estudando'
-    : timerAcabou
-      ? 'Tempo esgotado'
-      : naPausa
-        ? c.fase === 'pausaLonga'
-          ? 'Hora da pausa longa'
-          : 'Hora da pausa'
-        : c.decorrido > 0
-          ? 'Pausado'
-          : c.modo === 'pomodoro' && c.ciclo > 0
-            ? 'Pronto para o próximo foco'
-            : 'Pronto para começar'
 
   const abrirSalvar = () => {
     if (c.rodando) c.pausar()
     setSalvando(true)
   }
-
-  const podeSalvar = Math.round(c.estudadoMs / 60_000) >= 1
 
   return (
     <div className="mx-auto max-w-xl">

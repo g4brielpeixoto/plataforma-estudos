@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '@/contexts/AuthContext'
 import { Avatar } from './Avatar'
+import { MiniCronometro } from './MiniCronometro'
 import { cn } from '@/lib/utils'
 
 const itens = [
@@ -184,6 +185,7 @@ export function Layout() {
 
       <main className="w-full min-w-0 flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-8 lg:pt-8 lg:pb-12 2xl:px-10">
         <Outlet />
+        <MiniCronometro />
       </main>
 
       {/* navegação inferior (celular e tablet) */}
