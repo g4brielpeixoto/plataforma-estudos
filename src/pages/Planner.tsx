@@ -343,7 +343,7 @@ function CartaoArrastavel(props: { item: ItemPlanner; disciplina?: Disciplina; t
 function VisaoDia({ dia, itens, mapas, acoes }: { dia: Date; itens: ItemPlanner[]; mapas: Mapas; acoes: AcoesPlanner }) {
   const chave = chaveData(dia)
   return (
-    <Painel className="max-w-3xl p-3 sm:p-4">
+    <Painel className="p-3 sm:p-4">
       {itens.length === 0 ? (
         <div className="flex flex-col items-center px-4 py-12 text-center">
           <p className="font-semibold text-tinta">Nada planejado para {nomeDoDia(chave) === 'hoje' ? 'hoje' : 'este dia'}.</p>
