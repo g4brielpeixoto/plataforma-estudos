@@ -3,8 +3,8 @@ import { useMemo, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { toast } from 'sonner'
 import { useExcluirProvaFeita, useProvasFeitas } from '@/hooks/dados'
-import { dataCurta, etapaPrincipal, etapasDaProva, formatarNota, ordenarProvasFeitas, pontosDoGrafico, resumoProvasFeitas, ROTULO_ETAPA, ROTULO_SITUACAO, textoDistancia } from '@/lib/provasFeitas'
-import { cn, mensagemErro } from '@/lib/utils'
+import { comparacaoPorDisciplina, dataCurta, etapaPrincipal, etapasDaProva, formatarNota, ordenarProvasFeitas, pontosDoGrafico, resumoProvasFeitas, ROTULO_ETAPA, ROTULO_SITUACAO, pctDisciplina, textoDistancia, textoNotaDisciplina } from '@/lib/provasFeitas'
+import { cn, mensagemErro, nivelAcerto, textoNivel } from '@/lib/utils'
 import type { ProvaFeita, SituacaoProva } from '@/types'
 import { ProvaFeitaDialog } from './ProvaFeitaDialog'
 import { Botao, Confirmar, Painel } from './ui'
@@ -32,6 +32,7 @@ export function ProvasFeitas({ className }: { className?: string }) {
   const lista = useMemo(() => ordenarProvasFeitas(provas.data ?? []), [provas.data])
   const resumo = useMemo(() => resumoProvasFeitas(lista), [lista])
   const pontos = useMemo(() => pontosDoGrafico(lista), [lista])
+  const comparacao = useMemo(() => comparacaoPorDisciplina(lista), [lista])
 
   const confirmarExclusao = async () => {
     if (!excluindo) return
@@ -84,6 +85,8 @@ export function ProvasFeitas({ className }: { className?: string }) {
               <Linha key={p.id} prova={p} aoEditar={() => setDialogo({ prova: p })} aoExcluir={() => setExcluindo(p)} />
             ))}
           </ul>
+
+          {comparacao.linhas.length > 0 && <PorDisciplinaNasProvas {...comparacao} />}
         </>
       )}
 
@@ -219,6 +222,71 @@ function Grafico({ pontos }: { pontos: Ponto[] }) {
           </BarChart>
         </ResponsiveContainer>
       </div>
+      </div>
+    </div>
+  )
+}
+
+/** Cor do aproveitamento pelas faixas de acerto do app; o número vai sempre junto */
+const corPct = (pct: number | null) => {
+  const nivel = nivelAcerto(pct)
+  return nivel ? textoNivel[nivel] : 'text-tinta'
+}
+
+/** Tabela disciplina × prova: o aproveitamento em cada disciplina, prova a prova, e no geral */
+function PorDisciplinaNasProvas({ colunas, linhas }: ReturnType<typeof comparacaoPorDisciplina>) {
+  return (
+    <div className="mt-6">
+      <h3 className="text-sm font-semibold text-tinta">Por disciplina</h3>
+      <p className="mt-0.5 text-sm text-tinta-suave">Seu aproveitamento em cada disciplina, da prova mais antiga para a mais recente. O traço marca a disciplina que a prova não teve.</p>
+      <div className="mt-3 overflow-x-auto rounded-xl border border-linha/70 [scrollbar-width:thin]">
+        <table className="w-full min-w-max border-collapse text-sm">
+          <thead>
+            <tr className="bg-superficie-2/70 text-left text-tinta-suave">
+              <th scope="col" className="sticky left-0 bg-superficie-2 px-4 py-2.5 font-medium">
+                Disciplina
+              </th>
+              {colunas.map((p) => (
+                <th key={p.id} scope="col" className="px-4 py-2.5 text-right font-medium whitespace-nowrap">
+                  <span className="block max-w-40 truncate text-tinta" title={p.nome}>
+                    {p.nome}
+                  </span>
+                  <span className="block text-xs font-normal numeros">{p.data.slice(0, 4)}</span>
+                </th>
+              ))}
+              {colunas.length > 1 && (
+                <th scope="col" className="px-4 py-2.5 text-right font-medium">
+                  Geral
+                </th>
+              )}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-linha/70">
+            {linhas.map((l) => (
+              <tr key={l.nome}>
+                <th scope="row" className="sticky left-0 bg-superficie px-4 py-2.5 text-left font-medium whitespace-nowrap text-tinta">
+                  {l.nome}
+                </th>
+                {l.celulas.map((c, i) => {
+                  if (!c)
+                    return (
+                      <td key={i} className="px-4 py-2.5 text-right text-tinta-suave" aria-label="A prova não teve esta disciplina">
+                        –
+                      </td>
+                    )
+                  const pct = pctDisciplina(c)
+                  return (
+                    <td key={i} className="px-4 py-2.5 text-right whitespace-nowrap numeros">
+                      {pct !== null && <span className={cn('font-semibold', corPct(pct))}>{pct}%</span>}
+                      <span className={cn(pct === null ? 'font-semibold text-tinta' : 'ml-2 text-xs text-tinta-suave')}>{textoNotaDisciplina(c)}</span>
+                    </td>
+                  )
+                })}
+                {colunas.length > 1 && <td className={cn('px-4 py-2.5 text-right font-semibold numeros', corPct(l.media))}>{l.media === null ? '–' : `${l.media}%`}</td>}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )

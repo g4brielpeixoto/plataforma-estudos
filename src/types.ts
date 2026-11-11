@@ -90,7 +90,16 @@ export interface ProvaFeita {
   situacao: SituacaoProva | null
   classificacao: number | null
   observacao: string | null
+  /** nota de cada disciplina que a prova teve */
+  disciplinas: NotaDisciplina[]
   criado_em: string
+}
+
+/** Nota (ou acertos) numa disciplina da prova; `total` = questões ou pontos possíveis, quando informado */
+export interface NotaDisciplina {
+  nome: string
+  nota: number
+  total: number | null
 }
 
 /** O que o diálogo grava */
