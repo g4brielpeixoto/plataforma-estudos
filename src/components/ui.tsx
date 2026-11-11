@@ -223,7 +223,7 @@ export function Dialogo({
         >
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
-              <RadixDialog.Title className="font-serif text-xl font-medium text-tinta">{titulo}</RadixDialog.Title>
+              <RadixDialog.Title className="text-xl font-medium text-tinta">{titulo}</RadixDialog.Title>
               {descricao ? (
                 <RadixDialog.Description className="mt-1 text-sm text-tinta-suave">{descricao}</RadixDialog.Description>
               ) : (
@@ -279,7 +279,7 @@ export function CabecalhoPagina({ titulo, subtitulo, acoes }: { titulo: string; 
   return (
     <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
-        <h1 className="font-serif text-[1.85rem] leading-tight font-medium tracking-[-0.01em] text-tinta">{titulo}</h1>
+        <h1 className="text-[1.85rem] leading-tight font-medium tracking-[-0.01em] text-tinta">{titulo}</h1>
         {subtitulo && <p className="mt-1 text-tinta-suave">{subtitulo}</p>}
       </div>
       {acoes && <div className="flex flex-wrap gap-2">{acoes}</div>}

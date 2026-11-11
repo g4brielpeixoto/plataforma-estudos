@@ -197,7 +197,7 @@ export const SeletorTopico = forwardRef<HTMLButtonElement, Props>(function Selet
                     <span className={cn('block text-[15px] leading-snug [overflow-wrap:anywhere]', t.concluido ? 'text-tinta-suave' : 'text-tinta')}>{t.nome}</span>
                     {termo.trim() && x.pai && <span className="block truncate text-xs text-tinta-suave">dentro de {x.pai}</span>}
                   </span>
-                  {t.concluido && <span className="mt-0.5 shrink-0 text-xs text-bom">concluído</span>}
+                  {t.concluido && <span className="mt-0.5 shrink-0 text-xs text-visto-texto">concluído</span>}
                   {t.id === valor && <Check className="mt-1 size-4 shrink-0 text-primaria" aria-hidden />}
                 </div>
               </li>

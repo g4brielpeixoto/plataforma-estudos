@@ -150,7 +150,7 @@ export function Planner() {
                 <ChevronRight className="size-5" aria-hidden />
               </button>
               <div className="ml-1.5 min-w-0">
-                <h2 className="font-serif text-xl leading-tight font-medium text-tinta first-letter:uppercase" aria-live="polite">
+                <h2 className="text-xl leading-tight font-medium text-tinta first-letter:uppercase" aria-live="polite">
                   {titulo}
                 </h2>
                 <p className="text-sm text-tinta-suave numeros">{textoResumo(doPeriodo)}</p>
@@ -206,7 +206,7 @@ function Legenda() {
         </li>
       ))}
       <li className="flex items-center gap-1.5">
-        <span className="grid size-3.5 place-items-center rounded-full bg-bom text-superficie" aria-hidden>
+        <span className="grid size-3.5 place-items-center rounded-full bg-visto text-superficie" aria-hidden>
           <Check className="size-2.5" strokeWidth={3.5} />
         </span>
         Feito
@@ -440,7 +440,7 @@ function VisaoMes({ referencia, grupos, mapas, aoEscolherDia }: { referencia: Da
                   return (
                     <span key={i.id} className={cn('flex min-w-0 items-center gap-1 rounded-md py-0.5 pr-1.5 pl-1 text-xs text-tinta', cores.fundo)}>
                       <span className={cn('h-3 w-1 shrink-0 rounded-full', cores.barra)} />
-                      {feito && <Check className="size-3 shrink-0 text-bom" strokeWidth={3} />}
+                      {feito && <Check className="size-3 shrink-0 text-visto" strokeWidth={3} />}
                       <span className={cn('truncate', feito && 'text-tinta-suave line-through')}>{mapas.disciplinas.get(i.disciplina_id)?.nome ?? 'Disciplina excluída'}</span>
                     </span>
                   )

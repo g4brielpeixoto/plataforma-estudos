@@ -298,7 +298,7 @@ export function EstudoDialog({
 
           {topicoSelecionado && (
             <label className="flex cursor-pointer items-center gap-3 rounded-xl bg-superficie-2 px-3 py-3 text-[15px] text-tinta">
-              <input type="checkbox" className="size-5" checked={concluir} onChange={(e) => setConcluir(e.target.checked)} />
+              <input type="checkbox" className="visto size-5" checked={concluir} onChange={(e) => setConcluir(e.target.checked)} />
               Marcar tópico como concluído no edital
             </label>
           )}

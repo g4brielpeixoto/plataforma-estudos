@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '@/contexts/AuthContext'
 import { Avatar } from './Avatar'
+import { Logo } from './Logo'
 import { MiniCronometro } from './MiniCronometro'
 import { cn } from '@/lib/utils'
 
@@ -39,10 +40,7 @@ export function useTema() {
 
 export function Marca({ className }: { className?: string }) {
   return (
-    <div className={cn('flex items-center gap-2.5', className)}>
-      <img src="./favicon.svg" alt="" className="size-8" />
-      <span className="font-serif text-lg font-medium text-tinta">Estudos</span>
-    </div>
+    <Logo className={cn('h-8', className)} />
   )
 }
 
@@ -79,7 +77,7 @@ export function Layout() {
         )}
       >
         <div className={cn('flex items-center', recolhido ? 'flex-col gap-3' : 'justify-between gap-2 pl-2')}>
-          {recolhido ? <img src="./favicon.svg" alt="Estudos" className="size-8" /> : <Marca />}
+          {recolhido ? <img src="./favicon.svg" alt="Aprovi" className="size-8" /> : <Marca />}
           <button
             onClick={alternarMenu}
             aria-label={recolhido ? 'Expandir menu' : 'Recolher menu'}

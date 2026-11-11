@@ -194,16 +194,16 @@ function useMotorCronometro() {
   // título da aba mostra o tempo enquanto roda
   useEffect(() => {
     if (!estado.rodando) {
-      document.title = 'Estudos'
+      document.title = 'Aprovi'
       return
     }
     const ms = estado.modo === 'timer' ? alvoTimerMs - decorrido : estado.modo === 'pomodoro' ? duracaoFaseMs - decorrido : decorrido
     const s = Math.max(0, Math.round(ms / 1000))
     const texto = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
-    document.title = `${texto} · Estudos`
+    document.title = `${texto} · Aprovi`
   }, [decorrido, estado.rodando, estado.modo, alvoTimerMs, duracaoFaseMs])
 
-  useEffect(() => () => void (document.title = 'Estudos'), [])
+  useEffect(() => () => void (document.title = 'Aprovi'), [])
 
   // aviso ao fechar a página com o tempo rodando
   useEffect(() => {

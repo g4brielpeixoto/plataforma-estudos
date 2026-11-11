@@ -17,7 +17,7 @@ export function CheckPlanner({ feito, aoClicar, rotulo, className }: { feito: bo
       title={feito ? 'Desmarcar' : 'Marcar como feito'}
       className={cn(
         'grid size-6 shrink-0 place-items-center rounded-full border-2 transition-colors',
-        feito ? 'border-bom bg-bom text-superficie' : 'border-tinta-suave/45 bg-superficie text-transparent hover:border-bom hover:text-bom',
+        feito ? 'border-visto bg-visto text-superficie' : 'border-tinta-suave/45 bg-superficie text-transparent hover:border-visto hover:text-visto',
         className,
       )}
     >
@@ -89,7 +89,7 @@ export function MenuPlanner({ item, acoes, rotulo, className }: { item: ItemPlan
 
 /** Cores do cartão: concluído (verde), atrasado (vermelho) ou a cor do tipo */
 export function coresDoItem(item: ItemPlanner, hoje = hojeChave()) {
-  if (concluido(item)) return { barra: 'bg-bom', fundo: 'bg-bom-fundo' }
+  if (concluido(item)) return { barra: 'bg-visto', fundo: 'bg-visto-fundo' }
   if (atrasado(item, hoje)) return { barra: 'bg-ruim', fundo: 'bg-ruim-fundo' }
   return COR_TIPO[item.tipo]
 }
@@ -173,7 +173,7 @@ export function CartaoPlanner({ item, disciplina, topico, acoes, variante = 'col
                   <CircleAlert className="size-3.5" aria-hidden /> Atrasado
                 </span>
               )}
-              {feito && <span className="text-bom">Feito</span>}
+              {feito && <span className="text-visto-texto">Feito</span>}
             </p>
             <p className={cn('truncate text-[15px] font-semibold', feito && 'text-tinta-suave line-through decoration-tinta-suave/50')}>
               {nomeDisciplina}

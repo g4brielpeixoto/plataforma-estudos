@@ -378,7 +378,7 @@ function Fim({
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center px-6 py-12 text-center">
       <CircleCheck className="size-12 text-bom" aria-hidden />
-      <h1 className="mt-4 font-serif text-2xl text-tinta">{sessao.total ? 'Parabéns! Por hoje é só.' : 'Nada para revisar agora'}</h1>
+      <h1 className="mt-4 text-2xl text-tinta">{sessao.total ? 'Parabéns! Por hoje é só.' : 'Nada para revisar agora'}</h1>
       {sessao.total > 0 ? (
         <p className="mt-2 text-tinta-suave numeros">
           {sessao.total} {sessao.total === 1 ? 'cartão revisado' : 'cartões revisados'} em {sessao.duracao < 60_000 ? 'menos de 1 min' : formatarDuracao(sessao.duracao / 1000)} ·{' '}

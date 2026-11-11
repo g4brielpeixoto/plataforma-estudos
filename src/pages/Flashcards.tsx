@@ -95,7 +95,7 @@ export function Flashcards() {
       {vazio ? (
         <Painel className="flex flex-col items-center px-6 py-14 text-center">
           <Layers className="size-10 text-lavanda" aria-hidden />
-          <p className="mt-3 font-serif text-xl text-tinta">Nenhum cartão ainda</p>
+          <p className="mt-3 text-xl text-tinta">Nenhum cartão ainda</p>
           <p className="mt-1 max-w-md text-tinta-suave">Traga os baralhos que você já tem no Anki, com o progresso, ou crie o primeiro cartão aqui.</p>
           <div className="mt-6 flex flex-wrap justify-center gap-2">
             <Botao onClick={() => setImportando(true)}>

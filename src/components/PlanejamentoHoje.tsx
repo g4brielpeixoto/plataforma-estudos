@@ -48,7 +48,7 @@ export function PlanejamentoHoje({ disciplinas, topicos }: { disciplinas: Discip
       ) : (
         <>
           <div className="mt-3 flex items-center gap-3">
-            <BarraProgresso valor={(r.feitos / r.total) * 100} cor="var(--c-bom)" rotulo="Itens de hoje concluídos" />
+            <BarraProgresso valor={(r.feitos / r.total) * 100} cor="var(--c-visto)" rotulo="Itens de hoje concluídos" />
             <span className="shrink-0 text-sm text-tinta-suave numeros">
               {r.feitos} de {r.total}
               {r.minutos ? ` · ${rotuloMinutos(r.minutos)}` : ''}

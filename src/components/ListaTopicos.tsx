@@ -386,7 +386,7 @@ function LinhaTopico({
 
       <input
         type="checkbox"
-        className="shrink-0"
+        className="visto shrink-0"
         checked={t.concluido}
         onChange={aoAlternarConcluido}
         aria-label={t.concluido ? `Desmarcar ${t.nome}` : `Marcar ${t.nome} como concluído`}

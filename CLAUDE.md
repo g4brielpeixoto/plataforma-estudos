@@ -1,6 +1,6 @@
-# Plataforma de Estudos — guia para o Claude Code
+# Aprovi (plataforma de estudos) — guia para o Claude Code
 
-App pessoal e multiusuário para acompanhar estudos de concurso: edital (disciplinas → tópicos com check de concluído), registro de estudos (tempo e questões), planner (dia/semana/mês), flashcards no estilo do Anki, cronômetro/timer/pomodoro, histórico e dashboard. Interface e código em **português**.
+O app se chama **Aprovi** (repositório e pasta continuam `plataforma-estudos`). App pessoal e multiusuário para acompanhar estudos de concurso: edital (disciplinas → tópicos com check de concluído), registro de estudos (tempo e questões), planner (dia/semana/mês), flashcards no estilo do Anki, cronômetro/timer/pomodoro, histórico e dashboard. Interface e código em **português**.
 
 ## Stack
 
@@ -40,6 +40,7 @@ src/
   lib/materiais.ts        links dos materiais: normaliza (https:// na frente), tipo (pdf/vídeo/documento/link) e nome para mostrar
   lib/foto.ts             prepara a foto de perfil (recorte quadrado 320px JPEG), iniciais, primeiro nome
   components/Avatar.tsx   foto redonda ou iniciais
+  components/Logo.tsx     logo do Aprovi em curvas (letras na cor do texto, "v" como visto em `--c-visto`); `Marca` no Layout usa ele. Ícone do app/aba em `public/favicon.svg`
   lib/planner.ts          regras do planner: datas sem fuso, atrasados, mover/reagendar (contagem de adiamentos), semanas do mês — testadas com casos de borda
   hooks/usePlannerAcoes.tsx  ações de um item (check, play, mover, editar, excluir) e os diálogos que elas abrem; quem usa renderiza `dialogos`
   components/CartaoPlanner.tsx  cartão do item (variante "coluna" da semana e "largo" do dia/Início), check, menu ⋮
@@ -102,7 +103,7 @@ Tabelas em `public`: `perfis`, `convites`, `disciplinas`, `topicos`, `estudos`, 
 
 ## Visual
 
-Paleta lilás definida em `src/index.css` como variáveis CSS (`--c-*`) e exposta ao Tailwind (`bg-primaria`, `text-tinta`, `bg-nevoa`…). Tema escuro via classe `.dark` no `<html>`. Planner: `--c-estudo`, `--c-revisao`, `--c-resumo`, `--c-exercicios` (e `-fundo`), `--c-cabecalho` (cabeçalho escuro dos dias). Fontes: Figtree (interface) e Literata (títulos e versículo). Use os tokens, nunca cores soltas. Controles nativos seguem o tema por `color-scheme` (no `.dark`); as opções do `<select>` têm fundo e cor dos tokens em `index.css`, porque o Chrome do Windows abria a lista branca com texto claro no tema escuro.
+Paleta lilás definida em `src/index.css` como variáveis CSS (`--c-*`) e exposta ao Tailwind (`bg-primaria`, `text-tinta`, `bg-nevoa`…). Tema escuro via classe `.dark` no `<html>`. Planner: `--c-estudo`, `--c-revisao`, `--c-resumo`, `--c-exercicios` (e `-fundo`), `--c-cabecalho` (cabeçalho escuro dos dias). Marca Aprovi: design system em https://claude.ai/artifact/87BZa5haYWekHRuoXWUecs (logo, cores, tipografia e regras de uso). Fonte única: Outfit (400–600), sem serifada; não existe mais `font-serif`. O verde `--c-visto` (`bg-visto`, `text-visto-texto` para texto pequeno, `bg-visto-fundo`) é o do logo e só aparece no que foi concluído: check do tópico (classe `visto` no checkbox), item do planner feito, barra do planejamento de hoje. `--c-bom` continua sendo só a faixa de acerto ≥ 80% e avisos de sucesso. Use os tokens, nunca cores soltas. Controles nativos seguem o tema por `color-scheme` (no `.dark`); as opções do `<select>` têm fundo e cor dos tokens em `index.css`, porque o Chrome do Windows abria a lista branca com texto claro no tema escuro.
 
 Largura: o conteúdo ocupa toda a tela ao lado do menu (o `<main>` do `Layout` não tem `max-w`); só formulários e o relógio limitam a própria largura (Perfil, Estudar, revisão dos flashcards); a visão Dia do planner também ocupa a largura toda. Para telas muito largas existe o breakpoint `3xl` (112rem), usado no grid do Edital; o heatmap aumenta os quadradinhos até 28 px para preencher a largura.
 

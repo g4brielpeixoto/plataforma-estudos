@@ -130,7 +130,7 @@ export function Disciplina() {
         <div className="flex min-w-0 items-start gap-3">
           <span className="mt-2 size-3.5 shrink-0 rounded-full" style={{ background: disciplina.cor }} aria-hidden />
           <div className="min-w-0">
-            <h1 className="font-serif text-[1.85rem] leading-tight font-medium tracking-[-0.01em] text-tinta">{disciplina.nome}</h1>
+            <h1 className="text-[1.85rem] leading-tight font-medium tracking-[-0.01em] text-tinta">{disciplina.nome}</h1>
             <p className="mt-1 text-tinta-suave numeros">
               {formatarDuracao(ind.tempoSegundos)} estudados · {ind.questoesFeitas} questões
               {ind.acertoPct !== null && ` · ${ind.acertoPct}% de acerto`}

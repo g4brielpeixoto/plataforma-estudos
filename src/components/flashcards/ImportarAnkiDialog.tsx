@@ -402,7 +402,7 @@ export function ImportarAnkiDialog({
         <div className="space-y-5 py-2 text-center">
           <CircleCheck className="mx-auto size-10 text-bom" aria-hidden />
           <div>
-            <p className="font-serif text-xl text-tinta">Importação concluída</p>
+            <p className="text-xl text-tinta">Importação concluída</p>
             <p className="mt-1 text-tinta-suave numeros">
               {resultado.notas > 0 && (
                 <>

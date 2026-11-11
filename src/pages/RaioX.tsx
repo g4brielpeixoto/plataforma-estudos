@@ -22,7 +22,7 @@ export function RaioX() {
       <CabecalhoPagina titulo="Raio-X" subtitulo="Como está sua aprendizagem: onde você vai bem e o que pede atenção." />
       {listaDisciplinas.length === 0 ? (
         <Painel className="p-6 text-center sm:p-8">
-          <p className="font-serif text-xl text-tinta">Ainda não há o que analisar</p>
+          <p className="text-xl text-tinta">Ainda não há o que analisar</p>
           <p className="mx-auto mt-2 max-w-md text-tinta-suave">Monte o edital e registre seus estudos. O Raio-X aparece aqui conforme você avança.</p>
           <Link to="/edital" className="mt-5 inline-flex h-10 items-center rounded-xl bg-primaria px-4 font-semibold text-sobre-primaria hover:bg-primaria-forte">
             Montar o edital

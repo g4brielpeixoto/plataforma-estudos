@@ -12,7 +12,7 @@ function Moldura({ titulo, subtitulo, children, rodape }: { titulo: string; subt
       <div className="flex flex-col px-5 py-8 sm:px-10">
         <Marca />
         <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10">
-          <h1 className="font-serif text-3xl font-medium tracking-[-0.01em] text-tinta">{titulo}</h1>
+          <h1 className="text-3xl font-medium tracking-[-0.01em] text-tinta">{titulo}</h1>
           {subtitulo && <p className="mt-2 text-tinta-suave">{subtitulo}</p>}
           <div className="mt-8">{children}</div>
           {rodape && <div className="mt-6 text-sm text-tinta-suave">{rodape}</div>}

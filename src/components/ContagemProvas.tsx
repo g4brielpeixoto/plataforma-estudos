@@ -128,7 +128,7 @@ export function ContagemProvas({ className }: { className?: string }) {
           {dias === 0 ? (
             <>
               <p className="text-sm text-tinta-suave">É hoje!</p>
-              <p className="font-serif text-[2.1rem] leading-tight font-medium text-primaria-forte dark:text-primaria">Boa prova</p>
+              <p className="text-[2.1rem] leading-tight font-medium text-primaria-forte dark:text-primaria">Boa prova</p>
             </>
           ) : (
             <>

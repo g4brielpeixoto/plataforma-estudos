@@ -24,7 +24,7 @@ createRoot(document.getElementById('root')!).render(
               background: 'var(--c-superficie)',
               color: 'var(--c-tinta)',
               border: '1px solid var(--c-linha)',
-              fontFamily: 'Figtree, sans-serif',
+              fontFamily: 'Outfit, sans-serif',
             },
           }}
         />

@@ -4,7 +4,7 @@
 
 /*
   Paleta lilás escolhida para o projeto:
-  #8F7193 ameixa (primária) · #A788AB lavanda · #C0A0C3 lilás · #DFCAE1 névoa · #E5DDE6 pérola (fundo)
+  #8F7193 ameixa (primária) · #A788AB lavanda · #C0A0C3 lilás · #DFCAE1 névoa · #E5DDE6 pérola (fundo) · #1F8A70 visto (concluído)
   Tons derivados: tinta (texto) e superfícies do tema escuro.
 */
 :root {
@@ -23,6 +23,10 @@
   --c-perola: #e5dde6;
   --c-bom: #3f8a5f;
   --c-bom-fundo: #e2f1e7;
+  /* verde do logo: só para o que foi concluído (tópico, item do planner, meta) */
+  --c-visto: #1f8a70;
+  --c-visto-texto: #14594a;
+  --c-visto-fundo: #ddf1ea;
   --c-medio: #9a6b12;
   --c-medio-fundo: #f7ecd2;
   --c-ruim: #b0443f;
@@ -65,6 +69,9 @@
   --c-perola: #2c232f;
   --c-bom: #7ccb9b;
   --c-bom-fundo: #1f3328;
+  --c-visto: #5fd3b0;
+  --c-visto-texto: #5fd3b0;
+  --c-visto-fundo: #1c3630;
   --c-medio: #e4bd6a;
   --c-medio-fundo: #3a2f17;
   --c-ruim: #ec958f;
@@ -107,6 +114,9 @@
   --color-perola: var(--c-perola);
   --color-bom: var(--c-bom);
   --color-bom-fundo: var(--c-bom-fundo);
+  --color-visto: var(--c-visto);
+  --color-visto-texto: var(--c-visto-texto);
+  --color-visto-fundo: var(--c-visto-fundo);
   --color-medio: var(--c-medio);
   --color-medio-fundo: var(--c-medio-fundo);
   --color-ruim: var(--c-ruim);
@@ -124,8 +134,7 @@
   --color-exercicios-fundo: var(--c-exercicios-fundo);
   --color-cabecalho: var(--c-cabecalho);
   --color-sobre-cabecalho: var(--c-sobre-cabecalho);
-  --font-sans: 'Figtree', ui-sans-serif, system-ui, sans-serif;
-  --font-serif: 'Literata', ui-serif, Georgia, serif;
+  --font-sans: 'Outfit', ui-sans-serif, system-ui, sans-serif;
 }
 
 html,
@@ -181,6 +190,11 @@ input[type='checkbox']:hover {
 input[type='checkbox']:checked {
   background: var(--c-primaria);
   border-color: var(--c-primaria);
+}
+/* check de concluído (tópico do edital, "marcar como concluído"): o verde do logo */
+input[type='checkbox'].visto:checked {
+  background: var(--c-visto);
+  border-color: var(--c-visto);
 }
 input[type='checkbox']:checked::after {
   content: '';

@@ -43,7 +43,7 @@ export function Inicio() {
         <div className="flex min-w-0 items-center gap-4">
           <div className="min-w-0">
             <p className="text-tinta-suave">{format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}</p>
-            <h1 className="font-serif text-[1.85rem] leading-tight font-medium tracking-[-0.01em] text-tinta">
+            <h1 className="text-[1.85rem] leading-tight font-medium tracking-[-0.01em] text-tinta">
               {saudacao()}
               {nome ? `, ${nome}` : ''}!
             </h1>
@@ -69,7 +69,7 @@ export function Inicio() {
       ) : semEdital ? (
         <div className="space-y-5">
           <Painel className="p-6 text-center sm:p-8">
-            <p className="font-serif text-xl text-tinta">Vamos montar seu edital?</p>
+            <p className="text-xl text-tinta">Vamos montar seu edital?</p>
             <p className="mx-auto mt-2 max-w-md text-tinta-suave">
               Cadastre as disciplinas e os tópicos (ou cole o edital inteiro). Depois é só estudar e registrar: os indicadores aparecem aqui.
             </p>

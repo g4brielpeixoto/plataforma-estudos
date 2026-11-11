@@ -105,7 +105,7 @@ export function BaralhoFlash() {
       </Link>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="flex items-center gap-3 font-serif text-[1.85rem] leading-tight font-medium text-tinta">
+          <h1 className="flex items-center gap-3 text-[1.85rem] leading-tight font-medium text-tinta">
             <span className="size-3 shrink-0 rounded-full" style={{ background: disciplina.cor }} aria-hidden />
             <span className="min-w-0 [overflow-wrap:anywhere]">{disciplina.nome}</span>
           </h1>
