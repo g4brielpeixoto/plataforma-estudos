@@ -3,8 +3,8 @@ import { useMemo, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { toast } from 'sonner'
 import { useExcluirProvaFeita, useProvasFeitas } from '@/hooks/dados'
-import { comparacaoPorDisciplina, dataCurta, etapaPrincipal, etapasDaProva, formatarNota, ordenarProvasFeitas, pontosDoGrafico, resumoProvasFeitas, ROTULO_ETAPA, ROTULO_SITUACAO, pctDisciplina, textoDistancia, textoNotaDisciplina } from '@/lib/provasFeitas'
-import { cn, mensagemErro, nivelAcerto, textoNivel } from '@/lib/utils'
+import { comparacaoPorDisciplina, dataCurta, etapaPrincipal, etapasDaProva, formatarNota, ordenarProvasFeitas, pontosDoGrafico, resumoProvasFeitas, ROTULO_ETAPA, ROTULO_SITUACAO, textoDistancia } from '@/lib/provasFeitas'
+import { cn, mensagemErro } from '@/lib/utils'
 import type { ProvaFeita, SituacaoProva } from '@/types'
 import { ProvaFeitaDialog } from './ProvaFeitaDialog'
 import { Botao, Confirmar, Painel } from './ui'
@@ -50,7 +50,7 @@ export function ProvasFeitas({ className }: { className?: string }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold tracking-[0.08em] text-tinta-suave uppercase">Provas que já fiz</h2>
-          <p className="mt-1 max-w-prose text-sm text-tinta-suave">Sua nota contra a nota de corte em cada prova, para ver se a distância está diminuindo.</p>
+          <p className="mt-1 max-w-prose text-sm text-tinta-suave">Sua pontuação contra a nota de corte em cada prova, e a nota em cada disciplina.</p>
         </div>
         <Botao tamanho="sm" onClick={() => setDialogo({ prova: null })}>
           <Plus className="size-4" aria-hidden /> Adicionar prova
@@ -142,7 +142,7 @@ function Linha({ prova, aoEditar, aoExcluir }: { prova: ProvaFeita; aoEditar: ()
         {principal && principal.distancia !== null && (
           <p className={cn('mt-1.5 text-sm font-semibold numeros', corDistancia(principal.distancia))}>
             {textoDistancia(principal.distancia)}
-            {etapas.length > 1 && <span className="font-normal text-tinta-suave"> na {ROTULO_ETAPA[principal.etapa].toLowerCase()}</span>}
+            {principal.etapa !== 'final' && <span className="font-normal text-tinta-suave"> na {ROTULO_ETAPA[principal.etapa].toLowerCase()}</span>}
           </p>
         )}
         {prova.observacao && <p className="mt-1.5 max-w-prose text-sm text-tinta-suave [overflow-wrap:anywhere]">{prova.observacao}</p>}
@@ -179,12 +179,11 @@ function Grafico({ pontos }: { pontos: Ponto[] }) {
     <div className="mt-5">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-tinta-suave">
         <span className="flex items-center gap-1.5">
-          <span className="size-3 rounded-[3px] bg-primaria-forte" aria-hidden /> Minha nota
+          <span className="size-3 rounded-[3px] bg-primaria-forte" aria-hidden /> Minha pontuação
         </span>
         <span className="flex items-center gap-1.5">
           <span className="size-3 rounded-[3px] bg-lilas" aria-hidden /> Nota de corte
         </span>
-        <span>Nota final; sem ela, a da objetiva.</span>
       </div>
       {/* com muitas provas o gráfico rola para o lado em vez de espremer os nomes */}
       <div className="mt-3 overflow-x-auto [scrollbar-width:thin]">
@@ -192,7 +191,7 @@ function Grafico({ pontos }: { pontos: Ponto[] }) {
         className="h-60"
         style={{ minWidth: dados.length * 124 }}
         role="img"
-        aria-label={`Gráfico de barras com a minha nota e a nota de corte de ${dados.length} provas: ${dados.map((p) => `${p.nome} ${p.ano}, ${formatarNota(p.nota)} contra corte de ${formatarNota(p.corte)}`).join('; ')}.`}
+        aria-label={`Gráfico de barras com a minha pontuação e a nota de corte de ${dados.length} provas: ${dados.map((p) => `${p.nome} ${p.ano}, ${formatarNota(p.nota)} contra corte de ${formatarNota(p.corte)}`).join('; ')}.`}
       >
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={dados} margin={{ top: 8, right: 4, bottom: 0, left: -14 }} barGap={2} barCategoryGap="28%">
@@ -217,7 +216,7 @@ function Grafico({ pontos }: { pontos: Ponto[] }) {
                 )
               }}
             />
-            <Bar dataKey="nota" name="Minha nota" fill="var(--c-primaria-forte)" radius={[4, 4, 0, 0]} maxBarSize={36} isAnimationActive={false} />
+            <Bar dataKey="nota" name="Minha pontuação" fill="var(--c-primaria-forte)" radius={[4, 4, 0, 0]} maxBarSize={36} isAnimationActive={false} />
             <Bar dataKey="corte" name="Nota de corte" fill="var(--c-lilas)" radius={[4, 4, 0, 0]} maxBarSize={36} isAnimationActive={false} />
           </BarChart>
         </ResponsiveContainer>
@@ -227,18 +226,12 @@ function Grafico({ pontos }: { pontos: Ponto[] }) {
   )
 }
 
-/** Cor do aproveitamento pelas faixas de acerto do app; o número vai sempre junto */
-const corPct = (pct: number | null) => {
-  const nivel = nivelAcerto(pct)
-  return nivel ? textoNivel[nivel] : 'text-tinta'
-}
-
-/** Tabela disciplina × prova: o aproveitamento em cada disciplina, prova a prova, e no geral */
+/** Tabela disciplina × prova: a nota em cada disciplina, prova a prova, e a média */
 function PorDisciplinaNasProvas({ colunas, linhas }: ReturnType<typeof comparacaoPorDisciplina>) {
   return (
     <div className="mt-6">
       <h3 className="text-sm font-semibold text-tinta">Por disciplina</h3>
-      <p className="mt-0.5 text-sm text-tinta-suave">Seu aproveitamento em cada disciplina, da prova mais antiga para a mais recente. O traço marca a disciplina que a prova não teve.</p>
+      <p className="mt-0.5 text-sm text-tinta-suave">Sua nota em cada disciplina, da prova mais antiga para a mais recente. O traço marca a disciplina que a prova não teve.</p>
       <div className="mt-3 overflow-x-auto rounded-xl border border-linha/70 [scrollbar-width:thin]">
         <table className="w-full min-w-max border-collapse text-sm">
           <thead>
@@ -256,7 +249,7 @@ function PorDisciplinaNasProvas({ colunas, linhas }: ReturnType<typeof comparaca
               ))}
               {colunas.length > 1 && (
                 <th scope="col" className="px-4 py-2.5 text-right font-medium">
-                  Geral
+                  Média
                 </th>
               )}
             </tr>
@@ -267,22 +260,18 @@ function PorDisciplinaNasProvas({ colunas, linhas }: ReturnType<typeof comparaca
                 <th scope="row" className="sticky left-0 bg-superficie px-4 py-2.5 text-left font-medium whitespace-nowrap text-tinta">
                   {l.nome}
                 </th>
-                {l.celulas.map((c, i) => {
-                  if (!c)
-                    return (
-                      <td key={i} className="px-4 py-2.5 text-right text-tinta-suave" aria-label="A prova não teve esta disciplina">
-                        –
-                      </td>
-                    )
-                  const pct = pctDisciplina(c)
-                  return (
-                    <td key={i} className="px-4 py-2.5 text-right whitespace-nowrap numeros">
-                      {pct !== null && <span className={cn('font-semibold', corPct(pct))}>{pct}%</span>}
-                      <span className={cn(pct === null ? 'font-semibold text-tinta' : 'ml-2 text-xs text-tinta-suave')}>{textoNotaDisciplina(c)}</span>
+                {l.celulas.map((c, i) =>
+                  c ? (
+                    <td key={i} className="px-4 py-2.5 text-right text-tinta numeros">
+                      {formatarNota(c.nota)}
                     </td>
-                  )
-                })}
-                {colunas.length > 1 && <td className={cn('px-4 py-2.5 text-right font-semibold numeros', corPct(l.media))}>{l.media === null ? '–' : `${l.media}%`}</td>}
+                  ) : (
+                    <td key={i} className="px-4 py-2.5 text-right text-tinta-suave" aria-label="A prova não teve esta disciplina">
+                      –
+                    </td>
+                  ),
+                )}
+                {colunas.length > 1 && <td className="px-4 py-2.5 text-right font-semibold text-tinta numeros">{l.media === null ? '–' : formatarNota(l.media)}</td>}
               </tr>
             ))}
           </tbody>

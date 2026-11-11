@@ -458,7 +458,8 @@ export function useProvasFeitas() {
 export function useSalvarProvaFeita() {
   const invalidar = useInvalidar()
   return useMutation({
-    mutationFn: async ({ id, ...dados }: DadosProvaFeita & { id?: string }) => {
+    // só o que vier é gravado: o que o diálogo não mostra (etapas e observação de versões antigas) fica como está
+    mutationFn: async ({ id, ...dados }: Partial<DadosProvaFeita> & Pick<DadosProvaFeita, 'nome' | 'data'> & { id?: string }) => {
       const { error } = id ? await supabase.from('provas_feitas').update(dados).eq('id', id) : await supabase.from('provas_feitas').insert(dados)
       if (error) throw error
     },
