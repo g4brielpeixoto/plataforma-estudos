@@ -3,8 +3,8 @@ import { useMemo, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { toast } from 'sonner'
 import { useExcluirProvaFeita, useProvasFeitas } from '@/hooks/dados'
-import { comparacaoPorDisciplina, dataCurta, etapaPrincipal, etapasDaProva, formatarNota, ordenarProvasFeitas, pontosDoGrafico, resumoProvasFeitas, ROTULO_ETAPA, ROTULO_SITUACAO, textoDistancia } from '@/lib/provasFeitas'
-import { cn, mensagemErro } from '@/lib/utils'
+import { comparacaoPorDisciplina, dataCurta, etapaPrincipal, etapasDaProva, formatarNota, ordenarProvasFeitas, pontosDoGrafico, resumoProvasFeitas, ROTULO_ETAPA, ROTULO_SITUACAO, pctDisciplina, textoDistancia, textoNotaDisciplina } from '@/lib/provasFeitas'
+import { cn, mensagemErro, nivelAcerto, textoNivel } from '@/lib/utils'
 import type { ProvaFeita, SituacaoProva } from '@/types'
 import { ProvaFeitaDialog } from './ProvaFeitaDialog'
 import { Botao, Confirmar, Painel } from './ui'
@@ -226,12 +226,18 @@ function Grafico({ pontos }: { pontos: Ponto[] }) {
   )
 }
 
-/** Tabela disciplina × prova: a nota em cada disciplina, prova a prova, e a média */
+/** Cor do aproveitamento pelas faixas de acerto do app; o número vai sempre junto */
+const corPct = (pct: number | null) => {
+  const nivel = nivelAcerto(pct)
+  return nivel ? textoNivel[nivel] : 'text-tinta'
+}
+
+/** Tabela disciplina × prova: aproveitamento (ou só a nota, sem total) em cada disciplina, prova a prova, e no geral */
 function PorDisciplinaNasProvas({ colunas, linhas }: ReturnType<typeof comparacaoPorDisciplina>) {
   return (
     <div className="mt-6">
       <h3 className="text-sm font-semibold text-tinta">Por disciplina</h3>
-      <p className="mt-0.5 text-sm text-tinta-suave">Sua nota em cada disciplina, da prova mais antiga para a mais recente. O traço marca a disciplina que a prova não teve.</p>
+      <p className="mt-0.5 text-sm text-tinta-suave">Seu aproveitamento em cada disciplina, da prova mais antiga para a mais recente. Sem o total, aparece só a nota. O traço marca a disciplina que a prova não teve.</p>
       <div className="mt-3 overflow-x-auto rounded-xl border border-linha/70 [scrollbar-width:thin]">
         <table className="w-full min-w-max border-collapse text-sm">
           <thead>
@@ -249,7 +255,7 @@ function PorDisciplinaNasProvas({ colunas, linhas }: ReturnType<typeof comparaca
               ))}
               {colunas.length > 1 && (
                 <th scope="col" className="px-4 py-2.5 text-right font-medium">
-                  Média
+                  Geral
                 </th>
               )}
             </tr>
@@ -260,18 +266,26 @@ function PorDisciplinaNasProvas({ colunas, linhas }: ReturnType<typeof comparaca
                 <th scope="row" className="sticky left-0 bg-superficie px-4 py-2.5 text-left font-medium whitespace-nowrap text-tinta">
                   {l.nome}
                 </th>
-                {l.celulas.map((c, i) =>
-                  c ? (
-                    <td key={i} className="px-4 py-2.5 text-right text-tinta numeros">
-                      {formatarNota(c.nota)}
+                {l.celulas.map((c, i) => {
+                  if (!c)
+                    return (
+                      <td key={i} className="px-4 py-2.5 text-right text-tinta-suave" aria-label="A prova não teve esta disciplina">
+                        –
+                      </td>
+                    )
+                  const pct = pctDisciplina(c)
+                  return (
+                    <td key={i} className="px-4 py-2.5 text-right whitespace-nowrap numeros">
+                      {pct !== null && <span className={cn('font-semibold', corPct(pct))}>{pct}%</span>}
+                      <span className={cn(pct === null ? 'text-tinta' : 'ml-2 text-xs text-tinta-suave')}>{textoNotaDisciplina(c)}</span>
                     </td>
-                  ) : (
-                    <td key={i} className="px-4 py-2.5 text-right text-tinta-suave" aria-label="A prova não teve esta disciplina">
-                      –
-                    </td>
-                  ),
+                  )
+                })}
+                {colunas.length > 1 && (
+                  <td className={cn('px-4 py-2.5 text-right font-semibold whitespace-nowrap numeros', corPct(l.geral))}>
+                    {l.geral !== null ? `${l.geral}%` : l.media !== null ? `média ${formatarNota(l.media)}` : '–'}
+                  </td>
                 )}
-                {colunas.length > 1 && <td className="px-4 py-2.5 text-right font-semibold text-tinta numeros">{l.media === null ? '–' : formatarNota(l.media)}</td>}
               </tr>
             ))}
           </tbody>

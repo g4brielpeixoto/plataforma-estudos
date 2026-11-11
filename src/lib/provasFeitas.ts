@@ -132,10 +132,17 @@ export function disciplinasConhecidas(provas: ProvaFeita[]): string[] {
   return nomes
 }
 
+/** Aproveitamento na disciplina (0–100, inteiro); null sem o total */
+export const pctDisciplina = (d: Pick<NotaDisciplina, 'nota' | 'total'>) => (d.total ? Math.round((d.nota / d.total) * 100) : null)
+
+/** "8 de 10" ou só "8" */
+export const textoNotaDisciplina = (d: Pick<NotaDisciplina, 'nota' | 'total'>) => (d.total ? `${formatarNota(d.nota)} de ${formatarNota(d.total)}` : formatarNota(d.nota))
+
 /**
  * Tabela de comparação: uma linha por disciplina, uma coluna por prova (da mais antiga para a mais recente).
  * Só entram provas com alguma disciplina lançada e disciplinas que aparecem em alguma prova.
- * `media` = média das notas nas provas em que a disciplina caiu.
+ * `geral` = aproveitamento somando as provas em que a disciplina tem total (null se nenhuma tem);
+ * `media` = média das notas nas provas em que a disciplina caiu (usada quando não há total).
  */
 export function comparacaoPorDisciplina(provas: ProvaFeita[]) {
   const colunas = [...provas].filter((p) => (p.disciplinas ?? []).length > 0).sort((a, b) => a.data.localeCompare(b.data) || a.criado_em.localeCompare(b.criado_em))
@@ -144,7 +151,10 @@ export function comparacaoPorDisciplina(provas: ProvaFeita[]) {
       const chave = chaveDisciplina(nome)
       const celulas = colunas.map((p) => p.disciplinas.find((d) => chaveDisciplina(d.nome) === chave) ?? null)
       const notas = celulas.filter((c): c is NotaDisciplina => !!c).map((c) => c.nota)
-      return { nome, celulas, media: notas.length ? Math.round((notas.reduce((s, n) => s + n, 0) / notas.length) * 100) / 100 : null }
+      const comTotal = celulas.filter((c): c is NotaDisciplina => !!c && !!c.total)
+      const total = comTotal.reduce((s, c) => s + (c.total as number), 0)
+      const geral = total ? Math.round((comTotal.reduce((s, c) => s + c.nota, 0) / total) * 100) : null
+      return { nome, celulas, geral, media: notas.length ? Math.round((notas.reduce((s, n) => s + n, 0) / notas.length) * 100) / 100 : null }
     })
     .filter((l) => l.celulas.some(Boolean))
   return { colunas, linhas }

@@ -13,6 +13,7 @@ const VAZIO = { nome: '', cargo: '', banca: '', data: '', total: '', corte: '', 
 interface LinhaDisciplina {
   nome: string
   nota: string
+  total: string
   nova?: boolean
 }
 
@@ -46,7 +47,7 @@ export function ProvaFeitaDialog({ aberto, aoMudar, prova }: { aberto: boolean; 
     setDisciplinas(
       disciplinasConhecidas([...(todas.data ?? []), ...(prova ? [prova] : [])]).map((nome) => {
         const d = lancadas.find((x) => chaveDisciplina(x.nome) === chaveDisciplina(nome))
-        return { nome, nota: d ? formatarNota(d.nota) : '' }
+        return { nome, nota: d ? formatarNota(d.nota) : '', total: d?.total ? formatarNota(d.total) : '' }
       }),
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps -- só ao abrir: recarregar a lista não pode apagar o que está sendo digitado
@@ -68,11 +69,14 @@ export function ProvaFeitaDialog({ aberto, aoMudar, prova }: { aberto: boolean; 
     for (const l of disciplinas) {
       const nome = l.nome.trim()
       const nota = lerNota(l.nota)
-      if (nota === null) continue
-      if (!nome) return setErro('Dê um nome à disciplina que você adicionou, ou apague a nota dela.')
-      if (Number.isNaN(nota)) return setErro(`Confira a nota de ${nome}: só números, com até duas casas (ex.: 7,5).`)
+      const total = lerNota(l.total)
+      if (nota === null && total === null) continue
+      if (!nome) return setErro('Dê um nome à disciplina que você adicionou, ou apague as notas dela.')
+      if (nota === null) return setErro(`Falta a sua nota em ${nome} (ou apague o total).`)
+      if (Number.isNaN(nota) || Number.isNaN(total) || total === 0) return setErro(`Confira os números de ${nome}: só números, com até duas casas (ex.: 7,5).`)
+      if (total !== null && nota > total) return setErro(`Em ${nome}, a nota não pode passar do total.`)
       if (porDisciplina.some((d) => chaveDisciplina(d.nome) === chaveDisciplina(nome))) return setErro(`${nome} aparece duas vezes.`)
-      porDisciplina.push({ nome, nota, total: null })
+      porDisciplina.push({ nome, nota, total })
     }
     const total = lerNota(f.total)
     const corte = lerNota(f.corte)
@@ -127,10 +131,11 @@ export function ProvaFeitaDialog({ aberto, aoMudar, prova }: { aberto: boolean; 
 
         <fieldset className="rounded-xl border border-linha/70 bg-superficie-2/50 p-4">
           <legend className="px-1 text-sm font-semibold text-tinta">Notas por disciplina</legend>
-          <p className="mb-3 text-sm text-tinta-suave">Preencha só as disciplinas que esta prova teve.</p>
-          <div className="grid grid-cols-[minmax(0,1fr)_6.5rem] items-center gap-x-3 gap-y-2">
+          <p className="mb-3 text-sm text-tinta-suave">Preencha só as disciplinas que esta prova teve. O total é quanto a disciplina valia (questões ou pontos); com ele a comparação mostra o seu aproveitamento.</p>
+          <div className="grid grid-cols-[minmax(0,1fr)_5.5rem_5.5rem] items-center gap-x-3 gap-y-2">
             <span className="text-xs font-medium text-tinta-suave">Disciplina</span>
             <span className="text-xs font-medium text-tinta-suave">Minha nota</span>
+            <span className="text-xs font-medium text-tinta-suave">Total</span>
             {disciplinas.map((l, i) => (
               <div key={i} className="contents">
                 {l.nova ? (
@@ -139,10 +144,11 @@ export function ProvaFeitaDialog({ aberto, aoMudar, prova }: { aberto: boolean; 
                   <span className="truncate text-[15px] text-tinta">{l.nome}</span>
                 )}
                 <Entrada aria-label={`Minha nota em ${l.nome || 'nova disciplina'}`} inputMode="decimal" value={l.nota} onChange={(e) => mudarDisciplina(i, { nota: e.target.value })} className="numeros" />
+                <Entrada aria-label={`Total de ${l.nome || 'nova disciplina'}`} inputMode="decimal" value={l.total} onChange={(e) => mudarDisciplina(i, { total: e.target.value })} className="numeros" />
               </div>
             ))}
           </div>
-          <Botao type="button" variante="secundario" tamanho="sm" className="mt-3" onClick={() => setDisciplinas((v) => [...v, { nome: '', nota: '', nova: true }])}>
+          <Botao type="button" variante="secundario" tamanho="sm" className="mt-3" onClick={() => setDisciplinas((v) => [...v, { nome: '', nota: '', total: '', nova: true }])}>
             <Plus className="size-4" aria-hidden /> Outra disciplina
           </Botao>
         </fieldset>

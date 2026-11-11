@@ -95,7 +95,7 @@ export interface ProvaFeita {
   criado_em: string
 }
 
-/** Nota numa disciplina da prova (`total` ficou de uma versão anterior e não é mais preenchido) */
+/** Nota numa disciplina da prova; `total` = quanto a disciplina valia (questões ou pontos), opcional */
 export interface NotaDisciplina {
   nome: string
   nota: number
