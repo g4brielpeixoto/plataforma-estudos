@@ -40,7 +40,7 @@ src/
   lib/materiais.ts        links dos materiais: normaliza (https:// na frente), tipo (pdf/vídeo/documento/link) e nome para mostrar
   lib/foto.ts             prepara a foto de perfil (recorte quadrado 320px JPEG), iniciais, primeiro nome
   components/Avatar.tsx   foto redonda ou iniciais
-  components/Logo.tsx     logo do Aprovi em curvas (letras na cor do texto, "v" como visto em `--c-visto`); `Marca` no Layout usa ele. Ícone do app/aba em `public/favicon.svg`
+  components/Logo.tsx     logo do Aprovi em curvas (letras na cor do texto, "v" como visto em `--c-visto`); `Marca` no Layout usa ele. Ícone do app/aba em `public/favicon.svg`; ícone da tela inicial do celular em `public/apple-touch-icon.png` (180 px, quadrado cheio, o iPhone arredonda) e `icone-192/512.png` no `manifest.webmanifest`. Trocar o ícone exige remover e adicionar de novo o atalho no iPhone
   lib/planner.ts          regras do planner: datas sem fuso, atrasados, mover/reagendar (contagem de adiamentos), semanas do mês — testadas com casos de borda
   hooks/usePlannerAcoes.tsx  ações de um item (check, play, mover, editar, excluir) e os diálogos que elas abrem; quem usa renderiza `dialogos`
   components/CartaoPlanner.tsx  cartão do item (variante "coluna" da semana e "largo" do dia/Início), check, menu ⋮
