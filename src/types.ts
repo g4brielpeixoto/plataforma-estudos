@@ -70,6 +70,32 @@ export interface Metas {
   atualizado_em: string
 }
 
+export type SituacaoProva = 'aprovado' | 'classificado' | 'nao_classificado' | 'eliminado' | 'aguardando'
+
+/** Prova que o usuário já fez (Raio-X); separada de `Prova`, que é a contagem regressiva */
+export interface ProvaFeita {
+  id: string
+  user_id: string
+  nome: string
+  cargo: string | null
+  banca: string | null
+  /** yyyy-mm-dd */
+  data: string
+  nota_objetiva: number | null
+  corte_objetiva: number | null
+  nota_discursiva: number | null
+  corte_discursiva: number | null
+  nota_final: number | null
+  corte_final: number | null
+  situacao: SituacaoProva | null
+  classificacao: number | null
+  observacao: string | null
+  criado_em: string
+}
+
+/** O que o diálogo grava */
+export type DadosProvaFeita = Omit<ProvaFeita, 'id' | 'user_id' | 'criado_em'>
+
 export interface Prova {
   id: string
   user_id: string

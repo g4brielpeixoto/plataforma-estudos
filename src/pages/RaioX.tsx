@@ -2,6 +2,7 @@ import { Link } from 'react-router'
 import { MapaCalor } from '@/components/MapaCalor'
 import { PontosAtencao } from '@/components/PontosAtencao'
 import { PorDisciplina } from '@/components/PorDisciplina'
+import { ProvasFeitas } from '@/components/ProvasFeitas'
 import { CabecalhoPagina, Carregando, Painel } from '@/components/ui'
 import { useDisciplinas, useEstudos, useTopicos } from '@/hooks/dados'
 
@@ -37,6 +38,7 @@ export function RaioX() {
           </div>
         </div>
       )}
+      <ProvasFeitas className="mt-5" />
     </>
   )
 }

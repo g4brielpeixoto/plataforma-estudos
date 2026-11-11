@@ -6,7 +6,7 @@ import { camposDeNovo } from '@/lib/flashcards/agenda'
 import type { CartaoImportado } from '@/lib/flashcards/anki'
 import { imagensDoHtml, limparHtmlComInfo, srcPermitido } from '@/lib/flashcards/html'
 import { EXTENSAO, prepararImagem } from '@/lib/flashcards/imagens'
-import type { Convite, Disciplina, Estudo, FlashCartao, FlashConfig, FlashNota, FlashRevisao, ItemPlanner, Material, Metas, NivelTopico, NovoEstudo, Perfil, Prova, Topico } from '@/types'
+import type { Convite, DadosProvaFeita, Disciplina, Estudo, FlashCartao, FlashConfig, FlashNota, FlashRevisao, ItemPlanner, Material, Metas, NivelTopico, NovoEstudo, Perfil, Prova, ProvaFeita, Topico } from '@/types'
 
 /*
   Acesso aos dados. Toda leitura usa o React Query (cache + recarga automática);
@@ -22,6 +22,7 @@ export const chaves = {
   convites: ['convites'] as const,
   metas: ['metas'] as const,
   provas: ['provas'] as const,
+  provasFeitas: ['provasFeitas'] as const,
   planner: ['planner'] as const,
   flashNotas: ['flash', 'notas'] as const,
   flashCartoes: ['flash', 'cartoes'] as const,
@@ -438,6 +439,41 @@ export function useExcluirProva() {
       if (error) throw error
     },
     onSuccess: () => invalidar('provas'),
+  })
+}
+
+// ---------- provas já feitas (Raio-X) ----------
+
+export function useProvasFeitas() {
+  return useQuery({
+    queryKey: chaves.provasFeitas,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('provas_feitas').select('*').order('data', { ascending: false }).order('criado_em', { ascending: false })
+      if (error) throw error
+      return data as ProvaFeita[]
+    },
+  })
+}
+
+export function useSalvarProvaFeita() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async ({ id, ...dados }: DadosProvaFeita & { id?: string }) => {
+      const { error } = id ? await supabase.from('provas_feitas').update(dados).eq('id', id) : await supabase.from('provas_feitas').insert(dados)
+      if (error) throw error
+    },
+    onSuccess: () => invalidar('provasFeitas'),
+  })
+}
+
+export function useExcluirProvaFeita() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('provas_feitas').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => invalidar('provasFeitas'),
   })
 }
 
