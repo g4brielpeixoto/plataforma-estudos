@@ -324,7 +324,7 @@ export function ImportarAnkiDialog({
                           .filter((t) => t.disciplina_id === disciplinaId)
                           .map((t) => (
                             <option key={t.id} value={t.id}>
-                              {rotuloSelecao(t)}
+                              {rotuloSelecao(t, topicos)}
                             </option>
                           ))}
                       </Selecao>

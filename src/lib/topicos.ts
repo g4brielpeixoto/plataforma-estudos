@@ -157,7 +157,32 @@ export function inserirFilho(lista: Topico[], pai: Topico, novo: Topico): Topico
   return [...L.slice(0, pos), { ...novo, nivel: Math.min(pai.nivel + 1, NIVEL_MAXIMO) as NivelTopico }, ...L.slice(pos)]
 }
 
-/** Rótulo para listas de seleção: recuo conforme o nível */
-export function rotuloSelecao(t: Topico): string {
-  return t.nivel === 0 ? t.nome : `${' '.repeat(t.nivel)}↳ ${t.nome}`
+const cacheNumeros = new WeakMap<Topico[], Map<string, string>>()
+
+/** Numeração do edital (4, 4.2, 4.2.1) de todos os tópicos, disciplina por disciplina (guardada por lista) */
+export function numeracaoDeTodos(todos: Topico[]): Map<string, string> {
+  const pronta = cacheNumeros.get(todos)
+  if (pronta) return pronta
+  const porDisciplina = new Map<string, Topico[]>()
+  for (const t of todos) {
+    const lista = porDisciplina.get(t.disciplina_id)
+    if (lista) lista.push(t)
+    else porDisciplina.set(t.disciplina_id, [t])
+  }
+  const mapa = new Map<string, string>()
+  for (const lista of porDisciplina.values()) {
+    const ordenada = [...lista].sort((a, b) => a.ordem - b.ordem || a.criado_em.localeCompare(b.criado_em))
+    for (const [id, n] of numeracao(ordenada)) mapa.set(id, n)
+  }
+  cacheNumeros.set(todos, mapa)
+  return mapa
+}
+
+/**
+  Rótulo para listas de seleção: a mesma numeração do edital ("4.2  Horas extras"),
+  com um recuo leve por nível. `todos` = a lista completa de tópicos (para numerar certo mesmo em listas filtradas).
+*/
+export function rotuloSelecao(t: Topico, todos: Topico[]): string {
+  const numero = numeracaoDeTodos(todos).get(t.id)
+  return `${'\u2003'.repeat(t.nivel)}${numero ? `${numero}\u2002` : ''}${t.nome}`
 }

@@ -181,7 +181,7 @@ export function NotaFlashDialog({
                 <option value="">Sem tópico</option>
                 {topicosDaDisciplina.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {rotuloSelecao(t)}
+                    {rotuloSelecao(t, topicos.data ?? [])}
                   </option>
                 ))}
               </Selecao>

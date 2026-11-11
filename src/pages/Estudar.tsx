@@ -206,7 +206,7 @@ export function Estudar() {
           <option value="">Tópico (opcional)</option>
           {topicosDaDisciplina.map((t) => (
             <option key={t.id} value={t.id}>
-              {rotuloSelecao(t)}
+              {rotuloSelecao(t, topicos.data ?? [])}
             </option>
           ))}
         </Selecao>

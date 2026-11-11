@@ -247,7 +247,7 @@ export function EstudoDialog({
                 <option value="">{disciplinaId && topicosDaDisciplina.length === 0 ? 'Disciplina sem tópicos' : 'Escolha…'}</option>
                 {topicosDaDisciplina.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {rotuloSelecao(t)}
+                    {rotuloSelecao(t, topicos.data ?? [])}
                     {t.concluido ? ' ✓' : ''}
                   </option>
                 ))}

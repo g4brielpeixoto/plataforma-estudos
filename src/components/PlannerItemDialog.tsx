@@ -141,7 +141,7 @@ export function PlannerItemDialog({
               <option value="">{disciplinaId && topicosDaDisciplina.length === 0 ? 'Disciplina sem tópicos' : 'Sem tópico definido'}</option>
               {topicosDaDisciplina.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {rotuloSelecao(t)}
+                  {rotuloSelecao(t, topicos.data ?? [])}
                   {t.concluido ? ' ✓' : ''}
                 </option>
               ))}

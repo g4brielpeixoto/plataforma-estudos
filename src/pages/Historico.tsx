@@ -125,7 +125,7 @@ export function Historico() {
               <option value="">Todos os tópicos</option>
               {topicosDaDisciplina.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {rotuloSelecao(t)}
+                  {rotuloSelecao(t, topicos.data ?? [])}
                 </option>
               ))}
             </Selecao>

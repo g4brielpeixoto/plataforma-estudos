@@ -146,7 +146,7 @@ export function BaralhoFlash() {
                 <option value="">Todos os tópicos</option>
                 {topicosComNotas.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {rotuloSelecao(t)}
+                    {rotuloSelecao(t, dados.topicos)}
                   </option>
                 ))}
               </Selecao>
@@ -184,7 +184,7 @@ export function BaralhoFlash() {
             <option value="sem">Sem tópico</option>
             {topicosComNotas.map((t) => (
               <option key={t.id} value={t.id}>
-                {rotuloSelecao(t)}
+                {rotuloSelecao(t, dados.topicos)}
               </option>
             ))}
           </Selecao>
