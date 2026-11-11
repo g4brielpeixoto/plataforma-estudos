@@ -1,4 +1,4 @@
-import { ChevronDown, ClipboardCheck, Pause, Play } from 'lucide-react'
+import { BellOff, ChevronDown, ClipboardCheck, Pause, Play } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useMatch, useNavigate } from 'react-router'
 import { useDisciplinas, useTopicos } from '@/hooks/dados'
@@ -54,14 +54,17 @@ export function MiniCronometro() {
     />
   )
 
+  // com o alarme tocando a janelinha abre sozinha, para o botão de parar ficar à mão
+  const mostrarRecolhido = recolhido && !c.alarmeTocando
+
   const salvar = () => navegar('/estudar', { state: { salvar: true } })
 
   return (
     <>
       {/* espaço no fim da página para a janelinha não cobrir o conteúdo */}
-      <div className={recolhido ? 'h-12' : 'h-20'} aria-hidden />
+      <div className={mostrarRecolhido ? 'h-12' : 'h-20'} aria-hidden />
 
-      {recolhido ? (
+      {mostrarRecolhido ? (
         <button
           type="button"
           onClick={() => recolher(false)}
@@ -89,6 +92,17 @@ export function MiniCronometro() {
               <span className="block truncate text-[13px] text-sobre-cabecalho/75">{assunto}</span>
             </Link>
 
+            {c.alarmeTocando && (
+              <button
+                type="button"
+                onClick={c.pararAlarme}
+                aria-label="Parar alarme"
+                title="Parar alarme"
+                className="grid size-10 shrink-0 place-items-center rounded-full bg-sobre-cabecalho text-cabecalho motion-safe:animate-pulse"
+              >
+                <BellOff className="size-[18px]" aria-hidden />
+              </button>
+            )}
             {!c.rodando && podeSalvar && (
               <button
                 type="button"

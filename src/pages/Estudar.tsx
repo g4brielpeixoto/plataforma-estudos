@@ -1,5 +1,5 @@
 import { isToday } from 'date-fns'
-import { CalendarDays, ClipboardCheck, Pause, Play, RotateCcw, Settings, SkipForward, X } from 'lucide-react'
+import { BellOff, CalendarDays, ClipboardCheck, Pause, Play, RotateCcw, Settings, SkipForward, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -227,6 +227,17 @@ export function Estudar() {
           <p className="mt-2 text-sm text-tinta-suave numeros">{formatarDuracao(c.estudadoMs / 1000)} de estudo</p>
         )}
       </Anel>
+
+      {c.alarmeTocando && (
+        <button
+          type="button"
+          onClick={c.pararAlarme}
+          className="mx-auto mt-4 flex h-12 items-center gap-2 rounded-full bg-cabecalho px-6 text-[15px] font-semibold text-sobre-cabecalho motion-safe:animate-pulse"
+        >
+          <BellOff className="size-[18px]" aria-hidden />
+          Parar alarme
+        </button>
+      )}
 
       {c.modo === 'timer' && !c.rodando && c.decorrido === 0 && (
         <div className="mt-6 flex flex-wrap items-center justify-center gap-2">

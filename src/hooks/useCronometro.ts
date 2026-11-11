@@ -88,25 +88,54 @@ function prepararSom() {
   }
 }
 
-function tocarAlarme() {
+/** Um toque do alarme: quatro bipes fortes em cerca de 1 s */
+function tocarToque() {
   if (!audio) return
+  if (audio.state === 'suspended') void audio.resume()
   const agora = audio.currentTime
-  ;[0, 0.35, 0.7].forEach((atraso, i) => {
-    const osc = audio!.createOscillator()
-    const ganho = audio!.createGain()
-    osc.type = 'sine'
-    osc.frequency.value = i === 2 ? 880 : 660
-    ganho.gain.setValueAtTime(0.0001, agora + atraso)
-    ganho.gain.exponentialRampToValueAtTime(0.25, agora + atraso + 0.02)
-    ganho.gain.exponentialRampToValueAtTime(0.0001, agora + atraso + 0.3)
-    osc.connect(ganho).connect(audio!.destination)
-    osc.start(agora + atraso)
-    osc.stop(agora + atraso + 0.32)
+  ;[0, 0.22, 0.44, 0.66].forEach((atraso) => {
+    for (const frequencia of [880, 1320]) {
+      const osc = audio!.createOscillator()
+      const ganho = audio!.createGain()
+      osc.type = 'triangle'
+      osc.frequency.value = frequencia
+      ganho.gain.setValueAtTime(0.0001, agora + atraso)
+      ganho.gain.exponentialRampToValueAtTime(frequencia === 880 ? 0.6 : 0.3, agora + atraso + 0.015)
+      ganho.gain.exponentialRampToValueAtTime(0.0001, agora + atraso + 0.16)
+      osc.connect(ganho).connect(audio!.destination)
+      osc.start(agora + atraso)
+      osc.stop(agora + atraso + 0.18)
+    }
   })
+  try {
+    navigator.vibrate?.([200, 100, 200, 100, 200])
+  } catch {
+    /* sem vibração */
+  }
 }
 
-function avisar(titulo: string, corpo: string) {
-  tocarAlarme()
+/** O alarme repete o toque a cada 2 s até alguém parar, por no máximo 1 minuto */
+const ALARME_MAX_MS = 60_000
+let alarmeId: number | null = null
+let alarmeFimId: number | null = null
+
+function pararToques() {
+  if (alarmeId !== null) window.clearInterval(alarmeId)
+  if (alarmeFimId !== null) window.clearTimeout(alarmeFimId)
+  alarmeId = alarmeFimId = null
+}
+
+function tocarAlarme(aoTerminar: () => void) {
+  pararToques()
+  tocarToque()
+  alarmeId = window.setInterval(tocarToque, 2000)
+  alarmeFimId = window.setTimeout(() => {
+    pararToques()
+    aoTerminar()
+  }, ALARME_MAX_MS)
+}
+
+function notificar(titulo: string, corpo: string) {
   try {
     if ('Notification' in window && Notification.permission === 'granted' && document.visibilityState !== 'visible') {
       new Notification(titulo, { body: corpo, icon: './favicon.svg' })
@@ -133,6 +162,24 @@ function useMotorCronometro() {
   })
   const [config, setConfigBruta] = useState<ConfigPomodoro>(() => ler(CHAVE_CONFIG, CONFIG_PADRAO))
   const [agora, setAgora] = useState(() => Date.now())
+  const [alarmeTocando, setAlarmeTocando] = useState(false)
+
+  const pararAlarme = useCallback(() => {
+    pararToques()
+    setAlarmeTocando(false)
+  }, [])
+  const avisar = useCallback((titulo: string, corpo: string) => {
+    setAlarmeTocando(true)
+    tocarAlarme(() => setAlarmeTocando(false))
+    notificar(titulo, corpo)
+  }, [])
+  // qualquer toque na tela libera o som, para o alarme tocar mesmo se a página foi recarregada com o tempo rodando
+  useEffect(() => {
+    document.addEventListener('pointerdown', prepararSom)
+    return () => document.removeEventListener('pointerdown', prepararSom)
+  }, [])
+  // o alarme não continua tocando depois de sair da área logada
+  useEffect(() => pararToques, [])
 
   const setEstado = useCallback((muda: (e: Estado) => Estado) => {
     setEstadoBruto((anterior) => {
@@ -189,7 +236,7 @@ function useMotorCronometro() {
       })
       avisar(estado.fase === 'foco' ? 'Hora da pausa' : 'Hora de voltar', estado.fase === 'foco' ? 'Foco concluído. Descanse um pouco.' : 'Pausa encerrada. Vamos ao próximo foco.')
     }
-  }, [decorrido, estado.rodando, estado.modo, estado.fase, estado.alvoTimerMin, alvoTimerMs, duracaoFaseMs, config.ciclos, setEstado])
+  }, [decorrido, estado.rodando, estado.modo, estado.fase, estado.alvoTimerMin, alvoTimerMs, duracaoFaseMs, config.ciclos, setEstado, avisar])
 
   // título da aba mostra o tempo enquanto roda
   useEffect(() => {
@@ -230,7 +277,11 @@ function useMotorCronometro() {
     alvoTimerMs,
     duracaoFaseMs,
     temTempo,
+    /** o alarme do fim do timer/fase está tocando (para até 1 min ou ao mexer no relógio) */
+    alarmeTocando,
+    pararAlarme,
     iniciar() {
+      pararAlarme()
       prepararSom()
       if (estado.modo !== 'cronometro') pedirPermissaoNotificacao()
       if (estado.modo === 'timer' && decorrido >= alvoTimerMs) return
@@ -244,9 +295,11 @@ function useMotorCronometro() {
       setEstado((e) => ({ ...e, rodando: false, inicioEm: null, acumuladoMs: e.acumuladoMs + (e.inicioEm ? t - e.inicioEm : 0) }))
     },
     zerar() {
+      pararAlarme()
       setEstado((e) => ({ ...e, rodando: false, inicioEm: null, acumuladoMs: 0, fase: 'foco', ciclo: 0, focoTotalMs: 0, plannerId: '' }))
     },
     trocarModo(modo: Modo) {
+      pararAlarme()
       setEstado((e) => (e.rodando ? e : { ...e, modo, acumuladoMs: 0, inicioEm: null, fase: 'foco', ciclo: 0, focoTotalMs: 0 }))
     },
     definirAlvoTimer(min: number) {
@@ -254,6 +307,7 @@ function useMotorCronometro() {
     },
     /** Encerra a fase atual do pomodoro antes da hora (o foco parcial conta como estudo) */
     pularFase() {
+      pararAlarme()
       const t = Date.now()
       setEstado((e) => {
         const corrido = e.acumuladoMs + (e.rodando && e.inicioEm ? t - e.inicioEm : 0)
