@@ -199,6 +199,19 @@ input[type='checkbox']:checked::after {
   }
 }
 
+/*
+  Lista aberta do <select>: no tema escuro o Chrome do Windows abre a lista com fundo branco
+  e mantém a cor clara do texto, e as opções somem. Aqui as opções seguem o tema.
+*/
+select option,
+select optgroup {
+  background-color: var(--c-superficie);
+  color: var(--c-tinta);
+}
+select option:disabled {
+  color: var(--c-tinta-suave);
+}
+
 .seta-select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238F7193' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
