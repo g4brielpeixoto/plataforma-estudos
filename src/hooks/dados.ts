@@ -6,7 +6,7 @@ import { camposDeNovo } from '@/lib/flashcards/agenda'
 import type { CartaoImportado } from '@/lib/flashcards/anki'
 import { imagensDoHtml, limparHtmlComInfo, srcPermitido } from '@/lib/flashcards/html'
 import { EXTENSAO, prepararImagem } from '@/lib/flashcards/imagens'
-import type { Convite, Disciplina, Estudo, FlashCartao, FlashConfig, FlashNota, FlashRevisao, ItemPlanner, Metas, NivelTopico, NovoEstudo, Perfil, Prova, Topico } from '@/types'
+import type { Convite, Disciplina, Estudo, FlashCartao, FlashConfig, FlashNota, FlashRevisao, ItemPlanner, Material, Metas, NivelTopico, NovoEstudo, Perfil, Prova, Topico } from '@/types'
 
 /*
   Acesso aos dados. Toda leitura usa o React Query (cache + recarga automática);
@@ -27,6 +27,7 @@ export const chaves = {
   flashCartoes: ['flash', 'cartoes'] as const,
   flashRevisoes: ['flash', 'revisoes'] as const,
   flashConfig: ['flash', 'config'] as const,
+  materiais: ['materiais'] as const,
 }
 
 // ---------- leituras ----------
@@ -117,6 +118,13 @@ export function usePlanner() {
   })
 }
 
+export function useMateriais() {
+  return useQuery({
+    queryKey: chaves.materiais,
+    queryFn: () => buscarTodos<Material>((de, ate) => supabase.from('materiais').select('*').order('criado_em').order('id').range(de, ate)),
+  })
+}
+
 // revisões de flashcards: só o último ano (é o que as estatísticas usam)
 const DIAS_REVISOES = 400
 
@@ -185,7 +193,7 @@ export function useExcluirDisciplina() {
       const { error } = await supabase.from('disciplinas').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => invalidar('disciplinas', 'topicos', 'estudos', 'planner', 'flashNotas', 'flashCartoes', 'flashRevisoes'),
+    onSuccess: () => invalidar('disciplinas', 'topicos', 'estudos', 'planner', 'flashNotas', 'flashCartoes', 'flashRevisoes', 'materiais'),
   })
 }
 
@@ -250,7 +258,7 @@ export function useExcluirTopico() {
       const { error } = await supabase.from('topicos').delete().in('id', ids)
       if (error) throw error
     },
-    onSuccess: () => invalidar('topicos', 'estudos', 'planner', 'flashNotas'),
+    onSuccess: () => invalidar('topicos', 'estudos', 'planner', 'flashNotas', 'materiais'),
   })
 }
 
@@ -799,5 +807,31 @@ export function useImportarFlashcards() {
       return { notas: feitas, cartoes, disciplinasNovas: idsNovas.size, imagens: enderecos.size, imagensComFalha, completadas: plano.completar.length }
     },
     onSettled: () => invalidar('disciplinas', 'flashNotas', 'flashCartoes'),
+  })
+}
+
+// ---------- materiais dos tópicos ----------
+
+export function useSalvarMaterial() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async ({ id, topico_id, titulo, url }: { id?: string; topico_id: string; titulo: string | null; url: string }) => {
+      const { error } = id
+        ? await supabase.from('materiais').update({ titulo, url }).eq('id', id)
+        : await supabase.from('materiais').insert({ topico_id, titulo, url })
+      if (error) throw error
+    },
+    onSuccess: () => invalidar('materiais'),
+  })
+}
+
+export function useExcluirMaterial() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('materiais').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => invalidar('materiais'),
   })
 }

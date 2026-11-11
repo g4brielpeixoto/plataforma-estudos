@@ -161,3 +161,13 @@ export interface FlashConfig {
   retencao: number
   atualizado_em: string
 }
+
+/** Link de material de um tópico (texto próprio, PDF, vídeo…) */
+export interface Material {
+  id: string
+  user_id: string
+  topico_id: string
+  titulo: string | null
+  url: string
+  criado_em: string
+}

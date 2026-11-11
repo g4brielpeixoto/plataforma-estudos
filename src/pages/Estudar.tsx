@@ -4,8 +4,9 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } 
 import { useLocation, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { EstudoDialog } from '@/components/EstudoDialog'
+import { ChipsMateriais } from '@/components/Materiais'
 import { Botao, Campo, Dialogo, Entrada, Selecao } from '@/components/ui'
-import { useDisciplinas, useEstudos, usePlanner, useTopicos } from '@/hooks/dados'
+import { useDisciplinas, useEstudos, useMateriais, usePlanner, useTopicos } from '@/hooks/dados'
 import { CONFIG_PADRAO, useCronometro, type ConfigPomodoro, type Modo } from '@/hooks/useCronometro'
 import type { PlayDoPlanner } from '@/hooks/usePlannerAcoes'
 import { concluido, COR_TIPO, ROTULO_TIPO } from '@/lib/planner'
@@ -72,6 +73,8 @@ export function Estudar() {
   const [configurando, setConfigurando] = useState(false)
   const [minutosPersonalizados, setMinutosPersonalizados] = useState('')
   const planner = usePlanner()
+  const materiais = useMateriais()
+  const materiaisDoTopico = c.topicoId ? (materiais.data ?? []).filter((m) => m.topico_id === c.topicoId) : []
   const local = useLocation()
   const navegar = useNavigate()
   const playTratado = useRef<string | null>(null)
@@ -208,6 +211,13 @@ export function Estudar() {
           ))}
         </Selecao>
       </div>
+
+      {materiaisDoTopico.length > 0 && (
+        <div className="-mt-5 mb-8 flex flex-wrap items-center justify-center gap-2">
+          <span className="text-sm text-tinta-suave">Material:</span>
+          <ChipsMateriais materiais={materiaisDoTopico} maximo={6} />
+        </div>
+      )}
 
       <Anel progresso={progresso}>
         <p className={cn('flex items-center gap-2 text-sm font-semibold', c.rodando ? 'text-primaria-forte' : 'text-tinta-suave')}>

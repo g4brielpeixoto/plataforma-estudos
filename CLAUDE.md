@@ -32,7 +32,9 @@ src/
   lib/config.ts           URL e chave publicável do Supabase (com override por env) e o bucket/prefixo das imagens dos flashcards
   lib/supabase.ts         cliente + buscarTodos (paginação)
   components/ui.tsx       componentes base (Botao, Entrada, EntradaSenha, Selecao, Interruptor, Dialogo, Confirmar, Painel, SeloAcerto…)
-  components/ListaTopicos.tsx  lista de tópicos ordenável (arrastar ou digitar a posição) com colunas Questões, Último estudo e Estudo; no tópico pai os números somam os subtópicos
+  components/ListaTopicos.tsx  lista de tópicos com colunas Questões, Último estudo e Estudo (no tópico pai os números somam os subtópicos); a alça de arrastar e o número editável só aparecem no modo "Editar ordem"
+  components/Materiais.tsx     etiquetas de material (links) e o diálogo de materiais do tópico
+  lib/materiais.ts        links dos materiais: normaliza (https:// na frente), tipo (pdf/vídeo/documento/link) e nome para mostrar
   lib/foto.ts             prepara a foto de perfil (recorte quadrado 320px JPEG), iniciais, primeiro nome
   components/Avatar.tsx   foto redonda ou iniciais
   lib/planner.ts          regras do planner: datas sem fuso, atrasados, mover/reagendar (contagem de adiamentos), semanas do mês — testadas com casos de borda
@@ -50,7 +52,7 @@ supabase/definir-master.sql  define o e-mail do master
 
 ## Banco (Supabase, projeto `qudoenqafdaayrdnxkel`, região sa-east-1)
 
-Tabelas em `public`: `perfis`, `convites`, `disciplinas`, `topicos`, `estudos`, `metas` (metas semanais de minutos e questões, uma linha por usuário), `provas` (nome e data de cada prova/concurso), `planner_itens` (itens do planner), `flash_notas`, `flash_cartoes`, `flash_revisoes`, `flash_config` (flashcards). Funções auxiliares em `privado` (fora da API).
+Tabelas em `public`: `perfis`, `convites`, `disciplinas`, `topicos`, `estudos`, `metas` (metas semanais de minutos e questões, uma linha por usuário), `provas` (nome e data de cada prova/concurso), `planner_itens` (itens do planner), `materiais` (links de material de cada tópico), `flash_notas`, `flash_cartoes`, `flash_revisoes`, `flash_config` (flashcards). Funções auxiliares em `privado` (fora da API).
 
 - **Cadastro só por convite:** trigger `privado.tratar_novo_usuario` em `auth.users` recusa e-mails fora de `convites` (o Supabase devolve "Database error saving new user", traduzido no front) e cria o `perfil` com o papel do convite.
 - **Master:** único que vê/cria/cancela convites e ativa/desativa usuários comuns. Não consegue criar outro master pelo app (só via SQL).
@@ -61,6 +63,7 @@ Tabelas em `public`: `perfis`, `convites`, `disciplinas`, `topicos`, `estudos`, 
 - `planner_itens`: `data` (dia atual do item) e `data_original` (dia em que foi planejado), `tipo` (estudo/revisao/resumo/exercicios), `topico_id` opcional, `minutos_previstos`, `observacao` (≤ 500), `ordem` no dia, `adiamentos`, `concluido_em`, `estudo_id` (o estudo que o concluiu; `on delete set null`). A policy só aceita disciplina, tópico (da mesma disciplina) e estudo do próprio usuário.
 - **Flashcards:** `flash_notas` (conteúdo; `disciplina_id` = baralho, `topico_id` opcional, `tipo` basico/omissao, `frente`/`verso` em HTML simples, `origem_anki` única por usuário para não duplicar importações); `flash_cartoes` (um por nota no básico, `ordem` 0; um por número de omissão; campos do FSRS: `estado` 0 novo/1 aprendendo/2 revisão/3 reaprendendo, `vence_em`, `estabilidade`, `dificuldade`, `dias_agendados`, `passo`, `repeticoes`, `lapsos`, `ultima_revisao`, `suspenso`, `posicao`); `flash_revisoes` (cada resposta 1–4, estado antes, duração); `flash_config` (novos/dia, revisões/dia, retenção). Apagar a disciplina apaga tudo em cascata.
 - **Imagens dos flashcards:** bucket público `flashcards` (5 MB, jpeg/png/webp/gif), pasta `<user_id>/`, nome aleatório; só o dono com conta ativa envia/troca/apaga. No HTML do cartão a imagem é `<img src="<URL pública>">`; `limparHtml` só aceita src que começa com `PREFIXO_IMAGENS_FLASH` (o resto vira "[imagem]"). Ao excluir uma nota ou tirar a imagem de uma nota, o arquivo é apagado se nenhuma outra nota usar (apagar a disciplina inteira deixa os arquivos).
+- **Materiais:** `materiais` (`topico_id`, `titulo` opcional ≤ 120, `url` só http/https sem espaços, ≤ 2000). Apagar o tópico apaga os materiais.
 - Mudanças de schema: crie um novo arquivo em `supabase/migrations/` e aplique no projeto (MCP do Supabase ou SQL Editor). Depois rode os advisors de segurança.
 
 ## Regras de negócio
@@ -87,6 +90,8 @@ Tabelas em `public`: `perfis`, `convites`, `disciplinas`, `topicos`, `estudos`, 
 - Faixas de acerto: ≥ 80% verde, 60–79% amarelo, < 60% vermelho (`nivelAcerto` em `lib/utils.ts`).
 - Pomodoro: só o tempo de foco conta como estudo; ao fim de cada fase o relógio para e espera o usuário.
 - **Subtópicos (até 3 níveis):** `topicos.nivel` (0 tópico, 1 subtópico, 2 subtópico do subtópico). A lista da disciplina é única e ordenada; cada item pertence ao item acima com um nível a menos. Regras em `lib/topicos.ts` (numeração 4 / 4.2 / 4.2.1; arrastar leva a subárvore; recuar/avançar; posição digitada é entre os irmãos) — testadas com casos de borda. Seta para recolher/expandir, salva no navegador por disciplina. Nos números do item pai entram todos os subtópicos. Importação: cada recuo maior (espaços ou tab) desce um nível.
+- **Ordenar tópicos só no modo de edição:** na página da disciplina, o botão "Editar ordem" (canto direito da linha dos filtros; no celular só "Editar") liga o modo em que aparecem a alça de arrastar e o número editável, e muda o filtro para Todos; "Concluir" desliga. Fora dele o número é só texto, para não mudar a ordem sem querer. O modo não fica salvo.
+- **Materiais do tópico:** no menu ⋮ de cada tópico, "Adicionar material" / "Materiais (N)" abre o diálogo para colar um link (PDF, texto próprio, vídeo, Drive…) com nome opcional; dá para editar e remover. Os links aparecem como etiquetas embaixo do nome do tópico (até 3, depois "+N") e na tela Estudar quando o tópico está escolhido; abrem em outra aba com `rel="noopener noreferrer"`.
 - Ordem dos tópicos: `useReordenarTopicos` grava a lista inteira numa só requisição (upsert por `id`, `ordem` = posição) com atualização otimista.
 - Os dados são carregados inteiros por usuário (`buscarTodos`) e agregados no front. Escala pessoal, funciona bem até dezenas de milhares de estudos.
 

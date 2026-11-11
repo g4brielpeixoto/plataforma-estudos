@@ -4,12 +4,13 @@ import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalList
 import { CSS } from '@dnd-kit/utilities'
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { format } from 'date-fns'
-import { ChevronRight, EllipsisVertical, GripVertical, IndentDecrease, IndentIncrease, ListPlus, Pencil, Trash2 } from 'lucide-react'
+import { ChevronRight, EllipsisVertical, GripVertical, IndentDecrease, IndentIncrease, Link2, ListPlus, Pencil, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { somarResumos, type ResumoTopico } from '@/lib/indicadores'
 import { avancar, descendentesDe, filhosDe, irmaosDe, moverParaPosicao, moverPorArrasto, NIVEL_MAXIMO, numeracao, paiDe, podeRecuar, recuar } from '@/lib/topicos'
 import { cn, formatarDuracao } from '@/lib/utils'
-import type { Topico } from '@/types'
+import type { Material, Topico } from '@/types'
+import { ChipsMateriais } from './Materiais'
 import { Botao, Entrada, SeloAcerto } from './ui'
 
 interface Props {
@@ -20,6 +21,11 @@ interface Props {
   porTopico: Map<string, ResumoTopico>
   /** arrastar e recolher só fazem sentido com a lista completa */
   podeArrastar: boolean
+  /** modo de edição: só nele aparecem a alça de arrastar e o número editável (evita mudar a ordem sem querer) */
+  editando: boolean
+  /** links de material de cada tópico */
+  materiais: Map<string, Material[]>
+  aoAbrirMateriais: (t: Topico) => void
   /** recebe a lista inteira na nova ordem (e com os níveis atualizados) */
   aoReordenar: (novaOrdem: Topico[]) => void
   aoAlternarConcluido: (t: Topico) => void
@@ -57,7 +63,7 @@ function useRecolhidos(disciplinaId: string | undefined) {
   return [recolhidos, salvar] as const
 }
 
-export function ListaTopicos({ topicos, visiveis, porTopico, podeArrastar, aoReordenar, aoAlternarConcluido, aoRenomear, aoExcluir, aoAdicionarSubtopico }: Props) {
+export function ListaTopicos({ topicos, visiveis, porTopico, podeArrastar, editando, materiais, aoAbrirMateriais, aoReordenar, aoAlternarConcluido, aoRenomear, aoExcluir, aoAdicionarSubtopico }: Props) {
   const sensores = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -142,7 +148,11 @@ export function ListaTopicos({ topicos, visiveis, porTopico, podeArrastar, aoReo
                 nomePai={pai?.nome}
                 qtdFilhos={filhosDe(topicos, t.id).length}
                 resumo={descendentes.length ? somarResumos([porTopico.get(t.id), ...descendentes.map((f) => porTopico.get(f.id))]) : porTopico.get(t.id)}
-                podeArrastar={podeArrastar}
+                podeArrastar={podeArrastar && editando}
+                colunaRecolher={podeArrastar}
+                podeNumerar={editando}
+                materiais={materiais.get(t.id) ?? []}
+                aoAbrirMateriais={() => aoAbrirMateriais(t)}
                 recolhido={podeArrastar && comFilhos.has(t.id) ? recolhidos.has(t.id) : undefined}
                 aoAlternarRecolhido={() => alternarRecolhido(t.id)}
                 podeRecuar={podeRecuar(topicos, t.id)}
@@ -228,6 +238,10 @@ function LinhaTopico({
   qtdFilhos,
   resumo: r,
   podeArrastar,
+  colunaRecolher,
+  podeNumerar,
+  materiais,
+  aoAbrirMateriais,
   recolhido,
   aoAlternarRecolhido,
   podeRecuar,
@@ -246,6 +260,11 @@ function LinhaTopico({
   qtdFilhos: number
   resumo?: ResumoTopico
   podeArrastar: boolean
+  /** lista completa: reserva a coluna da seta de recolher em todas as linhas */
+  colunaRecolher: boolean
+  podeNumerar: boolean
+  materiais: Material[]
+  aoAbrirMateriais: () => void
   /** undefined = não tem filhos (ou a lista está filtrada) */
   recolhido?: boolean
   aoAlternarRecolhido: () => void
@@ -306,7 +325,7 @@ function LinhaTopico({
         />
       )}
 
-      {podeArrastar && (
+      {colunaRecolher && (
         <span className="flex w-5 shrink-0 justify-center">
           {recolhido !== undefined && (
             <button
@@ -338,20 +357,31 @@ function LinhaTopico({
           aria-label={sub ? `Nova posição de "${t.nome}" dentro de "${nomePai ?? ''}" (1 a ${maximo})` : `Nova posição de "${t.nome}" (1 a ${maximo})`}
           className="h-8 w-12 shrink-0 rounded-lg border border-primaria bg-superficie px-1 text-center text-sm font-semibold text-tinta numeros focus:outline-none focus:ring-2 focus:ring-primaria/40"
         />
-      ) : (
+      ) : podeNumerar ? (
         <button
           onClick={() => setEditandoNumero(posicaoAtual)}
           title={sub ? `Toque para mudar a posição dentro de "${nomePai ?? ''}"` : 'Toque para digitar uma nova posição'}
           aria-label={`Posição ${numero}. Toque para mudar`}
           className={cn(
-            'h-8 shrink-0 rounded-lg px-1.5 font-semibold numeros hover:bg-nevoa hover:text-tinta',
+            'h-8 shrink-0 rounded-lg px-1.5 font-semibold numeros ring-1 ring-primaria/50 hover:bg-nevoa hover:text-tinta',
             t.nivel === 0 && 'min-w-8 bg-superficie-2 text-sm text-tinta-suave',
-            t.nivel === 1 && 'min-w-9 bg-transparent text-xs text-tinta-suave ring-1 ring-linha ring-inset',
-            t.nivel === 2 && 'min-w-10 bg-transparent px-1 text-[11px] text-tinta-suave ring-1 ring-linha ring-inset',
+            t.nivel === 1 && 'min-w-9 bg-transparent text-xs text-tinta-suave ring-inset',
+            t.nivel === 2 && 'min-w-10 bg-transparent px-1 text-[11px] text-tinta-suave ring-inset',
           )}
         >
           {numero}
         </button>
+      ) : (
+        <span
+          className={cn(
+            'grid h-8 shrink-0 place-items-center rounded-lg px-1.5 font-semibold numeros',
+            t.nivel === 0 && 'min-w-8 bg-superficie-2 text-sm text-tinta-suave',
+            t.nivel === 1 && 'min-w-9 text-xs text-tinta-suave ring-1 ring-linha ring-inset',
+            t.nivel === 2 && 'min-w-10 px-1 text-[11px] text-tinta-suave ring-1 ring-linha ring-inset',
+          )}
+        >
+          {numero}
+        </span>
       )}
 
       <input
@@ -409,6 +439,7 @@ function LinhaTopico({
                 </span>
               )}
             </p>
+            <ChipsMateriais materiais={materiais} aoVerTodos={aoAbrirMateriais} className="mt-1.5" />
           </>
         )}
       </div>
@@ -433,6 +464,10 @@ function LinhaTopico({
           </Menu.Trigger>
           <Menu.Portal>
             <Menu.Content align="end" sideOffset={4} className="z-50 min-w-60 rounded-xl border border-linha bg-superficie p-1.5 shadow-xl">
+              <ItemMenu icone={<Link2 className="size-4" />} onSelect={aoAbrirMateriais}>
+                {materiais.length ? `Materiais (${materiais.length})` : 'Adicionar material'}
+              </ItemMenu>
+              <Menu.Separator className="my-1 h-px bg-linha/70" />
               {t.nivel < NIVEL_MAXIMO && (
                 <ItemMenu icone={<ListPlus className="size-4" />} onSelect={aoAdicionarSubtopico}>
                   {t.nivel === 0 ? 'Adicionar subtópico' : 'Adicionar subtópico dentro deste'}

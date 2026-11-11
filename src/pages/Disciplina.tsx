@@ -1,13 +1,15 @@
-import { ArrowLeft, FileUp, Layers, ListChecks, Pencil, Plus } from 'lucide-react'
+import { ArrowDownUp, ArrowLeft, Check, FileUp, Layers, ListChecks, Pencil, Plus } from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { DisciplinaDialog } from '@/components/DisciplinaDialog'
 import { ImportarDialog } from '@/components/ImportarDialog'
 import { ListaTopicos } from '@/components/ListaTopicos'
+import { MateriaisDialog } from '@/components/Materiais'
 import { BarraProgresso, Botao, Carregando, Confirmar, Dialogo, Entrada, Painel, Vazio } from '@/components/ui'
-import { useDisciplinas, useEstudos, useExcluirTopico, useFlashNotas, useReordenarTopicos, useSalvarTopico, useTopicos } from '@/hooks/dados'
+import { useDisciplinas, useEstudos, useExcluirTopico, useFlashNotas, useMateriais, useReordenarTopicos, useSalvarTopico, useTopicos } from '@/hooks/dados'
 import { calcularIndicadores, resumirPorTopico } from '@/lib/indicadores'
+import { porTopico as materiaisPorTopico } from '@/lib/materiais'
 import { descendentesDe, inserirFilho } from '@/lib/topicos'
 import { cn, formatarDuracao, mensagemErro, normalizar } from '@/lib/utils'
 import type { Topico } from '@/types'
@@ -23,6 +25,10 @@ export function Disciplina() {
   const reordenar = useReordenarTopicos()
   const excluirTopico = useExcluirTopico()
   const flashNotas = useFlashNotas()
+  const materiais = useMateriais()
+  // ordenar só no modo de edição, para não mudar a ordem sem querer
+  const [ordenando, setOrdenando] = useState(false)
+  const [materiaisDe, setMateriaisDe] = useState<Topico | null>(null)
 
   const [novo, setNovo] = useState('')
   const [filtro, setFiltro] = useState<Filtro>('todos')
@@ -38,6 +44,7 @@ export function Disciplina() {
   const estudosMeus = useMemo(() => (estudos.data ?? []).filter((e) => idsMeus.has(e.topico_id)), [estudos.data, idsMeus])
   const porTopico = useMemo(() => resumirPorTopico(estudosMeus), [estudosMeus])
   const ind = calcularIndicadores(estudosMeus, meus)
+  const mapaMateriais = useMemo(() => materiaisPorTopico(materiais.data ?? []), [materiais.data])
   const qtdFlash = useMemo(() => (flashNotas.data ?? []).filter((n) => n.disciplina_id === id).length, [flashNotas.data, id])
 
   if (disciplinas.isLoading || topicos.isLoading) return <Carregando />
@@ -165,24 +172,49 @@ export function Disciplina() {
         </form>
 
         {meus.length > 0 && (
-          <div role="radiogroup" aria-label="Filtrar tópicos" className="flex gap-1 overflow-x-auto px-4 pt-3">
-            {(['todos', 'pendentes', 'concluidos'] as Filtro[]).map((f) => (
-              <button
-                key={f}
-                role="radio"
-                aria-checked={filtro === f}
-                onClick={() => setFiltro(f)}
-                className={cn('whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium', filtro === f ? 'bg-nevoa text-tinta' : 'text-tinta-suave hover:text-tinta')}
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-3">
+            <div role="radiogroup" aria-label="Filtrar tópicos" className="flex min-w-0 flex-wrap gap-1">
+              {(['todos', 'pendentes', 'concluidos'] as Filtro[]).map((f) => (
+                <button
+                  key={f}
+                  role="radio"
+                  aria-checked={filtro === f}
+                  onClick={() => setFiltro(f)}
+                  className={cn('whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium', filtro === f ? 'bg-nevoa text-tinta' : 'text-tinta-suave hover:text-tinta')}
+                >
+                  {f === 'todos' ? `Todos (${meus.length})` : f === 'pendentes' ? `Pendentes (${ind.topicosPendentes})` : `Concluídos (${ind.topicosConcluidos})`}
+                </button>
+              ))}
+            </div>
+            {meus.length > 1 && (
+              <Botao
+                tamanho="sm"
+                variante={ordenando ? 'primario' : 'secundario'}
+                aria-pressed={ordenando}
+                onClick={() => {
+                  // ordenar faz sentido com a lista completa
+                  if (!ordenando) setFiltro('todos')
+                  setOrdenando((v) => !v)
+                }}
+                aria-label={ordenando ? 'Concluir a edição da ordem' : 'Editar a ordem dos tópicos'}
+                className="ml-auto shrink-0"
               >
-                {f === 'todos' ? `Todos (${meus.length})` : f === 'pendentes' ? `Pendentes (${ind.topicosPendentes})` : `Concluídos (${ind.topicosConcluidos})`}
-              </button>
-            ))}
+                {ordenando ? <Check className="size-4" aria-hidden /> : <ArrowDownUp className="size-4" aria-hidden />}
+                {ordenando ? (
+                  'Concluir'
+                ) : (
+                  <span>
+                    Editar<span className="hidden sm:inline"> ordem</span>
+                  </span>
+                )}
+              </Botao>
+            )}
           </div>
         )}
-        {meus.length > 1 && (
-          <p className="px-5 pt-2 text-sm text-tinta-suave">
+        {ordenando && (
+          <p className="mx-4 mt-3 rounded-xl bg-nevoa/50 px-3 py-2 text-sm text-tinta">
             {filtro === 'todos'
-              ? 'Arraste pela alça ou toque no número para mudar a ordem. Subtópicos ficam no menu ⋮ de cada tópico.'
+              ? 'Arraste pela alça ou toque no número para mudar a ordem. Toque em Concluir quando terminar.'
               : 'Toque no número para mudar a ordem. Para arrastar, volte para Todos.'}
           </p>
         )}
@@ -206,6 +238,9 @@ export function Disciplina() {
             visiveis={visiveis}
             porTopico={porTopico}
             podeArrastar={filtro === 'todos'}
+            editando={ordenando}
+            materiais={mapaMateriais}
+            aoAbrirMateriais={setMateriaisDe}
             aoReordenar={(nova) => reordenar.mutate(nova, { onError: (e) => toast.error(mensagemErro(e)) })}
             aoAlternarConcluido={alternarConcluido}
             aoRenomear={renomear}
@@ -218,6 +253,7 @@ export function Disciplina() {
         )}
       </Painel>
 
+      <MateriaisDialog topico={materiaisDe} materiais={materiaisDe ? (mapaMateriais.get(materiaisDe.id) ?? []) : []} aoFechar={() => setMateriaisDe(null)} />
       <ImportarDialog aberto={importando} aoMudar={setImportando} modo="topicos" disciplina={disciplina} disciplinas={disciplinas.data ?? []} topicos={topicos.data ?? []} />
       <DisciplinaDialog
         aberto={editandoDisciplina}
