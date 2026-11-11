@@ -1,6 +1,6 @@
 import * as RadixDialog from '@radix-ui/react-dialog'
 import { Eye, EyeOff, LoaderCircle, X } from 'lucide-react'
-import { forwardRef, useId, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { forwardRef, useId, useState, type ButtonHTMLAttributes, type RefObject, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { classesNivel, cn, nivelAcerto } from '@/lib/utils'
 
 /* Componentes base da interface, no estilo shadcn/ui (código próprio, sem dependência externa). */
@@ -44,7 +44,7 @@ export const Botao = forwardRef<HTMLButtonElement, BotaoProps>(function Botao(
   )
 })
 
-const campoBase =
+export const campoBase =
   'w-full rounded-xl border border-linha bg-superficie px-3 text-[15px] text-tinta placeholder:text-tinta-suave/70 focus:outline-none focus:ring-2 focus:ring-primaria/40 focus:border-primaria disabled:opacity-60'
 
 export const Entrada = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Entrada({ className, ...props }, ref) {
@@ -183,6 +183,9 @@ export function Dialogo({
   descricao,
   children,
   largura = 'max-w-lg',
+  focoInicial,
+  sobreposto,
+  noTopo,
 }: {
   aberto: boolean
   aoMudar: (aberto: boolean) => void
@@ -190,14 +193,30 @@ export function Dialogo({
   descricao?: string
   children: ReactNode
   largura?: string
+  /** campo que recebe o foco ao abrir (senão, o primeiro botão) */
+  focoInicial?: RefObject<HTMLElement | null>
+  /** aberto por cima de outro diálogo: fica numa camada acima */
+  sobreposto?: boolean
+  /** no celular, abre colado no topo (para o teclado não cobrir o conteúdo de uma busca) */
+  noTopo?: boolean
 }) {
   return (
     <RadixDialog.Root open={aberto} onOpenChange={aoMudar}>
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="fixed inset-0 z-40 bg-[#2a1f2d]/45 backdrop-blur-[2px] data-[state=open]:animate-[aparecer_150ms_ease-out]" />
+        <RadixDialog.Overlay
+          className={cn('fixed inset-0 bg-[#2a1f2d]/45 backdrop-blur-[2px] data-[state=open]:animate-[aparecer_150ms_ease-out]', sobreposto ? 'z-[60]' : 'z-40')}
+        />
         <RadixDialog.Content
+          onOpenAutoFocus={(e) => {
+            if (focoInicial?.current) {
+              e.preventDefault()
+              focoInicial.current.focus()
+            }
+          }}
           className={cn(
-            'fixed z-50 inset-x-0 bottom-0 max-h-[92dvh] overflow-y-auto rounded-t-3xl bg-superficie p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl',
+            'fixed inset-x-0 max-h-[92dvh] overflow-y-auto bg-superficie p-5 shadow-2xl',
+            noTopo ? 'top-0 rounded-b-3xl pt-[max(1.25rem,env(safe-area-inset-top))]' : 'bottom-0 rounded-t-3xl pb-[max(1.25rem,env(safe-area-inset-bottom))]',
+            sobreposto ? 'z-[70]' : 'z-50',
             'sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-[calc(100%-2rem)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-3xl sm:p-6',
             largura,
           )}

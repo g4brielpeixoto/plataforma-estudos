@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } 
 import { useLocation, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { EstudoDialog } from '@/components/EstudoDialog'
+import { SeletorTopico } from '@/components/SeletorTopico'
 import { ChipsMateriais } from '@/components/Materiais'
 import { Botao, Campo, Dialogo, Entrada, Selecao } from '@/components/ui'
 import { useDisciplinas, useEstudos, useMateriais, usePlanner, useTopicos } from '@/hooks/dados'
@@ -11,7 +12,6 @@ import { CONFIG_PADRAO, useCronometro, type ConfigPomodoro, type Modo } from '@/
 import type { PlayDoPlanner } from '@/hooks/usePlannerAcoes'
 import { concluido, COR_TIPO, ROTULO_TIPO } from '@/lib/planner'
 import { cn, formatarDuracao, formatarRelogio } from '@/lib/utils'
-import { rotuloSelecao } from '@/lib/topicos'
 
 const MODOS: { valor: Modo; rotulo: string }[] = [
   { valor: 'cronometro', rotulo: 'Cronômetro' },
@@ -100,7 +100,6 @@ export function Estudar() {
   const nomeDisciplinaPlanner = itemPendente ? (disciplinas.data ?? []).find((d) => d.id === itemPendente.disciplina_id)?.nome : undefined
   const nomeTopicoPlanner = itemPendente?.topico_id ? (topicos.data ?? []).find((t) => t.id === itemPendente.topico_id)?.nome : undefined
 
-  const topicosDaDisciplina = (topicos.data ?? []).filter((t) => t.disciplina_id === c.disciplinaId)
   const estudadoHoje = useMemo(
     () => (estudos.data ?? []).filter((e) => isToday(new Date(e.data_hora))).reduce((s, e) => s + (e.duracao_segundos ?? 0), 0),
     [estudos.data],
@@ -196,20 +195,17 @@ export function Estudar() {
             </option>
           ))}
         </Selecao>
-        <Selecao
-          aria-label="Tópico que você vai estudar"
-          value={c.topicoId}
-          onChange={(e) => c.escolherAssunto(c.disciplinaId, e.target.value)}
-          disabled={!c.disciplinaId}
+        <SeletorTopico
+          rotulo="Tópico"
+          topicos={topicos.data ?? []}
+          disciplinas={disciplinas.data ?? []}
+          disciplinaId={c.disciplinaId}
+          valor={c.topicoId}
+          aoEscolher={(t) => c.escolherAssunto(t ? t.disciplina_id : c.disciplinaId, t?.id ?? '')}
+          placeholder="Tópico (opcional)"
+          opcaoVazia="Sem tópico"
           className="text-sm"
-        >
-          <option value="">Tópico (opcional)</option>
-          {topicosDaDisciplina.map((t) => (
-            <option key={t.id} value={t.id}>
-              {rotuloSelecao(t, topicos.data ?? [])}
-            </option>
-          ))}
-        </Selecao>
+        />
       </div>
 
       {materiaisDoTopico.length > 0 && (

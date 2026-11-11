@@ -6,8 +6,8 @@ import { toast } from 'sonner'
 import { useDisciplinas, useSalvarEstudo, useTopicos } from '@/hooks/dados'
 import { cn, formatarDuracao, mensagemErro } from '@/lib/utils'
 import type { Estudo, Origem } from '@/types'
+import { SeletorTopico } from './SeletorTopico'
 import { AreaTexto, Botao, Campo, Dialogo, Entrada, Interruptor, Selecao } from './ui'
-import { rotuloSelecao } from '@/lib/topicos'
 
 export interface ValoresIniciaisEstudo {
   duracaoSegundos?: number
@@ -73,7 +73,7 @@ export function EstudoDialog({
   const [criarNovo, setCriarNovo] = useState(lerCriarNovo)
   const [salvosEmSequencia, setSalvosEmSequencia] = useState(0)
   const [ultimoSalvo, setUltimoSalvo] = useState('')
-  const refTopico = useRef<HTMLSelectElement>(null)
+  const refTopico = useRef<HTMLButtonElement>(null)
   // os valores iniciais (tempo do cronômetro, item do planner) valem só para o primeiro registro
   const primeiro = salvosEmSequencia === 0
 
@@ -130,11 +130,6 @@ export function EstudoDialog({
     [topicos.data, disciplinaId],
   )
   const topicoSelecionado = topicosDaDisciplina.find((t) => t.id === topicoId)
-
-  const escolherTopico = (id: string) => {
-    setTopicoId(id)
-    setConcluir(topicosDaDisciplina.find((t) => t.id === id)?.concluido ?? false)
-  }
 
   const enviar = async (e: FormEvent) => {
     e.preventDefault()
@@ -243,15 +238,21 @@ export function EstudoDialog({
               </Selecao>
             </Campo>
             <Campo rotulo="Tópico" htmlFor="e-topico">
-              <Selecao ref={refTopico} id="e-topico" value={topicoId} onChange={(e) => escolherTopico(e.target.value)} disabled={!disciplinaId}>
-                <option value="">{disciplinaId && topicosDaDisciplina.length === 0 ? 'Disciplina sem tópicos' : 'Escolha…'}</option>
-                {topicosDaDisciplina.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {rotuloSelecao(t, topicos.data ?? [])}
-                    {t.concluido ? ' ✓' : ''}
-                  </option>
-                ))}
-              </Selecao>
+              <SeletorTopico
+                ref={refTopico}
+                id="e-topico"
+                topicos={topicos.data ?? []}
+                disciplinas={disciplinas.data ?? []}
+                disciplinaId={disciplinaId}
+                valor={topicoId}
+                aoEscolher={(t) => {
+                  if (!t) return
+                  setDisciplinaId(t.disciplina_id)
+                  setTopicoId(t.id)
+                  setConcluir(t.concluido)
+                }}
+                placeholder={disciplinaId && topicosDaDisciplina.length === 0 ? 'Disciplina sem tópicos' : 'Escolha ou busque…'}
+              />
             </Campo>
           </div>
 

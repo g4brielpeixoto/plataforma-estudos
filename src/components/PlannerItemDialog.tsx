@@ -3,9 +3,9 @@ import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { useDisciplinas, usePlanner, useSalvarItemPlanner, useTopicos } from '@/hooks/dados'
 import { COR_TIPO, hojeChave, moverItem, proximaOrdem, rotuloMinutos, TIPOS } from '@/lib/planner'
-import { rotuloSelecao } from '@/lib/topicos'
 import { cn, mensagemErro } from '@/lib/utils'
 import type { ItemPlanner, TipoPlanner } from '@/types'
+import { SeletorTopico } from './SeletorTopico'
 import { AreaTexto, Botao, Campo, Dialogo, Entrada, Selecao } from './ui'
 
 const DURACOES = [30, 60, 90, 120, 180]
@@ -137,15 +137,19 @@ export function PlannerItemDialog({
           </div>
 
           <Campo rotulo="Tópico (opcional)" htmlFor="p-topico">
-            <Selecao id="p-topico" value={topicoId} onChange={(e) => setTopicoId(e.target.value)} disabled={!disciplinaId}>
-              <option value="">{disciplinaId && topicosDaDisciplina.length === 0 ? 'Disciplina sem tópicos' : 'Sem tópico definido'}</option>
-              {topicosDaDisciplina.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {rotuloSelecao(t, topicos.data ?? [])}
-                  {t.concluido ? ' ✓' : ''}
-                </option>
-              ))}
-            </Selecao>
+            <SeletorTopico
+              id="p-topico"
+              topicos={topicos.data ?? []}
+              disciplinas={disciplinas.data ?? []}
+              disciplinaId={disciplinaId}
+              valor={topicoId}
+              aoEscolher={(t) => {
+                if (t) setDisciplinaId(t.disciplina_id)
+                setTopicoId(t?.id ?? '')
+              }}
+              placeholder={disciplinaId && topicosDaDisciplina.length === 0 ? 'Disciplina sem tópicos' : 'Sem tópico definido'}
+              opcaoVazia="Sem tópico definido"
+            />
           </Campo>
 
           <fieldset>

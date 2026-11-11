@@ -3,7 +3,6 @@ import { ptBR } from 'date-fns/locale'
 import { ArrowRight, Plus, ScanSearch, Timer } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Avatar } from '@/components/Avatar'
 import { Constancia } from '@/components/Constancia'
 import { ContagemProvas } from '@/components/ContagemProvas'
 import { EstudoDialog } from '@/components/EstudoDialog'
@@ -42,9 +41,6 @@ export function Inicio() {
     <>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div className="flex min-w-0 items-center gap-4">
-          <Link to="/perfil" aria-label="Meu perfil" className="shrink-0 rounded-full">
-            <Avatar nome={perfil?.nome} email={perfil?.email} foto={perfil?.foto_url} tamanho={56} />
-          </Link>
           <div className="min-w-0">
             <p className="text-tinta-suave">{format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}</p>
             <h1 className="font-serif text-[1.85rem] leading-tight font-medium tracking-[-0.01em] text-tinta">

@@ -34,6 +34,8 @@ src/
   components/ui.tsx       componentes base (Botao, Entrada, EntradaSenha, Selecao, Interruptor, Dialogo, Confirmar, Painel, SeloAcerto…)
   components/ListaTopicos.tsx  lista de tópicos com colunas Questões, Último estudo e Estudo (no tópico pai os números somam os subtópicos); a alça de arrastar e o número editável só aparecem no modo "Editar ordem"
   components/Materiais.tsx     etiquetas de material (links) e o diálogo de materiais do tópico
+  components/SeletorTopico.tsx campo de tópico com busca (abre uma janela; digita parte do nome ou o número do edital; setas + Enter). Usado em Estudar, Salvar estudo, Planner e Flashcards
+  lib/buscaTopicos.ts     regras da busca de tópico: cada palavra bate com o nome ou com a numeração ("4" acha 4, 4.1, 4.2…; número no nome só inteiro) — testadas
   lib/materiais.ts        links dos materiais: normaliza (https:// na frente), tipo (pdf/vídeo/documento/link) e nome para mostrar
   lib/foto.ts             prepara a foto de perfil (recorte quadrado 320px JPEG), iniciais, primeiro nome
   components/Avatar.tsx   foto redonda ou iniciais
@@ -69,7 +71,8 @@ Tabelas em `public`: `perfis`, `convites`, `disciplinas`, `topicos`, `estudos`, 
 ## Regras de negócio
 
 - **Tempo de estudo** = soma de `duracao_segundos` no período. **Desempenho** = acertadas ÷ feitas no período. **Progresso no edital** = tópicos `concluido` ÷ total (não depende do período).
-- **Saudação:** "Bom dia/Boa tarde/Boa noite, <primeiro nome>!" (hora do aparelho); sem nome, mostra link para o perfil.
+- **Saudação:** "Bom dia/Boa tarde/Boa noite, <primeiro nome>!" (hora do aparelho); sem nome, mostra link para o perfil. O avatar não aparece no Início (já está no topo do celular e na barra lateral).
+- **Escolher tópico:** `SeletorTopico` sem disciplina escolhida busca em todas, agrupando por disciplina; escolher um tópico de outra disciplina troca a disciplina. A janela abre por cima de outro diálogo (`Dialogo` com `sobreposto`), com foco na busca (`focoInicial`) e, no celular, colada no topo (`noTopo`) para o teclado não cobrir a lista.
 - **Provas:** card de contagem regressiva no Início com as provas de hoje em diante (mais próxima primeiro); com mais de uma, alterna a cada 6 s com animação (pausa com mouse/foco; sem troca automática se o sistema pede menos movimento). Cadastro no diálogo da engrenagem (`ProvasDialog`). Datas `date` sem fuso: use `lib/provas.ts`.
 - **Início (layout):** linha de 4 resumos (`ResumoTopo`: tempo total, desempenho, progresso no edital — cada um com "Neste mês" e variação contra o mesmo trecho do mês passado — e o versículo); faixa larga de Constância (quadradinho por dia, ≥ 20 min = ✓, navegação por janelas; "Ver detalhes" leva ao Raio-X); depois 2 colunas no xl: esquerda Planejamento de hoje (itens do dia com check e play, aviso de atrasados), Estudo semanal (barras seg–dom, Tempo/Questões, navega semanas) e o atalho do Raio-X; direita Provas, Metas semanais e Tempo de estudo (pizza). No celular a ordem é Planejamento, Provas, Metas, Estudo semanal, Tempo de estudo, Raio-X (classes `order-*` com as colunas em `contents`).
 - **Raio-X** (`/raio-x`, página `RaioX`): a análise detalhada da aprendizagem, fora do Início: Heatmap do ano (`MapaCalor`), Por disciplina (`PorDisciplina`: tempo, questões, acerto, progresso no edital) e Pontos de atenção (`PontosAtencao`: até 8 tópicos com menor acerto, com ≥ 5 questões e < 80%, e até 8 em andamento parados há 3 dias ou mais). No menu lateral fica depois de Histórico; no celular, como ícone no topo (a barra de baixo comporta 6 itens). Heatmap: 0: < 20 min, 1: < 1h, 2: < 2h, 3: < 4h, 4: ≥ 4h. Períodos em `lib/periodos.ts`.

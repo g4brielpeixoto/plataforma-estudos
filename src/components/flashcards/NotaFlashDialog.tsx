@@ -1,13 +1,13 @@
 import { CircleCheck } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { useDisciplinas, useFlashCartoes, useSalvarNotaFlash, useTopicos } from '@/hooks/dados'
 import { limparHtml, vazio } from '@/lib/flashcards/html'
 import { numerosOmissao } from '@/lib/flashcards/omissao'
-import { rotuloSelecao } from '@/lib/topicos'
 import { cn, mensagemErro } from '@/lib/utils'
 import type { FlashNota, TipoNotaFlash } from '@/types'
+import { SeletorTopico } from '../SeletorTopico'
 import { Botao, Campo, Dialogo, Interruptor, Selecao } from '../ui'
 import { CampoRico, type CampoRicoRef } from './CampoRico'
 
@@ -64,7 +64,6 @@ export function NotaFlashDialog({
     setVerso(nota?.verso ?? '')
   }, [aberto, nota, disciplinaInicial, topicoInicial])
 
-  const topicosDaDisciplina = useMemo(() => (topicos.data ?? []).filter((t) => t.disciplina_id === disciplinaId), [topicos.data, disciplinaId])
   const omissao = tipo === 'omissao'
   const numeros = omissao ? numerosOmissao(frente) : []
 
@@ -177,14 +176,19 @@ export function NotaFlashDialog({
               </Selecao>
             </Campo>
             <Campo rotulo="Tópico (opcional)" htmlFor="f-topico">
-              <Selecao id="f-topico" value={topicoId} onChange={(e) => setTopicoId(e.target.value)} disabled={!disciplinaId}>
-                <option value="">Sem tópico</option>
-                {topicosDaDisciplina.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {rotuloSelecao(t, topicos.data ?? [])}
-                  </option>
-                ))}
-              </Selecao>
+              <SeletorTopico
+                id="f-topico"
+                topicos={topicos.data ?? []}
+                disciplinas={disciplinas.data ?? []}
+                disciplinaId={disciplinaId}
+                valor={topicoId}
+                aoEscolher={(t) => {
+                  if (t) setDisciplinaId(t.disciplina_id)
+                  setTopicoId(t?.id ?? '')
+                }}
+                placeholder="Sem tópico"
+                opcaoVazia="Sem tópico"
+              />
             </Campo>
           </div>
 
