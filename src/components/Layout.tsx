@@ -1,4 +1,4 @@
-import { BookOpen, CalendarDays, History, House, Layers, LogOut, Moon, PanelLeftClose, PanelLeftOpen, Sun, Timer, Users } from 'lucide-react'
+import { BookOpen, CalendarDays, History, House, Layers, LogOut, Moon, PanelLeftClose, PanelLeftOpen, ScanSearch, Sun, Timer, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useMatch } from 'react-router'
 import { useAuth } from '@/contexts/AuthContext'
@@ -12,7 +12,10 @@ const itens = [
   { para: '/flashcards', rotulo: 'Flashcards', icone: Layers, fim: false },
   { para: '/estudar', rotulo: 'Estudar', icone: Timer, fim: false },
   { para: '/historico', rotulo: 'Histórico', icone: History, fim: false },
+  { para: '/raio-x', rotulo: 'Raio-X', icone: ScanSearch, fim: false },
 ]
+// a barra de baixo do celular tem espaço para 6; o Raio-X fica no topo
+const itensCelular = itens.filter((i) => i.para !== '/raio-x')
 
 export function useTema() {
   const [escuro, setEscuro] = useState(() => document.documentElement.classList.contains('dark'))
@@ -160,6 +163,9 @@ export function Layout() {
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-linha/70 bg-fundo/90 px-4 py-3 backdrop-blur lg:hidden">
         <Marca />
         <div className="flex items-center gap-1">
+          <NavLink to="/raio-x" aria-label="Raio-X" title="Raio-X" className={({ isActive }) => cn('rounded-lg p-2', isActive ? 'bg-nevoa text-tinta' : 'text-tinta-suave')}>
+            <ScanSearch className="size-5" />
+          </NavLink>
           {master && (
             <NavLink to="/usuarios" aria-label="Usuários" className={({ isActive }) => cn('rounded-lg p-2', isActive ? 'bg-nevoa text-tinta' : 'text-tinta-suave')}>
               <Users className="size-5" />
@@ -186,7 +192,7 @@ export function Layout() {
         className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-linha/70 bg-superficie/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
         aria-label="Principal"
       >
-        {itens.map(({ para, rotulo, icone: Icone, fim }) => (
+        {itensCelular.map(({ para, rotulo, icone: Icone, fim }) => (
           <NavLink
             key={para}
             to={para}
