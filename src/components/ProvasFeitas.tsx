@@ -3,9 +3,9 @@ import { useMemo, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { toast } from 'sonner'
 import { useExcluirProvaFeita, useProvasFeitas } from '@/hooks/dados'
-import { comparacaoPorDisciplina, dataCurta, etapaPrincipal, etapasDaProva, formatarNota, ordenarProvasFeitas, pontosDoGrafico, resumoProvasFeitas, ROTULO_ETAPA, ROTULO_SITUACAO, pctDisciplina, textoDistancia, textoNotaDisciplina } from '@/lib/provasFeitas'
+import { comparacaoPorDisciplina, dataCurta, doTipo, etapaPrincipal, etapasDaProva, formatarNota, ordenarProvasFeitas, pontosDoGrafico, resumoProvasFeitas, resumoSimulados, type PontoGrafico, ROTULO_ETAPA, ROTULO_SITUACAO, pctDisciplina, textoDistancia, textoNotaDisciplina } from '@/lib/provasFeitas'
 import { cn, mensagemErro, nivelAcerto, textoNivel } from '@/lib/utils'
-import type { ProvaFeita, SituacaoProva } from '@/types'
+import type { ProvaFeita, SituacaoProva, TipoProvaFeita } from '@/types'
 import { ProvaFeitaDialog } from './ProvaFeitaDialog'
 import { Botao, Confirmar, Painel } from './ui'
 
@@ -22,23 +22,53 @@ const corSituacao: Record<SituacaoProva, string> = {
 /** Cor do texto da distância: verde no corte ou acima, vermelho abaixo (o texto já diz qual é) */
 const corDistancia = (d: number) => (d >= 0 ? 'text-bom' : 'text-ruim')
 
-/** Raio-X: provas que o usuário já fez, com a nota e a nota de corte de cada etapa */
-export function ProvasFeitas({ className }: { className?: string }) {
+/** Textos de cada lista: as provas de verdade e os simulados usam a mesma tela */
+const TEXTOS = {
+  prova: {
+    titulo: 'Provas que já fiz',
+    descricao: 'Sua pontuação contra a nota de corte em cada prova, e a nota em cada disciplina.',
+    adicionar: 'Adicionar prova',
+    vazio: 'Nenhuma prova lançada ainda. Adicione as que você já fez, com a sua nota e a nota de corte.',
+    erro: 'Não foi possível carregar as provas. Recarregue a página para tentar de novo.',
+    excluida: 'Prova excluída.',
+    excluir: 'Excluir prova',
+    plural: 'provas',
+    coluna: 'da prova mais antiga para a mais recente',
+    semDisciplina: 'a prova não teve',
+  },
+  simulado: {
+    titulo: 'Simulados',
+    descricao: 'Sua pontuação em cada simulado e a nota em cada disciplina, para acompanhar a evolução.',
+    adicionar: 'Adicionar simulado',
+    vazio: 'Nenhum simulado lançado ainda. Adicione os que você fez, com a nota de cada disciplina.',
+    erro: 'Não foi possível carregar os simulados. Recarregue a página para tentar de novo.',
+    excluida: 'Simulado excluído.',
+    excluir: 'Excluir simulado',
+    plural: 'simulados',
+    coluna: 'do simulado mais antigo para o mais recente',
+    semDisciplina: 'o simulado não teve',
+  },
+} satisfies Record<TipoProvaFeita, Record<string, string>>
+
+/** Raio-X: provas (ou simulados) que o usuário já fez, com a pontuação, o corte e a nota por disciplina */
+export function ProvasFeitas({ tipo = 'prova', className }: { tipo?: TipoProvaFeita; className?: string }) {
+  const tx = TEXTOS[tipo]
   const provas = useProvasFeitas()
   const excluir = useExcluirProvaFeita()
   const [dialogo, setDialogo] = useState<{ prova: ProvaFeita | null } | null>(null)
   const [excluindo, setExcluindo] = useState<ProvaFeita | null>(null)
 
-  const lista = useMemo(() => ordenarProvasFeitas(provas.data ?? []), [provas.data])
+  const lista = useMemo(() => ordenarProvasFeitas(doTipo(provas.data ?? [], tipo)), [provas.data, tipo])
   const resumo = useMemo(() => resumoProvasFeitas(lista), [lista])
-  const pontos = useMemo(() => pontosDoGrafico(lista), [lista])
+  const simulados = useMemo(() => resumoSimulados(lista), [lista])
+  const pontos = useMemo(() => pontosDoGrafico(lista, tipo), [lista, tipo])
   const comparacao = useMemo(() => comparacaoPorDisciplina(lista), [lista])
 
   const confirmarExclusao = async () => {
     if (!excluindo) return
     try {
       await excluir.mutateAsync(excluindo.id)
-      toast.success('Prova excluída.')
+      toast.success(tx.excluida)
       setExcluindo(null)
     } catch (err) {
       toast.error(mensagemErro(err))
@@ -49,11 +79,11 @@ export function ProvasFeitas({ className }: { className?: string }) {
     <Painel className={cn('p-5 sm:p-6', className)}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold tracking-[0.08em] text-tinta-suave uppercase">Provas que já fiz</h2>
-          <p className="mt-1 max-w-prose text-sm text-tinta-suave">Sua pontuação contra a nota de corte em cada prova, e a nota em cada disciplina.</p>
+          <h2 className="text-sm font-semibold tracking-[0.08em] text-tinta-suave uppercase">{tx.titulo}</h2>
+          <p className="mt-1 max-w-prose text-sm text-tinta-suave">{tx.descricao}</p>
         </div>
         <Botao tamanho="sm" onClick={() => setDialogo({ prova: null })}>
-          <Plus className="size-4" aria-hidden /> Adicionar prova
+          <Plus className="size-4" aria-hidden /> {tx.adicionar}
         </Botao>
       </div>
 
@@ -61,14 +91,32 @@ export function ProvasFeitas({ className }: { className?: string }) {
         <p className="mt-5 text-sm text-tinta-suave">Carregando…</p>
       ) : provas.isError ? (
         <p role="alert" className="mt-5 rounded-xl bg-ruim-fundo px-3 py-2.5 text-sm text-ruim">
-          Não foi possível carregar as provas. Recarregue a página para tentar de novo.
+          {tx.erro}
         </p>
       ) : lista.length === 0 ? (
         <p className="mt-5 rounded-xl bg-superficie-2/60 px-4 py-8 text-center text-sm text-tinta-suave">
-          Nenhuma prova lançada ainda. Adicione as que você já fez, com a sua nota e a nota de corte.
+          {tx.vazio}
         </p>
       ) : (
         <>
+          {tipo === 'simulado' ? (
+            <dl className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Numero rotulo="Simulados feitos" valor={String(simulados.feitos)} />
+              <Numero rotulo="Melhor pontuação" valor={simulados.melhor === null ? '–' : formatarNota(simulados.melhor)} />
+              <Numero
+                rotulo="Último simulado"
+                valor={simulados.ultima === null ? '–' : formatarNota(simulados.ultima)}
+                detalhe={
+                  simulados.variacao === null
+                    ? undefined
+                    : simulados.variacao === 0
+                      ? 'igual ao anterior'
+                      : `${formatarNota(Math.abs(simulados.variacao))} ${simulados.variacao > 0 ? 'a mais' : 'a menos'} que o anterior`
+                }
+                corDetalhe={simulados.variacao === null || simulados.variacao === 0 ? undefined : corDistancia(simulados.variacao)}
+              />
+            </dl>
+          ) : (
           <dl className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Numero rotulo="Provas feitas" valor={String(resumo.feitas)} />
             <Numero rotulo="No corte ou acima" valor={resumo.comparaveis ? `${resumo.noCorte} de ${resumo.comparaveis}` : '–'} />
@@ -77,26 +125,27 @@ export function ProvasFeitas({ className }: { className?: string }) {
               valor={resumo.menorFalta === null ? '–' : `${formatarNota(Math.abs(resumo.menorFalta))} ${Math.abs(resumo.menorFalta) === 1 ? 'ponto' : 'pontos'}`}
             />
           </dl>
+          )}
 
-          {pontos.length >= 2 && <Grafico pontos={pontos} />}
+          {pontos.length >= 2 && <Grafico pontos={pontos} plural={tx.plural} />}
 
           <ul className="mt-5 divide-y divide-linha/70 rounded-xl border border-linha/70">
             {lista.map((p) => (
-              <Linha key={p.id} prova={p} aoEditar={() => setDialogo({ prova: p })} aoExcluir={() => setExcluindo(p)} />
+              <Linha key={p.id} prova={p} mostrarEtapa={tipo === 'prova'} aoEditar={() => setDialogo({ prova: p })} aoExcluir={() => setExcluindo(p)} />
             ))}
           </ul>
 
-          {comparacao.linhas.length > 0 && <PorDisciplinaNasProvas {...comparacao} />}
+          {comparacao.linhas.length > 0 && <PorDisciplinaNasProvas {...comparacao} ordem={tx.coluna} semDisciplina={tx.semDisciplina} comDia={tipo === 'simulado'} />}
         </>
       )}
 
-      <ProvaFeitaDialog aberto={!!dialogo} aoMudar={(a) => !a && setDialogo(null)} prova={dialogo?.prova ?? null} />
+      <ProvaFeitaDialog aberto={!!dialogo} aoMudar={(a) => !a && setDialogo(null)} prova={dialogo?.prova ?? null} tipo={tipo} />
       <Confirmar
         aberto={!!excluindo}
         aoMudar={(a) => !a && setExcluindo(null)}
-        titulo="Excluir prova?"
+        titulo={`${tx.excluir}?`}
         texto={`"${excluindo?.nome ?? ''}" sai da comparação, com as notas lançadas.`}
-        textoBotao="Excluir prova"
+        textoBotao={tx.excluir}
         carregando={excluir.isPending}
         aoConfirmar={() => void confirmarExclusao()}
       />
@@ -104,16 +153,19 @@ export function ProvasFeitas({ className }: { className?: string }) {
   )
 }
 
-function Numero({ rotulo, valor }: { rotulo: string; valor: string }) {
+function Numero({ rotulo, valor, detalhe, corDetalhe }: { rotulo: string; valor: string; detalhe?: string; corDetalhe?: string }) {
   return (
     <div className="rounded-xl bg-superficie-2/70 px-4 py-3">
       <dt className="text-sm text-tinta-suave">{rotulo}</dt>
-      <dd className="mt-0.5 text-2xl font-semibold text-tinta numeros">{valor}</dd>
+      <dd className="mt-0.5 numeros">
+        <span className="text-2xl font-semibold text-tinta">{valor}</span>
+        {detalhe && <span className={cn('ml-2 text-sm font-medium', corDetalhe ?? 'text-tinta-suave')}>{detalhe}</span>}
+      </dd>
     </div>
   )
 }
 
-function Linha({ prova, aoEditar, aoExcluir }: { prova: ProvaFeita; aoEditar: () => void; aoExcluir: () => void }) {
+function Linha({ prova, mostrarEtapa, aoEditar, aoExcluir }: { prova: ProvaFeita; mostrarEtapa: boolean; aoEditar: () => void; aoExcluir: () => void }) {
   const etapas = etapasDaProva(prova)
   const principal = etapaPrincipal(prova)
   const detalhes = [prova.cargo, prova.banca, dataCurta(prova.data), prova.classificacao ? `${prova.classificacao}º lugar` : null].filter(Boolean).join(' · ')
@@ -142,7 +194,7 @@ function Linha({ prova, aoEditar, aoExcluir }: { prova: ProvaFeita; aoEditar: ()
         {principal && principal.distancia !== null && (
           <p className={cn('mt-1.5 text-sm font-semibold numeros', corDistancia(principal.distancia))}>
             {textoDistancia(principal.distancia)}
-            {principal.etapa !== 'final' && <span className="font-normal text-tinta-suave"> na {ROTULO_ETAPA[principal.etapa].toLowerCase()}</span>}
+            {mostrarEtapa && principal.etapa !== 'final' && <span className="font-normal text-tinta-suave"> na {ROTULO_ETAPA[principal.etapa].toLowerCase()}</span>}
           </p>
         )}
         {prova.observacao && <p className="mt-1.5 max-w-prose text-sm text-tinta-suave [overflow-wrap:anywhere]">{prova.observacao}</p>}
@@ -158,7 +210,7 @@ function Linha({ prova, aoEditar, aoExcluir }: { prova: ProvaFeita; aoEditar: ()
                 <dt className="text-xs font-medium text-tinta-suave">{ROTULO_ETAPA[e.etapa]}</dt>
                 <dd className="numeros">
                   <span className="text-lg font-semibold text-tinta">{e.nota === null ? '–' : formatarNota(e.nota)}</span>
-                  <span className="block text-xs text-tinta-suave">corte {e.corte === null ? '–' : formatarNota(e.corte)}</span>
+                  {(mostrarEtapa || e.corte !== null) && <span className="block text-xs text-tinta-suave">corte {e.corte === null ? '–' : formatarNota(e.corte)}</span>}
                 </dd>
               </div>
             ))}
@@ -170,20 +222,23 @@ function Linha({ prova, aoEditar, aoExcluir }: { prova: ProvaFeita; aoEditar: ()
   )
 }
 
-type Ponto = ReturnType<typeof pontosDoGrafico>[number]
+type Ponto = PontoGrafico
 
 /** Barras lado a lado: minha nota e a nota de corte de cada prova, da mais antiga para a mais recente */
-function Grafico({ pontos }: { pontos: Ponto[] }) {
-  const dados = pontos.map((p) => ({ ...p, rotulo: `${p.nome.length > 14 ? `${p.nome.slice(0, 13)}…` : p.nome} ${p.ano}` }))
+function Grafico({ pontos, plural }: { pontos: Ponto[]; plural: string }) {
+  const temCorte = pontos.some((p) => p.corte !== null)
+  const dados = pontos.map((p) => ({ ...p, rotulo: `${p.nome.length > 14 ? `${p.nome.slice(0, 13)}…` : p.nome} ${p.quando}` }))
   return (
     <div className="mt-5">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-tinta-suave">
         <span className="flex items-center gap-1.5">
           <span className="size-3 rounded-[3px] bg-primaria-forte" aria-hidden /> Minha pontuação
         </span>
-        <span className="flex items-center gap-1.5">
-          <span className="size-3 rounded-[3px] bg-lilas" aria-hidden /> Nota de corte
-        </span>
+        {temCorte && (
+          <span className="flex items-center gap-1.5">
+            <span className="size-3 rounded-[3px] bg-lilas" aria-hidden /> Nota de corte
+          </span>
+        )}
       </div>
       {/* com muitas provas o gráfico rola para o lado em vez de espremer os nomes */}
       <div className="mt-3 overflow-x-auto [scrollbar-width:thin]">
@@ -191,7 +246,7 @@ function Grafico({ pontos }: { pontos: Ponto[] }) {
         className="h-60"
         style={{ minWidth: dados.length * 124 }}
         role="img"
-        aria-label={`Gráfico de barras com a minha pontuação e a nota de corte de ${dados.length} provas: ${dados.map((p) => `${p.nome} ${p.ano}, ${formatarNota(p.nota)} contra corte de ${formatarNota(p.corte)}`).join('; ')}.`}
+        aria-label={`Gráfico de barras com a minha pontuação e a nota de corte de $${dados.length} ${plural}: ${dados.map((p) => `${p.nome} ${p.quando}, ${formatarNota(p.nota)}${p.corte === null ? '' : ` contra corte de ${formatarNota(p.corte)}`}`).join('; ')}.`}
       >
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={dados} margin={{ top: 8, right: 4, bottom: 0, left: -14 }} barGap={2} barCategoryGap="28%">
@@ -206,18 +261,19 @@ function Grafico({ pontos }: { pontos: Ponto[] }) {
                 return (
                   <div className="rounded-xl border border-linha bg-superficie px-3 py-2 text-sm shadow-lg">
                     <p className="font-medium text-tinta">
-                      {p.nome} {p.ano} <span className="font-normal text-tinta-suave">({ROTULO_ETAPA[p.etapa].toLowerCase()})</span>
+                      {p.nome} <span className="font-normal text-tinta-suave">{p.quando}</span>
                     </p>
                     <p className="text-tinta-suave numeros">
-                      Nota {formatarNota(p.nota)} · corte {formatarNota(p.corte)}
+                      Pontuação {formatarNota(p.nota)}
+                      {p.corte !== null && ` · corte ${formatarNota(p.corte)}`}
                     </p>
-                    <p className={cn('font-semibold numeros', corDistancia(p.distancia))}>{textoDistancia(p.distancia)}</p>
+                    {p.distancia !== null && <p className={cn('font-semibold numeros', corDistancia(p.distancia))}>{textoDistancia(p.distancia)}</p>}
                   </div>
                 )
               }}
             />
             <Bar dataKey="nota" name="Minha pontuação" fill="var(--c-primaria-forte)" radius={[4, 4, 0, 0]} maxBarSize={36} isAnimationActive={false} />
-            <Bar dataKey="corte" name="Nota de corte" fill="var(--c-lilas)" radius={[4, 4, 0, 0]} maxBarSize={36} isAnimationActive={false} />
+            {temCorte && <Bar dataKey="corte" name="Nota de corte" fill="var(--c-lilas)" radius={[4, 4, 0, 0]} maxBarSize={36} isAnimationActive={false} />}
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -233,11 +289,11 @@ const corPct = (pct: number | null) => {
 }
 
 /** Tabela disciplina × prova: aproveitamento (ou só a nota, sem total) em cada disciplina, prova a prova, e no geral */
-function PorDisciplinaNasProvas({ colunas, linhas }: ReturnType<typeof comparacaoPorDisciplina>) {
+function PorDisciplinaNasProvas({ colunas, linhas, ordem, semDisciplina, comDia }: ReturnType<typeof comparacaoPorDisciplina> & { ordem: string; semDisciplina: string; comDia: boolean }) {
   return (
     <div className="mt-6">
       <h3 className="text-sm font-semibold text-tinta">Por disciplina</h3>
-      <p className="mt-0.5 text-sm text-tinta-suave">Seu aproveitamento em cada disciplina, da prova mais antiga para a mais recente. Sem o total, aparece só a nota. O traço marca a disciplina que a prova não teve.</p>
+      <p className="mt-0.5 text-sm text-tinta-suave">Seu aproveitamento em cada disciplina, {ordem}. Sem o total, aparece só a nota. O traço marca a disciplina que {semDisciplina}.</p>
       <div className="mt-3 overflow-x-auto rounded-xl border border-linha/70 [scrollbar-width:thin]">
         <table className="w-full min-w-max border-collapse text-sm">
           <thead>
@@ -250,7 +306,7 @@ function PorDisciplinaNasProvas({ colunas, linhas }: ReturnType<typeof comparaca
                   <span className="block max-w-40 truncate text-tinta" title={p.nome}>
                     {p.nome}
                   </span>
-                  <span className="block text-xs font-normal numeros">{p.data.slice(0, 4)}</span>
+                  <span className="block text-xs font-normal numeros">{comDia ? dataCurta(p.data) : p.data.slice(0, 4)}</span>
                 </th>
               ))}
               {colunas.length > 1 && (
@@ -269,7 +325,7 @@ function PorDisciplinaNasProvas({ colunas, linhas }: ReturnType<typeof comparaca
                 {l.celulas.map((c, i) => {
                   if (!c)
                     return (
-                      <td key={i} className="px-4 py-2.5 text-right text-tinta-suave" aria-label="A prova não teve esta disciplina">
+                      <td key={i} className="px-4 py-2.5 text-right text-tinta-suave" aria-label="Não teve esta disciplina">
                         –
                       </td>
                     )

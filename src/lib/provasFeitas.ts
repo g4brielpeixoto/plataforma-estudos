@@ -1,4 +1,4 @@
-import type { NotaDisciplina, ProvaFeita, SituacaoProva } from '@/types'
+import type { NotaDisciplina, ProvaFeita, SituacaoProva, TipoProvaFeita } from '@/types'
 
 /*
   Provas que o usuário já fez (Raio-X). Cada prova pode ter três pares nota/corte:
@@ -77,19 +77,58 @@ export function resumoProvasFeitas(provas: ProvaFeita[]) {
   }
 }
 
-/** Pontos do gráfico, em ordem de data (mais antiga primeiro): só provas com nota e corte na etapa principal */
-export function pontosDoGrafico(provas: ProvaFeita[]) {
+export interface PontoGrafico {
+  id: string
+  nome: string
+  /** o que diferencia no eixo: o ano (provas) ou dia/mês (simulados, que se repetem no ano) */
+  quando: string
+  etapa: EtapaProva
+  nota: number
+  corte: number | null
+  distancia: number | null
+}
+
+/**
+ * Pontos do gráfico, em ordem de data (mais antiga primeiro).
+ * Provas: só as que têm nota e corte na etapa principal. Simulados: basta a pontuação total (o corte é raro).
+ */
+export function pontosDoGrafico(provas: ProvaFeita[], tipo: TipoProvaFeita = 'prova'): PontoGrafico[] {
   return [...provas]
     .sort((a, b) => a.data.localeCompare(b.data) || a.criado_em.localeCompare(b.criado_em))
-    .flatMap((p) => {
+    .flatMap((p): PontoGrafico[] => {
       const e = etapaPrincipal(p)
-      if (!e || e.nota === null || e.corte === null) return []
-      return [{ id: p.id, nome: p.nome, ano: p.data.slice(0, 4), etapa: e.etapa, nota: e.nota, corte: e.corte, distancia: e.distancia as number }]
+      if (e && e.nota !== null && e.corte !== null) {
+        return [{ id: p.id, nome: p.nome, quando: tipo === 'prova' ? p.data.slice(0, 4) : dataCurta(p.data).slice(0, 5), etapa: e.etapa, nota: e.nota, corte: e.corte, distancia: e.distancia }]
+      }
+      if (tipo === 'simulado' && p.nota_final !== null) {
+        return [{ id: p.id, nome: p.nome, quando: dataCurta(p.data).slice(0, 5), etapa: 'final' as const, nota: p.nota_final, corte: null, distancia: null }]
+      }
+      return []
     })
 }
 
+/** Só as provas ou só os simulados */
+export const doTipo = (provas: ProvaFeita[], tipo: TipoProvaFeita) => provas.filter((p) => (p.tipo ?? 'prova') === tipo)
+
+/** Números do topo dos simulados: quantos, a melhor pontuação e a última com a variação contra a anterior */
+export function resumoSimulados(simulados: ProvaFeita[]) {
+  const comNota = [...simulados].filter((p) => p.nota_final !== null).sort((a, b) => a.data.localeCompare(b.data) || a.criado_em.localeCompare(b.criado_em))
+  const notas = comNota.map((p) => p.nota_final as number)
+  const ultima = notas.length ? notas[notas.length - 1] : null
+  const anterior = notas.length > 1 ? notas[notas.length - 2] : null
+  return {
+    feitos: simulados.length,
+    melhor: notas.length ? Math.max(...notas) : null,
+    ultima,
+    /** pontos a mais (positivo) ou a menos que no simulado anterior; null sem dois com pontuação */
+    variacao: ultima !== null && anterior !== null ? Math.round((ultima - anterior) * 100) / 100 : null,
+  }
+}
+
 /** "17/01/2027" a partir de "2027-01-17" (sem fuso) */
-export const dataCurta = (data: string) => data.split('-').reverse().join('/')
+export function dataCurta(data: string) {
+  return data.split('-').reverse().join('/')
+}
 
 // ---------- notas por disciplina ----------
 

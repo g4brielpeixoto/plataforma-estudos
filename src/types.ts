@@ -73,9 +73,13 @@ export interface Metas {
 export type SituacaoProva = 'aprovado' | 'classificado' | 'nao_classificado' | 'eliminado' | 'aguardando'
 
 /** Prova que o usuário já fez (Raio-X); separada de `Prova`, que é a contagem regressiva */
+/** As duas listas do Raio-X que usam a tabela `provas_feitas` */
+export type TipoProvaFeita = 'prova' | 'simulado'
+
 export interface ProvaFeita {
   id: string
   user_id: string
+  tipo: TipoProvaFeita
   nome: string
   cargo: string | null
   banca: string | null

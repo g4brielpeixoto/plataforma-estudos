@@ -39,6 +39,7 @@ export function RaioX() {
         </div>
       )}
       <ProvasFeitas className="mt-5" />
+      <ProvasFeitas tipo="simulado" className="mt-5" />
     </>
   )
 }

@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { useProvasFeitas, useSalvarProvaFeita } from '@/hooks/dados'
 import { chaveDisciplina, disciplinasConhecidas, formatarNota, lerNota, ROTULO_SITUACAO } from '@/lib/provasFeitas'
 import { mensagemErro } from '@/lib/utils'
-import type { NotaDisciplina, ProvaFeita, SituacaoProva } from '@/types'
+import type { NotaDisciplina, ProvaFeita, SituacaoProva, TipoProvaFeita } from '@/types'
 import { Botao, Campo, Dialogo, Entrada, Selecao } from './ui'
 
 const VAZIO = { nome: '', cargo: '', banca: '', data: '', total: '', corte: '', situacao: '', classificacao: '' }
@@ -17,8 +17,49 @@ interface LinhaDisciplina {
   nova?: boolean
 }
 
-/** Adicionar ou editar uma prova já feita: concurso, data, nota de cada disciplina e o resultado */
-export function ProvaFeitaDialog({ aberto, aoMudar, prova }: { aberto: boolean; aoMudar: (a: boolean) => void; prova: ProvaFeita | null }) {
+/** Rótulos do formulário para prova e para simulado (os campos são os mesmos, menos a situação) */
+const TEXTOS = {
+  prova: {
+    novo: 'Adicionar prova feita',
+    editar: 'Editar prova',
+    descricao: 'Preencha só o que você tiver. Só o concurso e a data são obrigatórios.',
+    nome: 'Concurso',
+    exemploNome: 'Ex.: TRT 8',
+    semNome: 'Diga de qual concurso foi a prova.',
+    semData: 'Escolha a data da prova.',
+    data: 'Data da prova',
+    cargo: 'Cargo (opcional)',
+    exemploCargo: 'Ex.: Técnico judiciário',
+    banca: 'Banca (opcional)',
+    exemploBanca: 'Ex.: FCC',
+    disciplinas: 'Preencha só as disciplinas que esta prova teve.',
+    adicionar: 'Adicionar prova',
+    adicionada: 'Prova adicionada.',
+    atualizada: 'Prova atualizada.',
+  },
+  simulado: {
+    novo: 'Adicionar simulado',
+    editar: 'Editar simulado',
+    descricao: 'Preencha só o que você tiver. Só o nome e a data são obrigatórios.',
+    nome: 'Simulado',
+    exemploNome: 'Ex.: Simulado 3',
+    semNome: 'Dê um nome ao simulado.',
+    semData: 'Escolha a data do simulado.',
+    data: 'Data',
+    cargo: 'Concurso que você está treinando (opcional)',
+    exemploCargo: 'Ex.: TRT 8',
+    banca: 'Curso ou banca (opcional)',
+    exemploBanca: 'Ex.: Estratégia',
+    disciplinas: 'Preencha só as disciplinas que este simulado teve.',
+    adicionar: 'Adicionar simulado',
+    adicionada: 'Simulado adicionado.',
+    atualizada: 'Simulado atualizado.',
+  },
+} satisfies Record<TipoProvaFeita, Record<string, string>>
+
+/** Adicionar ou editar uma prova já feita (ou um simulado): nome, data, nota de cada disciplina e o resultado */
+export function ProvaFeitaDialog({ aberto, aoMudar, prova, tipo = 'prova' }: { aberto: boolean; aoMudar: (a: boolean) => void; prova: ProvaFeita | null; tipo?: TipoProvaFeita }) {
+  const tx = TEXTOS[tipo]
   const salvar = useSalvarProvaFeita()
   const todas = useProvasFeitas()
   const [f, setF] = useState(VAZIO)
@@ -63,8 +104,8 @@ export function ProvaFeitaDialog({ aberto, aoMudar, prova }: { aberto: boolean; 
   const enviar = async (e: FormEvent) => {
     e.preventDefault()
     setErro('')
-    if (!f.nome.trim()) return setErro('Diga de qual concurso foi a prova.')
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(f.data)) return setErro('Escolha a data da prova.')
+    if (!f.nome.trim()) return setErro(tx.semNome)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(f.data)) return setErro(tx.semData)
     const porDisciplina: NotaDisciplina[] = []
     for (const l of disciplinas) {
       const nome = l.nome.trim()
@@ -86,6 +127,7 @@ export function ProvaFeitaDialog({ aberto, aoMudar, prova }: { aberto: boolean; 
     try {
       await salvar.mutateAsync({
         id: prova?.id,
+        tipo,
         nome: f.nome.trim(),
         cargo: f.cargo.trim() || null,
         banca: f.banca.trim() || null,
@@ -94,9 +136,9 @@ export function ProvaFeitaDialog({ aberto, aoMudar, prova }: { aberto: boolean; 
         nota_final: total,
         corte_final: corte,
         classificacao,
-        situacao: (f.situacao || null) as SituacaoProva | null,
+        situacao: tipo === 'prova' ? ((f.situacao || null) as SituacaoProva | null) : null,
       })
-      toast.success(prova ? 'Prova atualizada.' : 'Prova adicionada.')
+      toast.success(prova ? tx.atualizada : tx.adicionada)
       aoMudar(false)
     } catch (err) {
       setErro(mensagemErro(err))
@@ -107,31 +149,31 @@ export function ProvaFeitaDialog({ aberto, aoMudar, prova }: { aberto: boolean; 
     <Dialogo
       aberto={aberto}
       aoMudar={aoMudar}
-      titulo={prova ? 'Editar prova' : 'Adicionar prova feita'}
-      descricao="Preencha só o que você tiver. Só o concurso e a data são obrigatórios."
+      titulo={prova ? tx.editar : tx.novo}
+      descricao={tx.descricao}
       largura="max-w-2xl"
     >
       <form onSubmit={enviar} className="space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_11rem]">
-          <Campo rotulo="Concurso" htmlFor="pf-nome">
-            <Entrada id="pf-nome" value={f.nome} maxLength={120} placeholder="Ex.: TRT 8" onChange={campo('nome')} />
+          <Campo rotulo={tx.nome} htmlFor="pf-nome">
+            <Entrada id="pf-nome" value={f.nome} maxLength={120} placeholder={tx.exemploNome} onChange={campo('nome')} />
           </Campo>
-          <Campo rotulo="Data da prova" htmlFor="pf-data">
+          <Campo rotulo={tx.data} htmlFor="pf-data">
             <Entrada id="pf-data" type="date" value={f.data} onChange={campo('data')} className="numeros" />
           </Campo>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Campo rotulo="Cargo (opcional)" htmlFor="pf-cargo">
-            <Entrada id="pf-cargo" value={f.cargo} maxLength={120} placeholder="Ex.: Técnico judiciário" onChange={campo('cargo')} />
+          <Campo rotulo={tx.cargo} htmlFor="pf-cargo">
+            <Entrada id="pf-cargo" value={f.cargo} maxLength={120} placeholder={tx.exemploCargo} onChange={campo('cargo')} />
           </Campo>
-          <Campo rotulo="Banca (opcional)" htmlFor="pf-banca">
-            <Entrada id="pf-banca" value={f.banca} maxLength={80} placeholder="Ex.: FCC" onChange={campo('banca')} />
+          <Campo rotulo={tx.banca} htmlFor="pf-banca">
+            <Entrada id="pf-banca" value={f.banca} maxLength={80} placeholder={tx.exemploBanca} onChange={campo('banca')} />
           </Campo>
         </div>
 
         <fieldset className="rounded-xl border border-linha/70 bg-superficie-2/50 p-4">
           <legend className="px-1 text-sm font-semibold text-tinta">Notas por disciplina</legend>
-          <p className="mb-3 text-sm text-tinta-suave">Preencha só as disciplinas que esta prova teve. O total é quanto a disciplina valia (questões ou pontos); com ele a comparação mostra o seu aproveitamento.</p>
+          <p className="mb-3 text-sm text-tinta-suave">{tx.disciplinas} O total é quanto a disciplina valia (questões ou pontos); com ele a comparação mostra o seu aproveitamento.</p>
           <div className="grid grid-cols-[minmax(0,1fr)_5.5rem_5.5rem] items-center gap-x-3 gap-y-2">
             <span className="text-xs font-medium text-tinta-suave">Disciplina</span>
             <span className="text-xs font-medium text-tinta-suave">Minha nota</span>
@@ -163,6 +205,7 @@ export function ProvaFeitaDialog({ aberto, aoMudar, prova }: { aberto: boolean; 
           <Campo rotulo="Classificação" htmlFor="pf-classificacao">
             <Entrada id="pf-classificacao" inputMode="numeric" value={f.classificacao} placeholder="Ex.: 42" onChange={campo('classificacao')} className="numeros" />
           </Campo>
+          {tipo === 'prova' && (
           <Campo rotulo="Situação" htmlFor="pf-situacao">
             <Selecao id="pf-situacao" value={f.situacao} onChange={campo('situacao')}>
               <option value="">Não informar</option>
@@ -173,6 +216,7 @@ export function ProvaFeitaDialog({ aberto, aoMudar, prova }: { aberto: boolean; 
               ))}
             </Selecao>
           </Campo>
+          )}
         </div>
 
         {erro && (
@@ -185,7 +229,7 @@ export function ProvaFeitaDialog({ aberto, aoMudar, prova }: { aberto: boolean; 
             Cancelar
           </Botao>
           <Botao type="submit" carregando={salvar.isPending}>
-            {prova ? 'Salvar alterações' : 'Adicionar prova'}
+            {prova ? 'Salvar alterações' : tx.adicionar}
           </Botao>
         </div>
       </form>
