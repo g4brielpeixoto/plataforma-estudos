@@ -1,8 +1,10 @@
-import { Check, ChevronDown, Search } from 'lucide-react'
+import { Check, ChevronDown, LoaderCircle, Plus, Search } from 'lucide-react'
 import { forwardRef, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { toast } from 'sonner'
+import { useCriarTopico } from '@/hooks/dados'
 import { filtrarBusca, itensDeBusca } from '@/lib/buscaTopicos'
 import { numeracaoDeTodos } from '@/lib/topicos'
-import { cn } from '@/lib/utils'
+import { cn, mensagemErro } from '@/lib/utils'
 import type { Disciplina, Topico } from '@/types'
 import { campoBase, Dialogo, Entrada } from './ui'
 
@@ -49,7 +51,24 @@ export const SeletorTopico = forwardRef<HTMLButtonElement, Props>(function Selet
   const filtrados = useMemo(() => filtrarBusca(itens, termo), [itens, termo])
   // "nenhum tópico" vem primeiro quando não há busca
   const comVazio = opcaoVazia && !termo.trim()
-  const total = filtrados.length + (comVazio ? 1 : 0)
+  // tópico novo: o que foi digitado vira um tópico no fim da disciplina do campo (se ainda não existe um com esse nome)
+  const criar = useCriarTopico()
+  const novoNome = termo.trim().replace(/\s+/g, ' ')
+  const jaExiste = !!novoNome && topicos.some((t) => t.disciplina_id === disciplinaId && t.nome.trim().toLowerCase() === novoNome.toLowerCase())
+  const podeCriar = !!disciplinaId && novoNome.length > 0 && novoNome.length <= 300 && !jaExiste
+  const indiceCriar = filtrados.length + (comVazio ? 1 : 0)
+  const total = indiceCriar + (podeCriar ? 1 : 0)
+
+  const criarTopico = async () => {
+    if (!podeCriar || criar.isPending) return
+    try {
+      const novo = await criar.mutateAsync({ disciplina_id: disciplinaId, nome: novoNome })
+      toast.success(`Tópico adicionado em ${nomeDisciplina.get(disciplinaId)?.nome ?? 'sua disciplina'}.`)
+      escolher(novo)
+    } catch (err) {
+      toast.error(mensagemErro(err))
+    }
+  }
 
   useEffect(() => {
     if (!aberto) return
@@ -81,6 +100,7 @@ export const SeletorTopico = forwardRef<HTMLButtonElement, Props>(function Selet
     } else if (e.key === 'Enter') {
       e.preventDefault()
       if (comVazio && ativo === 0) return escolher(null)
+      if (podeCriar && ativo === indiceCriar) return void criarTopico()
       const item = filtrados[ativo - (comVazio ? 1 : 0)]
       if (item) escolher(item.topico)
     }
@@ -203,9 +223,32 @@ export const SeletorTopico = forwardRef<HTMLButtonElement, Props>(function Selet
               </li>
             )
           })}
-          {total === 0 && (
-            <li className="px-3 py-8 text-center text-sm text-tinta-suave">
+          {filtrados.length === 0 && !comVazio && (
+            <li className="px-3 py-6 text-center text-sm text-tinta-suave">
               {itens.length === 0 ? 'Esta disciplina ainda não tem tópicos.' : `Nenhum tópico com "${termo.trim()}".`}
+              {!disciplinaId && termo.trim() && ' Para adicionar um novo, escolha antes a disciplina.'}
+            </li>
+          )}
+          {podeCriar && (
+            <li
+              id={idOpcao(indiceCriar)}
+              data-indice={indiceCriar}
+              role="option"
+              aria-selected={false}
+              aria-disabled={criar.isPending}
+              onClick={() => void criarTopico()}
+              onMouseMove={() => setAtivo(indiceCriar)}
+              className={cn(
+                'mt-1 flex cursor-pointer items-center gap-2.5 rounded-xl border border-dashed border-lilas px-3 py-2.5 text-[15px] text-tinta',
+                ativo === indiceCriar && 'bg-nevoa/60',
+                criar.isPending && 'opacity-60',
+              )}
+            >
+              {criar.isPending ? <LoaderCircle className="size-4 shrink-0 animate-spin text-primaria" aria-hidden /> : <Plus className="size-4 shrink-0 text-primaria" aria-hidden />}
+              <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
+                Adicionar <strong className="font-semibold">“{novoNome}”</strong>
+                <span className="text-tinta-suave"> em {nomeDisciplina.get(disciplinaId)?.nome ?? 'sua disciplina'}</span>
+              </span>
             </li>
           )}
         </ul>

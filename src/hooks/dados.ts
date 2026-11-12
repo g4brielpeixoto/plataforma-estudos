@@ -223,6 +223,27 @@ export function useSalvarTopico() {
 }
 
 /**
+ * Cria um tópico novo no fim da disciplina e devolve ele já gravado (usado pelo seletor de tópico,
+ * que escolhe o tópico logo depois de criar). Entra na lista em memória na hora, sem esperar recarregar.
+ */
+export function useCriarTopico() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ disciplina_id, nome }: { disciplina_id: string; nome: string }) => {
+      const atuais = (qc.getQueryData<Topico[]>(chaves.topicos) ?? []).filter((t) => t.disciplina_id === disciplina_id)
+      const ordem = atuais.reduce((m, t) => Math.max(m, t.ordem), -1) + 1
+      const { data, error } = await supabase.from('topicos').insert({ disciplina_id, nome: nome.trim(), ordem, nivel: 0 }).select().single()
+      if (error) throw error
+      return data as Topico
+    },
+    onSuccess: (novo) => {
+      qc.setQueryData<Topico[]>(chaves.topicos, (lista) => (lista ? [...lista, novo] : lista))
+      void qc.invalidateQueries({ queryKey: chaves.topicos })
+    },
+  })
+}
+
+/**
  * Grava a nova ordem dos tópicos de uma disciplina (arrastar ou digitar a posição).
  * Atualiza a tela na hora (otimista) e envia tudo numa única requisição (upsert por id).
  */
