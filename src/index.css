@@ -50,6 +50,14 @@
   --c-exercicios-fundo: #ddf0f0;
   --c-cabecalho: #3f3242;
   --c-sobre-cabecalho: #f7f1f8;
+  /* marca-texto dos flashcards: tons pastéis; o texto grifado fica sempre escuro (--c-sobre-grifo) */
+  --c-grifo-amarelo: #fdf0a0;
+  --c-grifo-verde: #cdeccb;
+  --c-grifo-azul: #c7e0f8;
+  --c-grifo-rosa: #fbd0de;
+  --c-grifo-lilas: #e2d0f3;
+  --c-grifo-laranja: #fddbb5;
+  --c-sobre-grifo: #3f3242;
   color-scheme: light;
 }
 
@@ -94,6 +102,13 @@
   --c-exercicios-fundo: #1c3638;
   --c-cabecalho: #4a3b52;
   --c-sobre-cabecalho: #f1e9f2;
+  --c-grifo-amarelo: #f3e38a;
+  --c-grifo-verde: #b5dfb3;
+  --c-grifo-azul: #aecff0;
+  --c-grifo-rosa: #f3b8cb;
+  --c-grifo-lilas: #d3bbec;
+  --c-grifo-laranja: #f5c998;
+  --c-sobre-grifo: #2a1f2d;
   color-scheme: dark;
 }
 
@@ -329,6 +344,34 @@ select option:disabled {
 .texto-rico sub,
 .texto-rico sup {
   font-size: 0.75em;
+}
+/* marca-texto: a cor vem da classe (grifo-amarelo, grifo-verde…); o texto fica escuro nos dois temas */
+.texto-rico mark {
+  background: var(--c-grifo-amarelo);
+  color: var(--c-sobre-grifo);
+  border-radius: 0.2em;
+  padding: 0.05em 0.15em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.texto-rico mark.grifo-verde {
+  background: var(--c-grifo-verde);
+}
+.texto-rico mark.grifo-azul {
+  background: var(--c-grifo-azul);
+}
+.texto-rico mark.grifo-rosa {
+  background: var(--c-grifo-rosa);
+}
+.texto-rico mark.grifo-lilas {
+  background: var(--c-grifo-lilas);
+}
+.texto-rico mark.grifo-laranja {
+  background: var(--c-grifo-laranja);
+}
+/* a omissão dentro de um grifo usa a cor do texto grifado, para não sumir no fundo pastel */
+.texto-rico mark .omissao {
+  color: inherit;
 }
 /* o cartão na revisão: centralizado e grande, como no Anki */
 .conteudo-cartao {

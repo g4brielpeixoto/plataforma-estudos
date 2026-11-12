@@ -1,8 +1,8 @@
-import { Bold, Brackets, ImagePlus, Italic, List, ListOrdered, LoaderCircle, Underline } from 'lucide-react'
+import { Bold, Brackets, Eraser, Highlighter, ImagePlus, Italic, List, ListOrdered, LoaderCircle, Underline } from 'lucide-react'
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { enviarImagemFlash } from '@/hooks/dados'
-import { limparHtml, textoParaHtml, vazio as estaVazio } from '@/lib/flashcards/html'
+import { classeGrifo, CORES_GRIFO, limparHtml, ROTULO_GRIFO, textoParaHtml, vazio as estaVazio, type CorGrifo } from '@/lib/flashcards/html'
 import { proximoNumero } from '@/lib/flashcards/omissao'
 import { cn, mensagemErro } from '@/lib/utils'
 
@@ -36,6 +36,8 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
   // onde o cursor estava (para a imagem entrar no lugar certo depois do envio)
   const cursor = useRef<Range | null>(null)
   const [enviando, setEnviando] = useState(0)
+  const [paleta, setPaleta] = useState(false)
+  const [corGrifo, setCorGrifo] = useState<CorGrifo | null>(null)
 
   const mudarEnvio = (delta: number) =>
     setEnviando((n) => {
@@ -96,6 +98,56 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
   const comando = (nome: string) => {
     editor.current?.focus()
     document.execCommand(nome)
+    emitir()
+  }
+
+  /**
+    Marca-texto: grifa o trecho selecionado com a cor escolhida.
+    O navegador pinta a seleção com uma cor de fundo provisória (hiliteColor) e cada pedaço pintado
+    vira um <mark class="grifo-…">, que é o que fica gravado no cartão.
+  */
+  const grifar = (cor: CorGrifo) => {
+    const el = editor.current
+    if (!el) return
+    el.focus()
+    const sel = window.getSelection()
+    if (!sel || sel.isCollapsed || !el.contains(sel.anchorNode)) return void toast.info('Selecione o trecho que você quer grifar.')
+    document.execCommand('styleWithCSS', false, 'true')
+    document.execCommand('hiliteColor', false, COR_PROVISORIA)
+    document.execCommand('styleWithCSS', false, 'false')
+    for (const pintado of Array.from(el.querySelectorAll<HTMLElement>('[style]'))) {
+      if (pintado.style.backgroundColor !== COR_PROVISORIA) continue
+      const mark = document.createElement('mark')
+      mark.className = classeGrifo(cor)
+      while (pintado.firstChild) mark.appendChild(pintado.firstChild)
+      pintado.replaceWith(mark)
+    }
+    // grifo novo dentro de um grifo antigo: corta o antigo em volta do novo, para não ficar um dentro do outro
+    for (let voltas = 0; voltas < 200; voltas++) {
+      const interno = Array.from(el.querySelectorAll('mark > mark'))[0]
+      const externo = interno?.parentElement
+      if (!interno || !externo) break
+      const depois = externo.cloneNode(false) as HTMLElement
+      while (interno.nextSibling) depois.appendChild(interno.nextSibling)
+      externo.after(interno)
+      if (depois.childNodes.length) interno.after(depois)
+      if (!externo.childNodes.length) externo.remove()
+    }
+    setCorGrifo(cor)
+    emitir()
+  }
+
+  /** Tira o grifo de todo trecho grifado que a seleção toca (ou onde o cursor está) */
+  const tirarGrifo = () => {
+    const el = editor.current
+    const sel = window.getSelection()
+    if (!el || !sel?.rangeCount || !el.contains(sel.anchorNode)) return
+    const alcance = sel.getRangeAt(0)
+    for (const mark of Array.from(el.querySelectorAll('mark'))) {
+      if (!alcance.intersectsNode(mark)) continue
+      mark.replaceWith(...Array.from(mark.childNodes))
+    }
+    el.normalize()
     emitir()
   }
 
@@ -168,6 +220,9 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
         <BotaoFerramenta rotulo="Lista numerada" aoClicar={() => comando('insertOrderedList')}>
           <ListOrdered className="size-4" />
         </BotaoFerramenta>
+        <BotaoFerramenta rotulo={paleta ? 'Fechar o marca-texto' : 'Marca-texto'} aoClicar={() => setPaleta((v) => !v)} ativo={paleta}>
+          <Highlighter className="size-4" />
+        </BotaoFerramenta>
         <BotaoFerramenta
           rotulo="Imagem (também dá para colar ou arrastar)"
           aoClicar={() => {
@@ -207,6 +262,32 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
           </button>
         )}
       </div>
+      {paleta && (
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-linha/70 bg-superficie-2/40 px-2.5 py-1.5" role="group" aria-label="Cores do marca-texto">
+          <span className="mr-0.5 text-xs text-tinta-suave">Selecione o texto e escolha a cor:</span>
+          {CORES_GRIFO.map((cor) => (
+            <button
+              key={cor}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => grifar(cor)}
+              title={`Grifar de ${ROTULO_GRIFO[cor].toLowerCase()}`}
+              aria-label={`Grifar de ${ROTULO_GRIFO[cor].toLowerCase()}`}
+              aria-pressed={corGrifo === cor}
+              className={cn('size-7 rounded-full border border-tinta/15 transition-transform hover:scale-110', corGrifo === cor && 'ring-2 ring-primaria ring-offset-2 ring-offset-superficie')}
+              style={{ background: `var(--c-grifo-${cor})` }}
+            />
+          ))}
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={tirarGrifo}
+            className="ml-1 inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-xs font-medium text-tinta-suave hover:bg-nevoa/60 hover:text-tinta"
+          >
+            <Eraser className="size-3.5" aria-hidden /> Tirar grifo
+          </button>
+        </div>
+      )}
       <div className="relative">
         {vazio && placeholder && (
           <span className="pointer-events-none absolute inset-x-3 top-2.5 text-[15px] text-tinta-suave/70" aria-hidden>
@@ -236,7 +317,10 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
   )
 })
 
-function BotaoFerramenta({ rotulo, aoClicar, children }: { rotulo: string; aoClicar: () => void; children: ReactNode }) {
+/** cor de fundo provisória que o navegador aplica na seleção antes de virar <mark> (não fica gravada) */
+const COR_PROVISORIA = 'rgb(254, 253, 1)'
+
+function BotaoFerramenta({ rotulo, aoClicar, ativo, children }: { rotulo: string; aoClicar: () => void; ativo?: boolean; children: ReactNode }) {
   return (
     <button
       type="button"
@@ -245,7 +329,8 @@ function BotaoFerramenta({ rotulo, aoClicar, children }: { rotulo: string; aoCli
       onClick={aoClicar}
       title={rotulo}
       aria-label={rotulo}
-      className="grid size-8 place-items-center rounded-lg text-tinta-suave hover:bg-nevoa/60 hover:text-tinta"
+      aria-pressed={ativo}
+      className={cn('grid size-8 place-items-center rounded-lg text-tinta-suave hover:bg-nevoa/60 hover:text-tinta', ativo && 'bg-nevoa text-tinta')}
     >
       {children}
     </button>
