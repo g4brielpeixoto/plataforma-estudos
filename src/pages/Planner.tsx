@@ -4,6 +4,7 @@ import { ptBR } from 'date-fns/locale'
 import { CalendarClock, Check, ChevronLeft, ChevronRight, Plus, TriangleAlert } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type HTMLAttributes, type ReactNode } from 'react'
 import { CartaoPlanner, CheckPlanner, coresDoItem, MenuPlanner } from '@/components/CartaoPlanner'
+import { ParaRevisar } from '@/components/ParaRevisar'
 import { Botao, CabecalhoPagina, Carregando, Dialogo, Painel } from '@/components/ui'
 import { useDisciplinas, usePlanner, useTopicos } from '@/hooks/dados'
 import { nomeDoDia, usePlannerAcoes, type AcoesPlanner } from '@/hooks/usePlannerAcoes'
@@ -131,6 +132,7 @@ export function Planner() {
         <Carregando />
       ) : (
         <>
+          <ParaRevisar className="mb-6" />
           {atrasados.length > 0 && <PainelAtrasados atrasados={atrasados} mapas={mapas} acoes={acoes} aoReagendarTodos={() => setReagendando(true)} />}
 
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">

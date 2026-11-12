@@ -8,6 +8,7 @@ import { ContagemProvas } from '@/components/ContagemProvas'
 import { EstudoDialog } from '@/components/EstudoDialog'
 import { EstudoSemanal } from '@/components/EstudoSemanal'
 import { MetasSemanais } from '@/components/MetasSemanais'
+import { ParaRevisar } from '@/components/ParaRevisar'
 import { PlanejamentoHoje } from '@/components/PlanejamentoHoje'
 import { ResumoTopo } from '@/components/ResumoTopo'
 import { TempoPizza } from '@/components/TempoPizza'
@@ -90,8 +91,9 @@ export function Inicio() {
           {/* 3. acompanhamento do dia e da semana; a análise detalhada fica no Raio-X */}
           <div className="flex flex-col gap-5 xl:grid xl:grid-cols-2 xl:items-start">
             <div className="contents xl:block xl:space-y-5">
-              <div className="order-1">
+              <div className="order-1 space-y-5">
                 <PlanejamentoHoje disciplinas={disciplinas.data ?? []} topicos={topicos.data ?? []} />
+                <ParaRevisar />
               </div>
               <EstudoSemanal estudos={todos} className="order-4" />
               <Link
