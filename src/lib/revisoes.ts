@@ -8,21 +8,36 @@ import { chaveData, paraData } from './planner'
   - Cada tópico e cada subtópico tem a sua revisão, só com as questões lançadas nele
     (o subtópico não soma no pai: são assuntos separados).
   - Vale a última sessão do tópico com MIN_QUESTOES ou mais (com menos, a porcentagem engana).
-  - Quanto pior o acerto, mais cedo volta: < 60% em 3 dias, 60–79% em 7, 80% ou mais em 15.
-  - Mantendo 80% ou mais em sessões seguidas, o intervalo dobra (15, 30, 60, 120).
+  - Quanto pior o acerto, mais cedo volta: < 60% em 3 dias, 60–74% em 7, 75–84% em 15,
+    85–94% em 30 e 95% ou mais em 60. Assim só o que dá trabalho volta logo.
+  - As faixas de 85% para cima só valem com MIN_QUESTOES_DOMINIO questões ou mais na sessão
+    (5 de 5 dá 100%, mas é pouco para mandar o tópico para longe): com menos, o teto é 15 dias.
+  - Mantendo 85% ou mais (com questões suficientes) em sessões seguidas, o intervalo dobra a cada
+    uma, até INTERVALO_MAXIMO. De 75 a 84% não dobra: fica em 15 até subir de faixa.
+  - Caiu de faixa, vale o intervalo curto da faixa nova, sem média com o histórico bom.
   - Uma revisão marcada como feita no planner depois da última sessão (sem registrar questões)
     empurra a próxima pelo mesmo intervalo.
   - Tópico com revisão pendente no planner já está agendado: sai da fila.
 */
 
 export const MIN_QUESTOES = 5
+/** mínimo de questões na sessão para as faixas de 85% para cima valerem */
+export const MIN_QUESTOES_DOMINIO = 10
 export const INTERVALO_MAXIMO = 120
 
-/** Dias até a próxima revisão: pelo acerto da sessão e por quantas sessões seguidas ficaram em 80% ou mais */
-export function intervaloRevisao(pct: number, seguidasBoas = 1): number {
+/** A sessão mostra domínio: 85% ou mais, com questões suficientes para confiar no número */
+const dominou = (pct: number, feitas: number) => pct >= 85 && feitas >= MIN_QUESTOES_DOMINIO
+
+/**
+ * Dias até a próxima revisão: pelo acerto e pelo tamanho da sessão, e por quantas sessões seguidas
+ * (contando esta) mostraram domínio.
+ */
+export function intervaloRevisao(pct: number, feitas: number, seguidasDominando = 1): number {
   if (pct < 60) return 3
-  if (pct < 80) return 7
-  return Math.min(INTERVALO_MAXIMO, 15 * 2 ** Math.max(0, seguidasBoas - 1))
+  if (pct < 75) return 7
+  if (!dominou(pct, feitas)) return 15
+  const base = pct < 95 ? 30 : 60
+  return Math.min(INTERVALO_MAXIMO, base * 2 ** Math.max(0, seguidasDominando - 1))
 }
 
 type Sessao = Pick<Estudo, 'topico_id' | 'data_hora' | 'questoes_feitas' | 'questoes_acertadas'>
@@ -51,8 +66,8 @@ export function revisaoDoTopico(sessoes: Sessao[], revisoesFeitas: string[] = []
   if (!ultima) return null
   const pct = pctSessao(ultima)
   let seguidas = 0
-  for (let i = validas.length - 1; i >= 0 && pctSessao(validas[i]) >= 80; i--) seguidas++
-  const intervalo = intervaloRevisao(pct, seguidas)
+  for (let i = validas.length - 1; i >= 0 && dominou(pctSessao(validas[i]), validas[i].questoes_feitas as number); i--) seguidas++
+  const intervalo = intervaloRevisao(pct, ultima.questoes_feitas as number, seguidas)
   const ultimaSessao = chaveData(new Date(ultima.data_hora))
   // revisão feita depois da sessão (marcada no planner sem lançar questões) conta como a nova base
   const base = revisoesFeitas.reduce((m, d) => (d > m ? d : m), ultimaSessao)
