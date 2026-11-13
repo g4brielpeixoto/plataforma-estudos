@@ -1,4 +1,4 @@
-import { CircleCheck } from 'lucide-react'
+import { CircleCheck, Pin } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
@@ -48,6 +48,9 @@ export function NotaFlashDialog({
   const [erro, setErro] = useState('')
   const [criarNovo, setCriarNovo] = useState(lerCriarNovo)
   const [salvos, setSalvos] = useState(0)
+  // lados fixados: continuam preenchidos no próximo cartão (vale só enquanto o diálogo está aberto)
+  const [fixarFrente, setFixarFrente] = useState(false)
+  const [fixarVerso, setFixarVerso] = useState(false)
   const [enviandoFrente, setEnviandoFrente] = useState(0)
   const [enviandoVerso, setEnviandoVerso] = useState(0)
   const enviando = enviandoFrente + enviandoVerso > 0
@@ -57,6 +60,8 @@ export function NotaFlashDialog({
     if (!aberto) return
     setErro('')
     setSalvos(0)
+    setFixarFrente(false)
+    setFixarVerso(false)
     setTipo(nota?.tipo ?? 'basico')
     setDisciplinaId(nota?.disciplina_id ?? disciplinaInicial ?? '')
     setTopicoId(nota?.topico_id ?? topicoInicial ?? '')
@@ -74,6 +79,13 @@ export function NotaFlashDialog({
     } catch {
       /* sem armazenamento: só não fica salvo */
     }
+  }
+
+  // fixar um lado só faz sentido criando vários em seguida: liga o "Salvar e criar novo" junto
+  const fixar = (lado: 'frente' | 'verso', v: boolean) => {
+    if (lado === 'frente') setFixarFrente(v)
+    else setFixarVerso(v)
+    if (v && !criarNovo) alternarCriarNovo(true)
   }
 
   const enviar = async (e: FormEvent) => {
@@ -96,8 +108,8 @@ export function NotaFlashDialog({
       }
       toast.success('Cartão criado.')
       setSalvos((n) => n + 1)
-      setFrente('')
-      setVerso('')
+      if (!fixarFrente) setFrente('')
+      if (!fixarVerso) setVerso('')
       requestAnimationFrame(() => refFrente.current?.focar())
     } catch (err) {
       setErro(mensagemErro(err))
@@ -128,7 +140,8 @@ export function NotaFlashDialog({
             <p role="status" className="flex items-center gap-2 rounded-xl bg-bom-fundo px-3 py-2.5 text-sm text-tinta">
               <CircleCheck className="size-4 shrink-0 text-bom" aria-hidden />
               <span>
-                <strong className="font-semibold">{salvos === 1 ? 'Cartão criado.' : `${salvos} cartões criados.`}</strong> Escreva o próximo.
+                <strong className="font-semibold">{salvos === 1 ? 'Cartão criado.' : `${salvos} cartões criados.`}</strong>{' '}
+                {fixarFrente || fixarVerso ? 'O lado fixado continua aqui: mude o que precisar e salve o próximo.' : 'Escreva o próximo.'}
               </span>
             </p>
           )}
@@ -193,9 +206,12 @@ export function NotaFlashDialog({
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="f-frente" className="block text-sm font-medium text-tinta">
-              {omissao ? 'Texto' : 'Frente'}
-            </label>
+            <div className="flex items-center justify-between gap-2">
+              <label htmlFor="f-frente" className="block text-sm font-medium text-tinta">
+                {omissao ? 'Texto' : 'Frente'}
+              </label>
+              {!nota && <BotaoFixar ligado={fixarFrente} aoMudar={(v) => fixar('frente', v)} lado={omissao ? 'o texto' : 'a frente'} />}
+            </div>
             <CampoRico
               ref={refFrente}
               id="f-frente"
@@ -216,9 +232,12 @@ export function NotaFlashDialog({
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="f-verso" className="block text-sm font-medium text-tinta">
-              {omissao ? 'Extra (opcional)' : 'Verso'}
-            </label>
+            <div className="flex items-center justify-between gap-2">
+              <label htmlFor="f-verso" className="block text-sm font-medium text-tinta">
+                {omissao ? 'Extra (opcional)' : 'Verso'}
+              </label>
+              {!nota && <BotaoFixar ligado={fixarVerso} aoMudar={(v) => fixar('verso', v)} lado={omissao ? 'o extra' : 'o verso'} />}
+            </div>
             <CampoRico
               id="f-verso"
               rotulo={omissao ? 'Extra' : 'Verso'}
@@ -237,7 +256,7 @@ export function NotaFlashDialog({
 
           <div className="-mx-5 border-t border-linha/70 px-5 pt-4 sm:-mx-6 sm:px-6">
             {!nota && (
-              <Interruptor ligado={criarNovo} aoMudar={alternarCriarNovo} rotulo="Salvar e criar novo" descricao="Salva este cartão e abre outro em branco, no mesmo baralho e tópico." />
+              <Interruptor ligado={criarNovo} aoMudar={alternarCriarNovo} rotulo="Salvar e criar novo" descricao="Salva este cartão e abre outro no mesmo baralho e tópico. O lado fixado continua preenchido." />
             )}
             <div className={cn('flex justify-end gap-2', !nota && 'mt-4')}>
               <Botao type="button" variante="secundario" onClick={() => aoMudar(false)}>
@@ -251,5 +270,24 @@ export function NotaFlashDialog({
         </form>
       )}
     </Dialogo>
+  )
+}
+
+/** Fixa um lado do cartão: o conteúdo continua no próximo cartão depois de salvar */
+function BotaoFixar({ ligado, aoMudar, lado }: { ligado: boolean; aoMudar: (v: boolean) => void; lado: string }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={ligado}
+      title={ligado ? `Soltar ${lado}: volta a ficar em branco no próximo cartão` : `Fixar ${lado}: continua preenchido no próximo cartão`}
+      onClick={() => aoMudar(!ligado)}
+      className={cn(
+        'inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium transition-colors',
+        ligado ? 'bg-nevoa text-tinta ring-1 ring-primaria/50' : 'text-tinta-suave hover:bg-superficie-2 hover:text-tinta',
+      )}
+    >
+      <Pin className={cn('size-4', ligado && 'fill-current')} aria-hidden />
+      {ligado ? 'Fixado' : 'Fixar'}
+    </button>
   )
 }
