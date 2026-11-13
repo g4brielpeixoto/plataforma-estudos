@@ -8,7 +8,6 @@ import { ContagemProvas } from '@/components/ContagemProvas'
 import { EstudoDialog } from '@/components/EstudoDialog'
 import { EstudoSemanal } from '@/components/EstudoSemanal'
 import { MetasSemanais } from '@/components/MetasSemanais'
-import { ParaRevisar } from '@/components/ParaRevisar'
 import { PlanejamentoHoje } from '@/components/PlanejamentoHoje'
 import { ResumoTopo } from '@/components/ResumoTopo'
 import { TempoPizza } from '@/components/TempoPizza'
@@ -93,7 +92,6 @@ export function Inicio() {
             <div className="contents xl:block xl:space-y-5">
               <div className="order-1 space-y-5">
                 <PlanejamentoHoje disciplinas={disciplinas.data ?? []} topicos={topicos.data ?? []} />
-                <ParaRevisar />
               </div>
               <EstudoSemanal estudos={todos} className="order-4" />
               <Link

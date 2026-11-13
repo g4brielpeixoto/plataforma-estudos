@@ -11,17 +11,15 @@ export type Visao = 'dia' | 'semana' | 'mes'
 
 export const TIPOS: { valor: TipoPlanner; rotulo: string }[] = [
   { valor: 'estudo', rotulo: 'Estudo' },
-  { valor: 'revisao', rotulo: 'Revisão' },
   { valor: 'resumo', rotulo: 'Resumo' },
   { valor: 'exercicios', rotulo: 'Exercícios' },
 ]
 
-export const ROTULO_TIPO: Record<TipoPlanner, string> = { estudo: 'Estudo', revisao: 'Revisão', resumo: 'Resumo', exercicios: 'Exercícios' }
+export const ROTULO_TIPO: Record<TipoPlanner, string> = { estudo: 'Estudo', resumo: 'Resumo', exercicios: 'Exercícios' }
 
 /** Classes de cor de cada tipo (tokens --c-<tipo> e --c-<tipo>-fundo em index.css) */
 export const COR_TIPO: Record<TipoPlanner, { barra: string; fundo: string; texto: string }> = {
   estudo: { barra: 'bg-estudo', fundo: 'bg-estudo-fundo', texto: 'text-estudo' },
-  revisao: { barra: 'bg-revisao', fundo: 'bg-revisao-fundo', texto: 'text-revisao' },
   resumo: { barra: 'bg-resumo', fundo: 'bg-resumo-fundo', texto: 'text-resumo' },
   exercicios: { barra: 'bg-exercicios', fundo: 'bg-exercicios-fundo', texto: 'text-exercicios' },
 }

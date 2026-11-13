@@ -3,9 +3,7 @@ import { CircleCheck } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
-import { useDisciplinas, useEstudos, usePlanner, useSalvarEstudo, useSalvarItemPlanner, useTopicos } from '@/hooks/dados'
-import { paraData, proximaOrdem } from '@/lib/planner'
-import { comRevisaoAgendada, MIN_QUESTOES, revisaoDoTopico, textoIntervalo } from '@/lib/revisoes'
+import { useDisciplinas, useSalvarEstudo, useTopicos } from '@/hooks/dados'
 import { cn, formatarDuracao, mensagemErro } from '@/lib/utils'
 import type { Estudo, Origem } from '@/types'
 import { SeletorTopico } from './SeletorTopico'
@@ -59,9 +57,6 @@ export function EstudoDialog({
   const disciplinas = useDisciplinas()
   const topicos = useTopicos()
   const salvar = useSalvarEstudo()
-  const estudos = useEstudos()
-  const planner = usePlanner()
-  const salvarItem = useSalvarItemPlanner()
 
   const [disciplinaId, setDisciplinaId] = useState('')
   const [topicoId, setTopicoId] = useState('')
@@ -136,36 +131,6 @@ export function EstudoDialog({
   )
   const topicoSelecionado = topicosDaDisciplina.find((t) => t.id === topicoId)
 
-  /**
-    Depois de salvar um estudo com questões, sugere a data da revisão pelo acerto (regras em lib/revisoes.ts).
-    É só uma sugestão: a revisão entra no planner se o usuário tocar no botão do aviso.
-  */
-  const sugerirRevisao = (topico: { id: string; nome: string; disciplina_id: string }, quando: string, feitasAgora: number | null, acertadasAgora: number) => {
-    if (!feitasAgora || feitasAgora < MIN_QUESTOES) return
-    const itens = planner.data ?? []
-    if (comRevisaoAgendada(itens).has(topico.id)) return
-    const doTopico = (estudos.data ?? []).filter((x) => x.topico_id === topico.id)
-    const r = revisaoDoTopico([...doTopico, { topico_id: topico.id, data_hora: quando, questoes_feitas: feitasAgora, questoes_acertadas: acertadasAgora }])
-    if (!r) return
-    const dia = format(paraData(r.venceEm), 'dd/MM')
-    toast(`Você acertou ${r.pct}% em ${topico.nome}.`, {
-      description: `Revisar ${textoIntervalo(r.intervalo)}, no dia ${dia}?`,
-      duration: 15000,
-      actionButtonStyle: { background: 'var(--c-primaria-forte)', color: 'var(--c-sobre-primaria)', height: 32, padding: '0 12px', fontSize: 13, fontWeight: 600, borderRadius: 8 },
-      action: {
-        label: 'Planejar revisão',
-        onClick: () => {
-          salvarItem
-            .mutateAsync({
-              dados: { data: r.venceEm, disciplina_id: topico.disciplina_id, topico_id: topico.id, tipo: 'revisao', minutos_previstos: null, observacao: null, ordem: proximaOrdem(itens, r.venceEm) },
-            })
-            .then(() => toast.success(`Revisão no planner para ${dia}.`))
-            .catch((err) => toast.error(mensagemErro(err)))
-        },
-      },
-    })
-  }
-
   const enviar = async (e: FormEvent) => {
     e.preventDefault()
     setErro('')
@@ -194,7 +159,6 @@ export function EstudoDialog({
       })
       const doPlanner = !editando && primeiro && iniciais?.plannerItemId
       toast.success(editando ? 'Estudo atualizado.' : doPlanner ? 'Estudo salvo e item do planner concluído.' : 'Estudo salvo.')
-      if (!editando && topicoSelecionado) sugerirRevisao(topicoSelecionado, new Date(dataHora).toISOString(), qFeitas, qAcertadas ?? 0)
       aoSalvar?.()
       if (editando || !criarNovo) return aoMudar(false)
 
