@@ -12,12 +12,23 @@ import { camposDeNovo } from '@/lib/flashcards/agenda'
 import { contagem } from '@/lib/flashcards/fila'
 import { previa, textoPuro } from '@/lib/flashcards/html'
 import { semMarcas } from '@/lib/flashcards/omissao'
+import { ORDENS, ROTULO_ORDEM, ehOrdem, ordenarNotas, type OrdemNotas } from '@/lib/flashcards/ordenacao'
 import { rotuloSelecao } from '@/lib/topicos'
 import { cn, mensagemErro, normalizar } from '@/lib/utils'
 import type { FlashCartao, FlashNota } from '@/types'
 
 type FiltroEstado = 'todos' | 'novos' | 'aprendendo' | 'revisao' | 'suspensos'
 const POR_PAGINA = 50
+const CHAVE_ORDEM = 'flash:ordem'
+
+function lerOrdem(): OrdemNotas {
+  try {
+    const v = localStorage.getItem(CHAVE_ORDEM)
+    return ehOrdem(v) ? v : 'antigos'
+  } catch {
+    return 'antigos'
+  }
+}
 
 /** Quando a nota volta: "novo", "hoje", "amanhã", "em 12 dias", "suspenso" */
 function proximaRevisao(cartoes: FlashCartao[]) {
@@ -40,6 +51,7 @@ export function BaralhoFlash() {
   const [busca, setBusca] = useState('')
   const [filtroTopico, setFiltroTopico] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('todos')
+  const [ordem, setOrdem] = useState<OrdemNotas>(lerOrdem)
   const [limite, setLimite] = useState(POR_PAGINA)
   const [editando, setEditando] = useState<FlashNota | null>(null)
   const [criando, setCriando] = useState(false)
@@ -58,7 +70,7 @@ export function BaralhoFlash() {
 
   const lista = useMemo(() => {
     const termo = normalizar(busca)
-    return notasDoBaralho
+    const filtradas = notasDoBaralho
       .filter((n) => !filtroTopico || (filtroTopico === 'sem' ? !n.topico_id : n.topico_id === filtroTopico))
       .filter((n) => {
         if (filtroEstado === 'todos') return true
@@ -70,7 +82,18 @@ export function BaralhoFlash() {
       })
       .filter((n) => !termo || normalizar(`${textoPuro(semMarcas(n.frente))} ${textoPuro(n.verso)}`).includes(termo))
       .map((n) => ({ nota: n, cartoes: dados.cartoesPorNota.get(n.id) ?? [] }))
-  }, [notasDoBaralho, filtroTopico, filtroEstado, busca, dados.cartoesPorNota])
+    const posicaoTopico = new Map([...topicosDoBaralho].sort((a, b) => a.ordem - b.ordem || a.criado_em.localeCompare(b.criado_em)).map((t, i) => [t.id, i]))
+    return ordenarNotas(
+      filtradas.map((i) => ({
+        ...i,
+        texto: textoPuro(semMarcas(i.nota.frente)),
+        criadoEm: i.nota.criado_em,
+        revisao: proximaRevisao(i.cartoes).ordem,
+        topico: (i.nota.topico_id ? posicaoTopico.get(i.nota.topico_id) : undefined) ?? Infinity,
+      })),
+      ordem,
+    )
+  }, [notasDoBaralho, topicosDoBaralho, filtroTopico, filtroEstado, busca, ordem, dados.cartoesPorNota])
 
   if (dados.carregando) return <Carregando />
   if (!disciplina) {
@@ -164,7 +187,7 @@ export function BaralhoFlash() {
 
       {/* navegador de cartões */}
       <Painel className="overflow-hidden">
-        <div className="grid grid-cols-1 gap-2 border-b border-linha/70 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,14rem)_minmax(0,11rem)] sm:p-5">
+        <div className="grid grid-cols-1 gap-2 border-b border-linha/70 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,14rem)_minmax(0,11rem)_minmax(0,14rem)]">
           <div className="relative">
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-tinta-suave" aria-hidden />
             <Entrada
@@ -194,6 +217,27 @@ export function BaralhoFlash() {
             <option value="aprendendo">Aprendendo</option>
             <option value="revisao">Em revisão</option>
             <option value="suspensos">Suspensos</option>
+          </Selecao>
+          <Selecao
+            aria-label="Ordenar os cartões"
+            value={ordem}
+            onChange={(e) => {
+              const v = e.target.value as OrdemNotas
+              setOrdem(v)
+              setLimite(POR_PAGINA)
+              try {
+                localStorage.setItem(CHAVE_ORDEM, v)
+              } catch {
+                /* sem armazenamento: só não fica salvo */
+              }
+            }}
+            className="text-sm"
+          >
+            {ORDENS.map((o) => (
+              <option key={o} value={o}>
+                {ROTULO_ORDEM[o]}
+              </option>
+            ))}
           </Selecao>
         </div>
 
