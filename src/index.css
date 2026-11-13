@@ -58,6 +58,13 @@
   --c-grifo-lilas: #e2d0f3;
   --c-grifo-laranja: #fddbb5;
   --c-sobre-grifo: #3f3242;
+  /* cor do texto nos flashcards (escolhida no editor): legível no fundo claro */
+  --c-texto-vermelho: #b3261e;
+  --c-texto-laranja: #a8510a;
+  --c-texto-verde: #1e7a46;
+  --c-texto-azul: #1f5fbf;
+  --c-texto-roxo: #7b3fb5;
+  --c-texto-rosa: #b8246c;
   color-scheme: light;
 }
 
@@ -109,6 +116,12 @@
   --c-grifo-lilas: #d3bbec;
   --c-grifo-laranja: #f5c998;
   --c-sobre-grifo: #2a1f2d;
+  --c-texto-vermelho: #ff9289;
+  --c-texto-laranja: #ffb86b;
+  --c-texto-verde: #7fd9a0;
+  --c-texto-azul: #8fbcff;
+  --c-texto-roxo: #cdaaf7;
+  --c-texto-rosa: #ff94c4;
   color-scheme: dark;
 }
 
@@ -372,6 +385,56 @@ select option:disabled {
 /* a omissão dentro de um grifo usa a cor do texto grifado, para não sumir no fundo pastel */
 .texto-rico mark .omissao {
   color: inherit;
+}
+/* cor do texto: a cor vem da classe (cor-vermelho, cor-azul…) e muda com o tema */
+.texto-rico .cor-vermelho {
+  color: var(--c-texto-vermelho);
+}
+.texto-rico .cor-laranja {
+  color: var(--c-texto-laranja);
+}
+.texto-rico .cor-verde {
+  color: var(--c-texto-verde);
+}
+.texto-rico .cor-azul {
+  color: var(--c-texto-azul);
+}
+.texto-rico .cor-roxo {
+  color: var(--c-texto-roxo);
+}
+.texto-rico .cor-rosa {
+  color: var(--c-texto-rosa);
+}
+/* texto colorido dentro de um grifo: o fundo é sempre pastel, então valem os tons escuros nos dois temas */
+.texto-rico mark {
+  --c-texto-vermelho: #b3261e;
+  --c-texto-laranja: #a8510a;
+  --c-texto-verde: #1e7a46;
+  --c-texto-azul: #1f5fbf;
+  --c-texto-roxo: #7b3fb5;
+  --c-texto-rosa: #b8246c;
+}
+/* tamanho do texto, relativo ao tamanho de onde o cartão aparece (lista, editor ou revisão) */
+.texto-rico .tam-pequeno {
+  font-size: 0.85em;
+}
+.texto-rico .tam-grande {
+  font-size: 1.3em;
+  line-height: 1.45;
+}
+.texto-rico .tam-enorme {
+  font-size: 1.7em;
+  line-height: 1.35;
+}
+/* alinhamento do parágrafo (na revisão o padrão é centralizado; no editor, à esquerda) */
+.texto-rico .alinha-esquerda {
+  text-align: left;
+}
+.texto-rico .alinha-centro {
+  text-align: center;
+}
+.texto-rico .alinha-justificado {
+  text-align: justify;
 }
 /* o cartão na revisão: centralizado e grande, como no Anki */
 .conteudo-cartao {

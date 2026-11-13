@@ -1,8 +1,27 @@
-import { Bold, Brackets, Eraser, Highlighter, ImagePlus, Italic, List, ListOrdered, LoaderCircle, Underline } from 'lucide-react'
+import { ALargeSmall, AlignCenter, AlignJustify, AlignLeft, Baseline, Bold, Brackets, Eraser, Highlighter, ImagePlus, Italic, List, ListOrdered, LoaderCircle, Underline } from 'lucide-react'
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { enviarImagemFlash } from '@/hooks/dados'
-import { classeGrifo, CORES_GRIFO, limparHtml, ROTULO_GRIFO, textoParaHtml, vazio as estaVazio, type CorGrifo } from '@/lib/flashcards/html'
+import {
+  ALINHAMENTOS,
+  classeAlinhamento,
+  classeCor,
+  classeGrifo,
+  classeTamanho,
+  CORES_GRIFO,
+  CORES_TEXTO,
+  limparHtml,
+  ROTULO_COR_TEXTO,
+  ROTULO_GRIFO,
+  ROTULO_TAMANHO,
+  TAMANHOS_TEXTO,
+  textoParaHtml,
+  vazio as estaVazio,
+  type Alinhamento,
+  type CorGrifo,
+  type CorTexto,
+  type TamanhoTexto,
+} from '@/lib/flashcards/html'
 import { proximoNumero } from '@/lib/flashcards/omissao'
 import { cn, mensagemErro } from '@/lib/utils'
 
@@ -36,7 +55,9 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
   // onde o cursor estava (para a imagem entrar no lugar certo depois do envio)
   const cursor = useRef<Range | null>(null)
   const [enviando, setEnviando] = useState(0)
-  const [paleta, setPaleta] = useState(false)
+  // faixa aberta embaixo da barra: marca-texto, cor do texto ou tamanho
+  const [painel, setPainel] = useState<'grifo' | 'cor' | 'tamanho' | null>(null)
+  const alternarPainel = (qual: 'grifo' | 'cor' | 'tamanho') => setPainel((p) => (p === qual ? null : qual))
   const [corGrifo, setCorGrifo] = useState<CorGrifo | null>(null)
 
   const mudarEnvio = (delta: number) =>
@@ -151,6 +172,149 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
     emitir()
   }
 
+  /** A seleção dentro do editor (com texto selecionado), ou null com um aviso */
+  const selecaoComTexto = (aviso: string) => {
+    const el = editor.current
+    if (!el) return null
+    el.focus()
+    const sel = window.getSelection()
+    if (!sel || sel.isCollapsed || !el.contains(sel.anchorNode)) {
+      toast.info(aviso)
+      return null
+    }
+    return el
+  }
+
+  /** Tira de um <span> as classes com o prefixo ("cor-" ou "tam-"); sem classe nenhuma, o span some e fica só o conteúdo */
+  const tirarClasse = (span: Element, prefixo: string) => {
+    for (const c of Array.from(span.classList)) if (c.startsWith(prefixo)) span.classList.remove(c)
+    if (!span.classList.length) span.replaceWith(...Array.from(span.childNodes))
+  }
+
+  /** Trecho novo dentro de um trecho antigo do mesmo tipo: corta o antigo em volta do novo, para não ficar um dentro do outro */
+  const separarAninhados = (el: HTMLElement, seletor: string) => {
+    for (let voltas = 0; voltas < 200; voltas++) {
+      const interno = el.querySelector(`${seletor} > ${seletor}`)
+      const externo = interno?.parentElement
+      if (!interno || !externo) break
+      const depois = externo.cloneNode(false) as HTMLElement
+      while (interno.nextSibling) depois.appendChild(interno.nextSibling)
+      externo.after(interno)
+      if (depois.childNodes.length) interno.after(depois)
+      if (!externo.childNodes.length) externo.remove()
+    }
+  }
+
+  /**
+    Cor do texto: o navegador pinta a seleção com uma cor provisória (foreColor) e cada pedaço pintado
+    vira um <span class="cor-…">, que é o que fica gravado no cartão. Sem cor = volta à cor normal.
+  */
+  const colorir = (cor: CorTexto | null) => {
+    const el = selecaoComTexto('Selecione o texto que você quer mudar de cor.')
+    if (!el) return
+    document.execCommand('styleWithCSS', false, 'true')
+    document.execCommand('foreColor', false, COR_PROVISORIA)
+    document.execCommand('styleWithCSS', false, 'false')
+    const pintados = [...Array.from(el.querySelectorAll<HTMLElement>('[style]')).filter((x) => x.style.color === COR_PROVISORIA), ...Array.from(el.querySelectorAll<HTMLElement>('font[color]'))]
+    for (const pintado of pintados) {
+      const span = document.createElement('span')
+      // os trechos coloridos que ficaram dentro perdem a cor antiga
+      for (const antigo of Array.from(pintado.querySelectorAll('span[class*="cor-"]'))) tirarClasse(antigo, 'cor-')
+      while (pintado.firstChild) span.appendChild(pintado.firstChild)
+      if (pintado.tagName === 'SPAN' || pintado.tagName === 'FONT') {
+        // leva junto o tamanho que o trecho já tinha
+        for (const c of Array.from(pintado.classList)) if (c.startsWith('tam-')) span.classList.add(c)
+        pintado.replaceWith(span)
+      } else {
+        pintado.style.color = ''
+        if (!pintado.getAttribute('style')) pintado.removeAttribute('style')
+        pintado.appendChild(span)
+      }
+      span.classList.add(cor ? classeCor(cor) : 'cor-nenhuma')
+    }
+    separarAninhados(el, 'span[class*="cor-"]')
+    for (const s of Array.from(el.querySelectorAll('span.cor-nenhuma'))) tirarClasse(s, 'cor-')
+    el.normalize()
+    emitir()
+  }
+
+  /** Tamanho do texto: o trecho selecionado vira <span class="tam-…">; null volta ao tamanho normal */
+  const redimensionar = (tamanho: TamanhoTexto | null) => {
+    const el = selecaoComTexto('Selecione o texto que você quer mudar de tamanho.')
+    if (!el) return
+    document.execCommand('styleWithCSS', false, 'false')
+    document.execCommand('fontSize', false, '7')
+    const marcados = [...Array.from(el.querySelectorAll<HTMLElement>('font[size]')), ...Array.from(el.querySelectorAll<HTMLElement>('[style]')).filter((x) => x.style.fontSize !== '')]
+    for (const marcado of marcados) {
+      const span = document.createElement('span')
+      for (const antigo of Array.from(marcado.querySelectorAll('span[class*="tam-"]'))) tirarClasse(antigo, 'tam-')
+      while (marcado.firstChild) span.appendChild(marcado.firstChild)
+      if (marcado.tagName === 'SPAN' || marcado.tagName === 'FONT') {
+        for (const c of Array.from(marcado.classList)) if (c.startsWith('cor-')) span.classList.add(c)
+        marcado.replaceWith(span)
+      } else {
+        marcado.style.fontSize = ''
+        if (!marcado.getAttribute('style')) marcado.removeAttribute('style')
+        marcado.appendChild(span)
+      }
+      span.classList.add(tamanho ? classeTamanho(tamanho) : 'tam-nenhum')
+    }
+    separarAninhados(el, 'span[class*="tam-"]')
+    for (const s of Array.from(el.querySelectorAll('span.tam-nenhum'))) tirarClasse(s, 'tam-')
+    el.normalize()
+    emitir()
+  }
+
+  /** Os parágrafos (blocos) que a seleção toca, ou o do cursor; `semBloco` diz se sobrou texto solto, fora de qualquer bloco */
+  const blocosDaSelecao = (el: HTMLElement) => {
+    const sel = window.getSelection()
+    const blocos = new Set<HTMLElement>()
+    let semBloco = false
+    if (!sel?.rangeCount || !el.contains(sel.anchorNode)) return { blocos, semBloco }
+    const alcance = sel.getRangeAt(0)
+    const blocoDe = (n: Node) => {
+      let x = n.nodeType === Node.ELEMENT_NODE ? (n as HTMLElement) : n.parentElement
+      while (x && x !== el && !BLOCOS_ALINHAVEIS.has(x.tagName)) x = x.parentElement
+      return x && x !== el ? x : null
+    }
+    const nos: Node[] = [alcance.startContainer]
+    const andar = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+    for (let n = andar.nextNode(); n; n = andar.nextNode()) if (alcance.intersectsNode(n) && n.textContent?.trim()) nos.push(n)
+    for (const n of nos) {
+      if (n === el) continue
+      const b = blocoDe(n)
+      if (b) blocos.add(b)
+      else semBloco = true
+    }
+    if (!blocos.size) semBloco = true
+    return { blocos, semBloco }
+  }
+
+  /**
+    Alinhamento dos parágrafos da seleção (ou de onde o cursor está), gravado como classe no bloco.
+    Clicar no alinhamento que o trecho já tem tira o alinhamento (volta ao padrão de onde o cartão aparece).
+  */
+  const alinhar = (alinhamento: Alinhamento) => {
+    const el = editor.current
+    if (!el) return
+    el.focus()
+    let { blocos, semBloco } = blocosDaSelecao(el)
+    if (semBloco) {
+      // texto solto no editor: o navegador põe a linha num <div>, que é quem recebe o alinhamento
+      document.execCommand('formatBlock', false, 'div')
+      ;({ blocos, semBloco } = blocosDaSelecao(el))
+    }
+    if (!blocos.size) return void toast.info('Escreva o texto antes de alinhar.')
+    const classe = classeAlinhamento(alinhamento)
+    const jaTem = [...blocos].every((b) => b.classList.contains(classe))
+    for (const b of blocos) {
+      for (const a of ALINHAMENTOS) b.classList.remove(classeAlinhamento(a))
+      if (!jaTem) b.classList.add(classe)
+      if (!b.classList.length) b.removeAttribute('class')
+    }
+    emitir()
+  }
+
   const inserirOmissao = () => {
     const el = editor.current
     if (!el) return
@@ -220,7 +384,22 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
         <BotaoFerramenta rotulo="Lista numerada" aoClicar={() => comando('insertOrderedList')}>
           <ListOrdered className="size-4" />
         </BotaoFerramenta>
-        <BotaoFerramenta rotulo={paleta ? 'Fechar o marca-texto' : 'Marca-texto'} aoClicar={() => setPaleta((v) => !v)} ativo={paleta}>
+        <BotaoFerramenta rotulo="Alinhar à esquerda" aoClicar={() => alinhar('esquerda')}>
+          <AlignLeft className="size-4" />
+        </BotaoFerramenta>
+        <BotaoFerramenta rotulo="Centralizar" aoClicar={() => alinhar('centro')}>
+          <AlignCenter className="size-4" />
+        </BotaoFerramenta>
+        <BotaoFerramenta rotulo="Justificar" aoClicar={() => alinhar('justificado')}>
+          <AlignJustify className="size-4" />
+        </BotaoFerramenta>
+        <BotaoFerramenta rotulo={painel === 'tamanho' ? 'Fechar o tamanho do texto' : 'Tamanho do texto'} aoClicar={() => alternarPainel('tamanho')} ativo={painel === 'tamanho'}>
+          <ALargeSmall className="size-4" />
+        </BotaoFerramenta>
+        <BotaoFerramenta rotulo={painel === 'cor' ? 'Fechar a cor do texto' : 'Cor do texto'} aoClicar={() => alternarPainel('cor')} ativo={painel === 'cor'}>
+          <Baseline className="size-4" />
+        </BotaoFerramenta>
+        <BotaoFerramenta rotulo={painel === 'grifo' ? 'Fechar o marca-texto' : 'Marca-texto'} aoClicar={() => alternarPainel('grifo')} ativo={painel === 'grifo'}>
           <Highlighter className="size-4" />
         </BotaoFerramenta>
         <BotaoFerramenta
@@ -262,7 +441,7 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
           </button>
         )}
       </div>
-      {paleta && (
+      {painel === 'grifo' && (
         <div className="flex flex-wrap items-center gap-1.5 border-b border-linha/70 bg-superficie-2/40 px-2.5 py-1.5" role="group" aria-label="Cores do marca-texto">
           <span className="mr-0.5 text-xs text-tinta-suave">Selecione o texto e escolha a cor:</span>
           {CORES_GRIFO.map((cor) => (
@@ -286,6 +465,47 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
           >
             <Eraser className="size-3.5" aria-hidden /> Tirar grifo
           </button>
+        </div>
+      )}
+      {painel === 'cor' && (
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-linha/70 bg-superficie-2/40 px-2.5 py-1.5" role="group" aria-label="Cores do texto">
+          <span className="mr-0.5 text-xs text-tinta-suave">Selecione o texto e escolha a cor:</span>
+          {CORES_TEXTO.map((cor) => (
+            <button
+              key={cor}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => colorir(cor)}
+              title={`Texto ${ROTULO_COR_TEXTO[cor].toLowerCase()}`}
+              aria-label={`Texto ${ROTULO_COR_TEXTO[cor].toLowerCase()}`}
+              className="size-7 rounded-full border border-tinta/15 transition-transform hover:scale-110"
+              style={{ background: `var(--c-texto-${cor})` }}
+            />
+          ))}
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => colorir(null)}
+            className="ml-1 inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-xs font-medium text-tinta-suave hover:bg-nevoa/60 hover:text-tinta"
+          >
+            <Eraser className="size-3.5" aria-hidden /> Cor normal
+          </button>
+        </div>
+      )}
+      {painel === 'tamanho' && (
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-linha/70 bg-superficie-2/40 px-2.5 py-1.5" role="group" aria-label="Tamanho do texto">
+          <span className="mr-0.5 text-xs text-tinta-suave">Selecione o texto e escolha o tamanho:</span>
+          {([TAMANHOS_TEXTO[0], null, TAMANHOS_TEXTO[1], TAMANHOS_TEXTO[2]] as (TamanhoTexto | null)[]).map((tam) => (
+            <button
+              key={tam ?? 'normal'}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => redimensionar(tam)}
+              className="inline-flex h-7 items-center rounded-lg border border-linha bg-superficie px-2.5 text-xs font-medium text-tinta hover:border-lilas"
+            >
+              {tam ? ROTULO_TAMANHO[tam] : 'Normal'}
+            </button>
+          ))}
         </div>
       )}
       <div className="relative">
@@ -316,6 +536,8 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
     </div>
   )
 })
+
+const BLOCOS_ALINHAVEIS = new Set(['P', 'DIV', 'LI', 'BLOCKQUOTE', 'TD', 'TH'])
 
 /** cor de fundo provisória que o navegador aplica na seleção antes de virar <mark> (não fica gravada) */
 const COR_PROVISORIA = 'rgb(254, 253, 1)'
