@@ -55,12 +55,14 @@ export interface Estudo {
   questoes_acertadas: number | null
   origem: Origem
   observacao: string | null
+  /** o que foi feito: Teoria, Questões, Revisão, Flashcards ou outra criada pelo usuário */
+  categoria: string | null
   criado_em: string
 }
 
 export type NovoEstudo = Pick<
   Estudo,
-  'topico_id' | 'data_hora' | 'duracao_segundos' | 'questoes_feitas' | 'questoes_acertadas' | 'origem' | 'observacao'
+  'topico_id' | 'data_hora' | 'duracao_segundos' | 'questoes_feitas' | 'questoes_acertadas' | 'origem' | 'observacao' | 'categoria'
 >
 
 export interface Metas {

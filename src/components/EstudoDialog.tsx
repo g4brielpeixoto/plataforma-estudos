@@ -1,9 +1,10 @@
 import { format } from 'date-fns'
-import { CircleCheck } from 'lucide-react'
+import { CircleCheck, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
-import { useDisciplinas, useSalvarEstudo, useTopicos } from '@/hooks/dados'
+import { useDisciplinas, useEstudos, useSalvarEstudo, useTopicos } from '@/hooks/dados'
+import { categoriaDaLista, categoriasConhecidas, LIMITE_CATEGORIA } from '@/lib/categorias'
 import { cn, formatarDuracao, mensagemErro } from '@/lib/utils'
 import type { Estudo, Origem } from '@/types'
 import { SeletorTopico } from './SeletorTopico'
@@ -28,6 +29,7 @@ const ROTULO_ORIGEM: Record<Origem, string> = {
 const paraLocal = (d: Date) => format(d, "yyyy-MM-dd'T'HH:mm")
 const CHAVE_CRIAR_NOVO = 'estudo:criar-novo'
 const LIMITE_OBSERVACAO = 500
+const NOVA_CATEGORIA = '__nova__'
 
 function lerCriarNovo() {
   try {
@@ -57,7 +59,13 @@ export function EstudoDialog({
   const disciplinas = useDisciplinas()
   const topicos = useTopicos()
   const salvar = useSalvarEstudo()
+  const estudos = useEstudos()
+  const categorias = useMemo(() => categoriasConhecidas(estudos.data ?? []), [estudos.data])
 
+  const [categoria, setCategoria] = useState('')
+  // "Nova categoria": troca a lista por um campo para digitar o nome
+  const [novaCategoria, setNovaCategoria] = useState(false)
+  const refNovaCategoria = useRef<HTMLInputElement>(null)
   const [disciplinaId, setDisciplinaId] = useState('')
   const [topicoId, setTopicoId] = useState('')
   const [dataHora, setDataHora] = useState(paraLocal(new Date()))
@@ -99,6 +107,8 @@ export function EstudoDialog({
     setSalvosEmSequencia(0)
     setUltimoSalvo('')
     const todos = topicos.data ?? []
+    setNovaCategoria(false)
+    setCategoria(editando?.categoria ?? '')
     if (editando) {
       const t = todos.find((x) => x.id === editando.topico_id)
       setDisciplinaId(t?.disciplina_id ?? '')
@@ -153,6 +163,7 @@ export function EstudoDialog({
           questoes_acertadas: qFeitas ? (qAcertadas ?? 0) : null,
           origem,
           observacao: observacao.trim() || null,
+          categoria: categoriaDaLista(categoria, categorias),
         },
         concluirTopico: topicoSelecionado && topicoSelecionado.concluido !== concluir ? concluir : undefined,
         plannerItemId: editando || !primeiro ? undefined : iniciais?.plannerItemId,
@@ -162,7 +173,9 @@ export function EstudoDialog({
       aoSalvar?.()
       if (editando || !criarNovo) return aoMudar(false)
 
-      // novo registro em branco: mantém a disciplina e o dia, limpa o resto
+      // novo registro em branco: mantém a categoria, a disciplina e o dia, limpa o resto
+      setCategoria(categoriaDaLista(categoria, categorias) ?? '')
+      setNovaCategoria(false)
       const partes = [topicoSelecionado?.nome ?? 'Estudo']
       if (segundos) partes.push(formatarDuracao(segundos))
       if (qFeitas) partes.push(`${qAcertadas ?? 0}/${qFeitas} questões`)
@@ -219,6 +232,53 @@ export function EstudoDialog({
             </p>
           )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Campo rotulo="Categoria" htmlFor="e-categoria">
+              {novaCategoria ? (
+                <div className="flex items-center gap-1.5">
+                  <Entrada
+                    ref={refNovaCategoria}
+                    id="e-categoria"
+                    value={categoria}
+                    maxLength={LIMITE_CATEGORIA}
+                    placeholder="Nome da categoria"
+                    onChange={(e) => setCategoria(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    title="Voltar para a lista de categorias"
+                    aria-label="Voltar para a lista de categorias"
+                    onClick={() => {
+                      setNovaCategoria(false)
+                      setCategoria('')
+                    }}
+                    className="grid size-10 shrink-0 place-items-center rounded-xl text-tinta-suave hover:bg-superficie-2 hover:text-tinta"
+                  >
+                    <X className="size-4" aria-hidden />
+                  </button>
+                </div>
+              ) : (
+                <Selecao
+                  id="e-categoria"
+                  value={categoria}
+                  onChange={(e) => {
+                    if (e.target.value === NOVA_CATEGORIA) {
+                      setNovaCategoria(true)
+                      setCategoria('')
+                      requestAnimationFrame(() => refNovaCategoria.current?.focus())
+                    } else setCategoria(e.target.value)
+                  }}
+                >
+                  <option value="">Escolha…</option>
+                  {/* categoria de um registro antigo que saiu da lista continua aparecendo */}
+                  {[...categorias, ...(categoria && !categorias.includes(categoria) ? [categoria] : [])].map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                  <option value={NOVA_CATEGORIA}>Nova categoria…</option>
+                </Selecao>
+              )}
+            </Campo>
             <Campo rotulo="Disciplina" htmlFor="e-disciplina">
               <Selecao
                 id="e-disciplina"
@@ -237,7 +297,8 @@ export function EstudoDialog({
                 ))}
               </Selecao>
             </Campo>
-            <Campo rotulo="Tópico" htmlFor="e-topico">
+            <div className="sm:col-span-2">
+              <Campo rotulo="Tópico" htmlFor="e-topico">
               <SeletorTopico
                 ref={refTopico}
                 id="e-topico"
@@ -254,6 +315,7 @@ export function EstudoDialog({
                 placeholder={disciplinaId && topicosDaDisciplina.length === 0 ? 'Disciplina sem tópicos' : 'Escolha ou busque…'}
               />
             </Campo>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
@@ -315,7 +377,7 @@ export function EstudoDialog({
                 ligado={criarNovo}
                 aoMudar={alternarCriarNovo}
                 rotulo="Salvar e criar novo"
-                descricao="Salva este registro e abre um novo em seguida, com a mesma disciplina e o mesmo dia."
+                descricao="Salva este registro e abre um novo em seguida, com a mesma categoria, disciplina e dia."
               />
             )}
             <div className={cn('flex flex-wrap justify-end gap-2', !editando && 'mt-4')}>

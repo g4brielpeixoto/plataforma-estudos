@@ -172,7 +172,10 @@ export function Historico() {
                               <span className="h-10 w-1 shrink-0 rounded-full" style={{ background: d?.cor ?? 'var(--c-lilas)' }} aria-hidden />
                               <div className="min-w-0 flex-1">
                                 <p className="truncate font-medium text-tinta">{d?.nome ?? 'Disciplina excluída'}</p>
-                                <p className="truncate text-sm text-tinta-suave">{t?.nome ?? '—'}</p>
+                                <p className="truncate text-sm text-tinta-suave">
+                                  {e.categoria && <span className="mr-1.5 inline-block rounded-md bg-nevoa px-1.5 py-px text-xs font-medium text-tinta">{e.categoria}</span>}
+                                  {t?.nome ?? '—'}
+                                </p>
                                 {e.observacao && <p className="mt-0.5 line-clamp-2 text-sm text-tinta-suave italic">{e.observacao}</p>}
                                 <Numeros estudo={e} className="mt-1.5 sm:hidden" />
                               </div>
