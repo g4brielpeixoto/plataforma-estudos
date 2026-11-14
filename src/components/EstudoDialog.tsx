@@ -1,14 +1,14 @@
-import { format } from 'date-fns'
-import { CircleCheck, X } from 'lucide-react'
+import { format, subDays } from 'date-fns'
+import { CalendarDays, CircleCheck, Clock, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { useDisciplinas, useEstudos, useSalvarEstudo, useTopicos } from '@/hooks/dados'
 import { categoriaDaLista, categoriasConhecidas, chaveCategoria, LIMITE_CATEGORIA } from '@/lib/categorias'
-import { cn, formatarDuracao, mensagemErro } from '@/lib/utils'
+import { cn, formatarDuracaoExata, mensagemErro, porcentagem } from '@/lib/utils'
 import type { Estudo, Origem } from '@/types'
 import { SeletorTopico } from './SeletorTopico'
-import { AreaTexto, Botao, Campo, Dialogo, Entrada, Interruptor, Selecao } from './ui'
+import { AreaTexto, Botao, Campo, Dialogo, Entrada, Interruptor, SeloAcerto, Selecao } from './ui'
 
 export interface ValoresIniciaisEstudo {
   duracaoSegundos?: number
@@ -37,6 +37,23 @@ function lerCriarNovo() {
   } catch {
     return false
   }
+}
+/*
+  Tempo de estudo num campo só (hh:mm:ss). O que fica guardado enquanto se digita são os dígitos (até 6),
+  que entram pela direita, como numa calculadora: 1, 2, 0, 7 → 00:12:07.
+*/
+const segundosDoTempo = (digitos: string) => {
+  const d = digitos.padStart(6, '0')
+  return Number(d.slice(0, 2)) * 3600 + Number(d.slice(2, 4)) * 60 + Number(d.slice(4, 6))
+}
+const digitosDoTempo = (segundos: number) => {
+  const total = Math.min(Math.max(0, Math.round(segundos)), 99 * 3600 + 59 * 60 + 59)
+  const dois = (n: number) => String(n).padStart(2, '0')
+  return `${dois(Math.floor(total / 3600))}${dois(Math.floor((total % 3600) / 60))}${dois(total % 60)}`.replace(/^0+/, '')
+}
+const tempoFormatado = (digitos: string) => {
+  const d = digitos.padStart(6, '0')
+  return `${d.slice(0, 2)}:${d.slice(2, 4)}:${d.slice(4, 6)}`
 }
 const numero = (v: string) => (v.trim() === '' ? null : Math.max(0, Math.floor(Number(v))))
 
@@ -69,8 +86,10 @@ export function EstudoDialog({
   const [disciplinaId, setDisciplinaId] = useState('')
   const [topicoId, setTopicoId] = useState('')
   const [dataHora, setDataHora] = useState(paraLocal(new Date()))
-  const [horas, setHoras] = useState('')
-  const [minutos, setMinutos] = useState('')
+  // tempo estudado como é digitado: até 6 dígitos (hhmmss), sem zeros à esquerda
+  const [tempo, setTempo] = useState('')
+  // "Outro" dia: mostra o campo de data e hora
+  const [outroDia, setOutroDia] = useState(false)
   const [feitas, setFeitas] = useState('')
   const [acertadas, setAcertadas] = useState('')
   const [observacao, setObservacao] = useState('')
@@ -94,11 +113,7 @@ export function EstudoDialog({
     }
   }
 
-  const preencherDuracao = (segundos: number) => {
-    const totalMin = Math.round(segundos / 60)
-    setHoras(totalMin >= 60 ? String(Math.floor(totalMin / 60)) : '')
-    setMinutos(totalMin ? String(totalMin % 60) : '')
-  }
+  const preencherDuracao = (segundos: number) => setTempo(digitosDoTempo(segundos))
 
   // preenche o formulário ao abrir
   useEffect(() => {
@@ -108,6 +123,7 @@ export function EstudoDialog({
     setUltimoSalvo('')
     const todos = topicos.data ?? []
     setNovaCategoria(false)
+    setOutroDia(false)
     setCategoria(editando?.categoria ?? '')
     if (editando) {
       const t = todos.find((x) => x.id === editando.topico_id)
@@ -141,6 +157,16 @@ export function EstudoDialog({
   )
   const topicoSelecionado = topicosDaDisciplina.find((t) => t.id === topicoId)
   // flashcards costumam ser da disciplina inteira: nessa categoria o tópico é opcional
+  // o dia pelos botões Hoje / Ontem / Outro; a hora continua a do campo (a de agora, num registro novo)
+  const hojeTexto = format(new Date(), 'yyyy-MM-dd')
+  const ontemTexto = format(subDays(new Date(), 1), 'yyyy-MM-dd')
+  const diaEscolhido: 'hoje' | 'ontem' | 'outro' = outroDia ? 'outro' : dataHora.startsWith(hojeTexto) ? 'hoje' : dataHora.startsWith(ontemTexto) ? 'ontem' : 'outro'
+  const escolherDia = (d: 'hoje' | 'ontem' | 'outro') => {
+    setOutroDia(d === 'outro')
+    if (d !== 'outro') setDataHora(`${d === 'hoje' ? hojeTexto : ontemTexto}T${dataHora.slice(11, 16) || format(new Date(), 'HH:mm')}`)
+  }
+  const qFeitasAgora = numero(feitas)
+  const pctAgora = qFeitasAgora ? porcentagem(Math.min(numero(acertadas) ?? 0, qFeitasAgora), qFeitasAgora) : null
   const topicoOpcional = chaveCategoria(categoria) === chaveCategoria('Flashcards')
 
   const enviar = async (e: FormEvent) => {
@@ -148,7 +174,7 @@ export function EstudoDialog({
     setErro('')
     if (!disciplinaId) return setErro('Escolha a disciplina estudada.')
     if (!topicoId && !topicoOpcional) return setErro('Escolha o tópico estudado. Só a categoria Flashcards aceita estudo sem tópico.')
-    const segundos = ((numero(horas) ?? 0) * 60 + (numero(minutos) ?? 0)) * 60
+    const segundos = segundosDoTempo(tempo)
     const qFeitas = numero(feitas)
     const qAcertadas = numero(acertadas)
     if (!segundos && !qFeitas) return setErro('Informe o tempo estudado, as questões feitas ou os dois.')
@@ -181,13 +207,12 @@ export function EstudoDialog({
       setCategoria(categoriaDaLista(categoria, categorias) ?? '')
       setNovaCategoria(false)
       const partes = [topicoSelecionado?.nome ?? (disciplinas.data ?? []).find((d) => d.id === disciplinaId)?.nome ?? 'Estudo']
-      if (segundos) partes.push(formatarDuracao(segundos))
+      if (segundos) partes.push(formatarDuracaoExata(segundos))
       if (qFeitas) partes.push(`${qAcertadas ?? 0}/${qFeitas} questões`)
       setUltimoSalvo(partes.join(', '))
       setSalvosEmSequencia((n) => n + 1)
       setTopicoId('')
-      setHoras('')
-      setMinutos('')
+      setTempo('')
       setFeitas('')
       setAcertadas('')
       setObservacao('')
@@ -210,10 +235,11 @@ export function EstudoDialog({
     <Dialogo
       aberto={aberto}
       aoMudar={aoMudar}
+      largura="max-w-3xl"
       titulo={editando ? 'Editar estudo' : 'Salvar estudo'}
       descricao={
         (primeiro && duracaoInicial && origem !== 'manual'
-          ? `${ROTULO_ORIGEM[origem]}: ${formatarDuracao(duracaoInicial)} cronometrados. Diga o que você estudou.`
+          ? `${ROTULO_ORIGEM[origem]}: ${formatarDuracaoExata(duracaoInicial)} cronometrados. Diga o que você estudou.`
           : 'Registre o que você estudou.') + (!editando && primeiro && iniciais?.plannerItemId ? ' Ao salvar, o item do planner fica marcado como feito.' : '')
       }
     >
@@ -235,7 +261,30 @@ export function EstudoDialog({
               </span>
             </p>
           )}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <CalendarDays className="size-5 shrink-0 text-tinta-suave" aria-hidden />
+            <div role="group" aria-label="Dia do estudo" className="inline-flex rounded-xl bg-superficie-2 p-1">
+              {(['hoje', 'ontem', 'outro'] as const).map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  aria-pressed={diaEscolhido === d}
+                  onClick={() => escolherDia(d)}
+                  className={cn(
+                    'h-9 rounded-lg px-4 text-sm font-semibold transition-colors',
+                    diaEscolhido === d ? 'bg-primaria text-sobre-primaria shadow-sm' : 'text-tinta-suave hover:text-tinta',
+                  )}
+                >
+                  {{ hoje: 'Hoje', ontem: 'Ontem', outro: 'Outro' }[d]}
+                </button>
+              ))}
+            </div>
+            {diaEscolhido === 'outro' && (
+              <Entrada id="e-data" type="datetime-local" required aria-label="Dia e hora do estudo" value={dataHora} onChange={(e) => setDataHora(e.target.value)} className="w-auto min-w-0 flex-1 sm:max-w-64" />
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.3fr)_minmax(0,0.8fr)]">
             <Campo rotulo="Categoria" htmlFor="e-categoria">
               {novaCategoria ? (
                 <div className="flex items-center gap-1.5">
@@ -301,8 +350,34 @@ export function EstudoDialog({
                 ))}
               </Selecao>
             </Campo>
-            <div className="sm:col-span-2">
-              <Campo rotulo={topicoOpcional ? 'Tópico (opcional)' : 'Tópico'} htmlFor="e-topico">
+            <Campo rotulo="Tempo de estudo" htmlFor="e-tempo">
+              <div className="relative">
+                <Clock className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-tinta-suave" aria-hidden />
+                <Entrada
+                  id="e-tempo"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  aria-describedby="e-tempo-dica"
+                  value={tempoFormatado(tempo)}
+                  onChange={(e) => setTempo(e.target.value.replace(/\D/g, '').replace(/^0+/, '').slice(-6))}
+                  onBlur={() => setTempo((d) => digitosDoTempo(segundosDoTempo(d)))}
+                  // o cursor fica sempre no fim (os dígitos entram pela direita); selecionar tudo continua valendo
+                  onSelect={(e) => {
+                    const campo = e.currentTarget
+                    const fim = campo.value.length
+                    const tudo = campo.selectionStart === 0 && campo.selectionEnd === fim
+                    if (!tudo && (campo.selectionStart !== fim || campo.selectionEnd !== fim)) campo.setSelectionRange(fim, fim)
+                  }}
+                  className="numeros pl-9"
+                />
+                <span id="e-tempo-dica" className="sr-only">
+                  Horas, minutos e segundos. Digite só os números: eles entram pela direita.
+                </span>
+              </div>
+            </Campo>
+          </div>
+
+          <Campo rotulo={topicoOpcional ? 'Tópico (opcional)' : 'Tópico'} htmlFor="e-topico">
               <SeletorTopico
                 ref={refTopico}
                 id="e-topico"
@@ -325,31 +400,24 @@ export function EstudoDialog({
                 placeholder={topicoOpcional ? 'Sem tópico' : disciplinaId && topicosDaDisciplina.length === 0 ? 'Disciplina sem tópicos' : 'Escolha ou busque…'}
               />
             </Campo>
+
+          <fieldset className="rounded-2xl border border-linha px-4 pt-3 pb-4">
+            <legend className="sr-only">Questões</legend>
+            <p className="text-sm font-medium text-tinta" aria-hidden>
+              Questões <span className="font-normal text-tinta-suave italic">(opcional)</span>
+            </p>
+            <div className="mt-2 flex flex-wrap items-end gap-3">
+              <label className="block w-28 space-y-1 text-sm text-tinta-suave">
+                Feitas
+                <Entrada id="e-feitas" type="number" inputMode="numeric" min={0} placeholder="0" value={feitas} onChange={(e) => setFeitas(e.target.value)} className="numeros text-center" />
+              </label>
+              <label className="block w-28 space-y-1 text-sm text-tinta-suave">
+                Acertos
+                <Entrada id="e-acertos" type="number" inputMode="numeric" min={0} placeholder="0" value={acertadas} onChange={(e) => setAcertadas(e.target.value)} className="numeros text-center" />
+              </label>
+              {pctAgora !== null && <SeloAcerto pct={pctAgora} className="mb-2" />}
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-            <Campo rotulo="Quando" htmlFor="e-data">
-              <Entrada id="e-data" type="datetime-local" required value={dataHora} onChange={(e) => setDataHora(e.target.value)} />
-            </Campo>
-            <Campo rotulo="Tempo estudado">
-              <div className="flex items-center gap-2">
-                <Entrada type="number" inputMode="numeric" min={0} placeholder="0" aria-label="Horas" value={horas} onChange={(e) => setHoras(e.target.value)} className="numeros" />
-                <span className="text-sm text-tinta-suave">h</span>
-                <Entrada type="number" inputMode="numeric" min={0} max={59} placeholder="0" aria-label="Minutos" value={minutos} onChange={(e) => setMinutos(e.target.value)} className="numeros" />
-                <span className="text-sm text-tinta-suave">min</span>
-              </div>
-            </Campo>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Campo rotulo="Questões feitas" htmlFor="e-feitas">
-              <Entrada id="e-feitas" type="number" inputMode="numeric" min={0} placeholder="0" value={feitas} onChange={(e) => setFeitas(e.target.value)} className="numeros" />
-            </Campo>
-            <Campo rotulo="Acertos" htmlFor="e-acertos">
-              <Entrada id="e-acertos" type="number" inputMode="numeric" min={0} placeholder="0" value={acertadas} onChange={(e) => setAcertadas(e.target.value)} className="numeros" />
-            </Campo>
-          </div>
+          </fieldset>
 
           <Campo rotulo="Observação (opcional)" htmlFor="e-obs">
             <div className="relative">
@@ -382,15 +450,16 @@ export function EstudoDialog({
           )}
 
           <div className="-mx-5 border-t border-linha/70 px-5 pt-4 sm:-mx-6 sm:px-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             {!editando && (
               <Interruptor
                 ligado={criarNovo}
                 aoMudar={alternarCriarNovo}
                 rotulo="Salvar e criar novo"
-                descricao="Salva este registro e abre um novo em seguida, com a mesma categoria, disciplina e dia."
+                descricao="Abre outro registro em seguida, com a mesma categoria, disciplina e dia."
               />
             )}
-            <div className={cn('flex flex-wrap justify-end gap-2', !editando && 'mt-4')}>
+            <div className="flex flex-wrap justify-end gap-2 sm:ml-auto sm:shrink-0">
               {aoSoConcluir && !editando && primeiro && (
                 <Botao
                   type="button"
@@ -411,6 +480,7 @@ export function EstudoDialog({
               <Botao type="submit" carregando={salvar.isPending}>
                 {editando ? 'Salvar alterações' : 'Salvar estudo'}
               </Botao>
+            </div>
             </div>
           </div>
         </form>

@@ -8,7 +8,7 @@ import { FiltroPeriodo, PainelIndicadores } from '@/components/Indicadores'
 import { Botao, CabecalhoPagina, Carregando, Confirmar, Painel, SeloAcerto, Selecao, Vazio } from '@/components/ui'
 import { useDisciplinas, useEstudos, useExcluirEstudo, useTopicos } from '@/hooks/dados'
 import { calcularIndicadores, filtrarPorPeriodo, type Periodo } from '@/lib/indicadores'
-import { cn, formatarDuracao, mensagemErro, porcentagem } from '@/lib/utils'
+import { cn, formatarDuracao, formatarDuracaoExata, mensagemErro, porcentagem } from '@/lib/utils'
 import type { Estudo } from '@/types'
 import { rotuloSelecao } from '@/lib/topicos'
 
@@ -25,7 +25,7 @@ function Numeros({ estudo: e, className }: { estudo: Estudo; className?: string 
       {e.duracao_segundos ? (
         <span className="inline-flex items-center gap-1 text-tinta-suave">
           {e.origem === 'manual' ? <Clock className="size-3.5" aria-hidden /> : <Timer className="size-3.5" aria-label="Cronometrado" />}
-          {formatarDuracao(e.duracao_segundos)}
+          {formatarDuracaoExata(e.duracao_segundos)}
         </span>
       ) : null}
       <span className="text-tinta-suave">{format(new Date(e.data_hora), 'HH:mm')}</span>

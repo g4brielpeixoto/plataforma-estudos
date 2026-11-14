@@ -15,6 +15,19 @@ export function formatarDuracao(segundos: number): string {
   return `${h}h${String(m).padStart(2, '0')}min`
 }
 
+/** Com os segundos: 692 s → "11min32s"; 3920 s → "1h05min20s"; 45 s → "45s"; minutos cheios ficam como em formatarDuracao */
+export function formatarDuracaoExata(segundos: number): string {
+  const total = Math.max(0, Math.round(segundos))
+  const s = total % 60
+  if (s === 0) return formatarDuracao(total)
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const dois = (n: number) => String(n).padStart(2, '0')
+  if (h > 0) return `${h}h${dois(m)}min${dois(s)}s`
+  if (m > 0) return `${m}min${dois(s)}s`
+  return `${s}s`
+}
+
 /** Sempre com minutos: 14580 s → "4h03min"; 72000 s → "20h00min" */
 export function formatarHorasMinutos(segundos: number): string {
   const totalMin = Math.floor(segundos / 60)

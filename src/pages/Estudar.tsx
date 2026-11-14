@@ -14,7 +14,7 @@ import type { Material } from '@/types'
 import { concluido, COR_TIPO, ROTULO_TIPO } from '@/lib/planner'
 import { materiaisDaFamilia } from '@/lib/materiais'
 import { numeracaoDeTodos } from '@/lib/topicos'
-import { cn, formatarDuracao, formatarRelogio } from '@/lib/utils'
+import { cn, formatarDuracao, formatarDuracaoExata, formatarRelogio } from '@/lib/utils'
 
 const MODOS: { valor: Modo; rotulo: string }[] = [
   { valor: 'cronometro', rotulo: 'Cronômetro' },
@@ -224,7 +224,7 @@ export function Estudar() {
           </div>
         )}
         {c.modo !== 'cronometro' && c.estudadoMs > 0 && (
-          <p className="mt-2 text-sm text-tinta-suave numeros">{formatarDuracao(c.estudadoMs / 1000)} de estudo</p>
+          <p className="mt-2 text-sm text-tinta-suave numeros">{formatarDuracaoExata(Math.floor(c.estudadoMs / 1000))} de estudo</p>
         )}
       </Anel>
 
