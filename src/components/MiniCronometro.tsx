@@ -1,4 +1,4 @@
-import { BellOff, ChevronDown, ClipboardCheck, Pause, Play } from 'lucide-react'
+import { BellOff, ChevronDown, ClipboardCheck, Pause, Play, Timer } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useMatch, useNavigate } from 'react-router'
 import { useDisciplinas, useTopicos } from '@/hooks/dados'
@@ -16,6 +16,8 @@ function lerRecolhido() {
 }
 
 /*
+  O cronômetro no canto da tela, em todas as telas menos a Estudar. Com o relógio zerado é um botão redondo
+  que abre a tela do cronômetro; com tempo no relógio vira a janelinha (ou só o tempo, recolhida).
   Janelinha do cronômetro que acompanha o usuário pelas outras telas enquanto há tempo no relógio.
   No celular fica logo acima da barra de navegação; no computador, no canto inferior direito.
   Fica dentro do <main> para deixar um espaço no fim da página e não cobrir o último conteúdo.
@@ -28,7 +30,24 @@ export function MiniCronometro() {
   const topicos = useTopicos()
   const [recolhido, setRecolhido] = useState(lerRecolhido)
 
-  if (naTelaEstudar || !(c.rodando || c.temTempo)) return null
+  if (naTelaEstudar) return null
+
+  // relógio zerado: o botão redondo do cronômetro, sempre no mesmo canto, em todas as telas
+  if (!(c.rodando || c.temTempo)) {
+    return (
+      <>
+        <div className="h-16" aria-hidden />
+        <Link
+          to="/estudar"
+          aria-label="Abrir o cronômetro"
+          title="Abrir o cronômetro"
+          className="fixed right-3 bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] z-30 grid size-14 place-items-center rounded-full bg-primaria text-sobre-primaria ring-1 ring-sobre-primaria/15 shadow-[0_12px_28px_-10px_rgb(0_0_0/0.5)] transition-transform hover:scale-105 hover:bg-primaria-forte active:scale-95 lg:right-5 lg:bottom-5"
+        >
+          <Timer className="size-6" aria-hidden />
+        </Link>
+      </>
+    )
+  }
 
   const recolher = (v: boolean) => {
     setRecolhido(v)

@@ -1,6 +1,6 @@
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ArrowRight, Plus, ScanSearch, Timer } from 'lucide-react'
+import { ArrowRight, Plus, ScanSearch } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Constancia } from '@/components/Constancia'
@@ -54,14 +54,10 @@ export function Inicio() {
             )}
           </div>
         </div>
-        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
-          <Botao variante="secundario" onClick={() => setAdicionando(true)} className="h-11 px-3 text-sm sm:h-10 sm:px-4 sm:text-[15px]">
-            <Plus className="size-4" aria-hidden /> Adicionar estudo
-          </Botao>
-          <Botao onClick={() => navegar('/estudar')} className="h-11 px-3 text-sm sm:h-10 sm:px-4 sm:text-[15px]">
-            <Timer className="size-4" aria-hidden /> Estudar agora
-          </Botao>
-        </div>
+        {/* o cronômetro abre pelo botão redondo fixo no canto da tela (MiniCronometro) */}
+        <Botao onClick={() => setAdicionando(true)} className="h-11 w-full px-3 text-sm sm:h-10 sm:w-auto sm:px-4 sm:text-[15px]">
+          <Plus className="size-4" aria-hidden /> Adicionar estudo
+        </Botao>
       </div>
 
       {carregando ? (
