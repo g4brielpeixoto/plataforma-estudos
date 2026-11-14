@@ -112,7 +112,7 @@ export function Inicio() {
                 <MetasSemanais estudos={todos} />
               </div>
               <div className="order-5">
-                <TempoPizza estudos={todos} topicos={topicos.data ?? []} disciplinas={disciplinas.data ?? []} />
+                <TempoPizza estudos={todos} disciplinas={disciplinas.data ?? []} />
               </div>
             </div>
           </div>

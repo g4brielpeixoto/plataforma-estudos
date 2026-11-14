@@ -342,7 +342,7 @@ export function useSalvarEstudo() {
         const { error: e3 } = await supabase.from('planner_itens').update({ concluido_em: new Date().toISOString(), estudo_id: estudoId }).eq('id', plannerItemId)
         if (e3) throw e3
       }
-      if (concluirTopico !== undefined) {
+      if (concluirTopico !== undefined && estudo.topico_id) {
         const { error: e2 } = await supabase
           .from('topicos')
           .update({ concluido: concluirTopico, concluido_em: concluirTopico ? new Date().toISOString() : null })

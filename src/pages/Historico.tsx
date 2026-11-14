@@ -60,7 +60,7 @@ export function Historico() {
   const filtrados = useMemo(() => {
     let lista = filtrarPorPeriodo(estudos.data ?? [], periodo)
     if (topicoId) lista = lista.filter((e) => e.topico_id === topicoId)
-    else if (disciplinaId) lista = lista.filter((e) => topicosPorId.get(e.topico_id)?.disciplina_id === disciplinaId)
+    else if (disciplinaId) lista = lista.filter((e) => e.disciplina_id === disciplinaId)
     return lista
   }, [estudos.data, periodo, disciplinaId, topicoId, topicosPorId])
 
@@ -165,8 +165,8 @@ export function Historico() {
                     <Painel>
                       <ul className="divide-y divide-linha/60">
                         {lista.map((e) => {
-                          const t = topicosPorId.get(e.topico_id)
-                          const d = t ? disciplinasPorId.get(t.disciplina_id) : undefined
+                          const t = e.topico_id ? topicosPorId.get(e.topico_id) : undefined
+                          const d = disciplinasPorId.get(e.disciplina_id)
                           return (
                             <li key={e.id} className="group flex items-center gap-3 px-4 py-3 sm:px-5">
                               <span className="h-10 w-1 shrink-0 rounded-full" style={{ background: d?.cor ?? 'var(--c-lilas)' }} aria-hidden />
@@ -174,7 +174,7 @@ export function Historico() {
                                 <p className="truncate font-medium text-tinta">{d?.nome ?? 'Disciplina excluída'}</p>
                                 <p className="truncate text-sm text-tinta-suave">
                                   {e.categoria && <span className="mr-1.5 inline-block rounded-md bg-nevoa px-1.5 py-px text-xs font-medium text-tinta">{e.categoria}</span>}
-                                  {t?.nome ?? '—'}
+                                  {t?.nome ?? (e.topico_id ? '—' : 'Sem tópico')}
                                 </p>
                                 {e.observacao && <p className="mt-0.5 line-clamp-2 text-sm text-tinta-suave italic">{e.observacao}</p>}
                                 <Numeros estudo={e} className="mt-1.5 sm:hidden" />

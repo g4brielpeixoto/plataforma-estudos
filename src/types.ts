@@ -48,7 +48,10 @@ export interface Topico {
 export interface Estudo {
   id: string
   user_id: string
-  topico_id: string
+  /** a disciplina do estudo (com tópico, é sempre a do tópico) */
+  disciplina_id: string
+  /** sem tópico: estudo da disciplina como um todo (ex.: sessão de flashcards) */
+  topico_id: string | null
   data_hora: string
   duracao_segundos: number | null
   questoes_feitas: number | null
@@ -62,7 +65,7 @@ export interface Estudo {
 
 export type NovoEstudo = Pick<
   Estudo,
-  'topico_id' | 'data_hora' | 'duracao_segundos' | 'questoes_feitas' | 'questoes_acertadas' | 'origem' | 'observacao' | 'categoria'
+  'disciplina_id' | 'topico_id' | 'data_hora' | 'duracao_segundos' | 'questoes_feitas' | 'questoes_acertadas' | 'origem' | 'observacao' | 'categoria'
 >
 
 export interface Metas {

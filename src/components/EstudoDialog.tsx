@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { useDisciplinas, useEstudos, useSalvarEstudo, useTopicos } from '@/hooks/dados'
-import { categoriaDaLista, categoriasConhecidas, LIMITE_CATEGORIA } from '@/lib/categorias'
+import { categoriaDaLista, categoriasConhecidas, chaveCategoria, LIMITE_CATEGORIA } from '@/lib/categorias'
 import { cn, formatarDuracao, mensagemErro } from '@/lib/utils'
 import type { Estudo, Origem } from '@/types'
 import { SeletorTopico } from './SeletorTopico'
@@ -111,8 +111,8 @@ export function EstudoDialog({
     setCategoria(editando?.categoria ?? '')
     if (editando) {
       const t = todos.find((x) => x.id === editando.topico_id)
-      setDisciplinaId(t?.disciplina_id ?? '')
-      setTopicoId(editando.topico_id)
+      setDisciplinaId(editando.disciplina_id)
+      setTopicoId(editando.topico_id ?? '')
       setDataHora(paraLocal(new Date(editando.data_hora)))
       preencherDuracao(editando.duracao_segundos ?? 0)
       setFeitas(editando.questoes_feitas?.toString() ?? '')
@@ -140,11 +140,14 @@ export function EstudoDialog({
     [topicos.data, disciplinaId],
   )
   const topicoSelecionado = topicosDaDisciplina.find((t) => t.id === topicoId)
+  // flashcards costumam ser da disciplina inteira: nessa categoria o tópico é opcional
+  const topicoOpcional = chaveCategoria(categoria) === chaveCategoria('Flashcards')
 
   const enviar = async (e: FormEvent) => {
     e.preventDefault()
     setErro('')
-    if (!topicoId) return setErro('Escolha a disciplina e o tópico estudado.')
+    if (!disciplinaId) return setErro('Escolha a disciplina estudada.')
+    if (!topicoId && !topicoOpcional) return setErro('Escolha o tópico estudado. Só a categoria Flashcards aceita estudo sem tópico.')
     const segundos = ((numero(horas) ?? 0) * 60 + (numero(minutos) ?? 0)) * 60
     const qFeitas = numero(feitas)
     const qAcertadas = numero(acertadas)
@@ -156,7 +159,8 @@ export function EstudoDialog({
       await salvar.mutateAsync({
         id: editando?.id,
         estudo: {
-          topico_id: topicoId,
+          disciplina_id: disciplinaId,
+          topico_id: topicoId || null,
           data_hora: new Date(dataHora).toISOString(),
           duracao_segundos: segundos || null,
           questoes_feitas: qFeitas || null,
@@ -176,7 +180,7 @@ export function EstudoDialog({
       // novo registro em branco: mantém a categoria, a disciplina e o dia, limpa o resto
       setCategoria(categoriaDaLista(categoria, categorias) ?? '')
       setNovaCategoria(false)
-      const partes = [topicoSelecionado?.nome ?? 'Estudo']
+      const partes = [topicoSelecionado?.nome ?? (disciplinas.data ?? []).find((d) => d.id === disciplinaId)?.nome ?? 'Estudo']
       if (segundos) partes.push(formatarDuracao(segundos))
       if (qFeitas) partes.push(`${qAcertadas ?? 0}/${qFeitas} questões`)
       setUltimoSalvo(partes.join(', '))
@@ -298,7 +302,7 @@ export function EstudoDialog({
               </Selecao>
             </Campo>
             <div className="sm:col-span-2">
-              <Campo rotulo="Tópico" htmlFor="e-topico">
+              <Campo rotulo={topicoOpcional ? 'Tópico (opcional)' : 'Tópico'} htmlFor="e-topico">
               <SeletorTopico
                 ref={refTopico}
                 id="e-topico"
@@ -306,13 +310,19 @@ export function EstudoDialog({
                 disciplinas={disciplinas.data ?? []}
                 disciplinaId={disciplinaId}
                 valor={topicoId}
+                opcaoVazia={topicoOpcional ? 'Sem tópico' : undefined}
                 aoEscolher={(t) => {
-                  if (!t) return
+                  if (!t) {
+                    // "Sem tópico" (só aparece na categoria Flashcards)
+                    setTopicoId('')
+                    setConcluir(false)
+                    return
+                  }
                   setDisciplinaId(t.disciplina_id)
                   setTopicoId(t.id)
                   setConcluir(t.concluido)
                 }}
-                placeholder={disciplinaId && topicosDaDisciplina.length === 0 ? 'Disciplina sem tópicos' : 'Escolha ou busque…'}
+                placeholder={topicoOpcional ? 'Sem tópico' : disciplinaId && topicosDaDisciplina.length === 0 ? 'Disciplina sem tópicos' : 'Escolha ou busque…'}
               />
             </Campo>
             </div>

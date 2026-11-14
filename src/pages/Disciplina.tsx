@@ -40,8 +40,7 @@ export function Disciplina() {
 
   const disciplina = disciplinas.data?.find((d) => d.id === id)
   const meus = useMemo(() => (topicos.data ?? []).filter((t) => t.disciplina_id === id), [topicos.data, id])
-  const idsMeus = useMemo(() => new Set(meus.map((t) => t.id)), [meus])
-  const estudosMeus = useMemo(() => (estudos.data ?? []).filter((e) => idsMeus.has(e.topico_id)), [estudos.data, idsMeus])
+  const estudosMeus = useMemo(() => (estudos.data ?? []).filter((e) => e.disciplina_id === id), [estudos.data, id])
   const porTopico = useMemo(() => resumirPorTopico(estudosMeus), [estudosMeus])
   const ind = calcularIndicadores(estudosMeus, meus)
   const mapaMateriais = useMemo(() => materiaisPorTopico(materiais.data ?? []), [materiais.data])

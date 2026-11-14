@@ -19,7 +19,6 @@ export function Edital() {
   const [excluindo, setExcluindo] = useState<Disciplina | null>(null)
 
   const resumo = useMemo(() => {
-    const topicoParaDisciplina = new Map((topicos.data ?? []).map((t) => [t.id, t.disciplina_id]))
     const r = new Map<string, { total: number; concluidos: number; feitas: number; acertadas: number; tempo: number }>()
     for (const d of disciplinas.data ?? []) r.set(d.id, { total: 0, concluidos: 0, feitas: 0, acertadas: 0, tempo: 0 })
     for (const t of topicos.data ?? []) {
@@ -29,7 +28,7 @@ export function Edital() {
       if (t.concluido) x.concluidos++
     }
     for (const e of estudos.data ?? []) {
-      const x = r.get(topicoParaDisciplina.get(e.topico_id) ?? '')
+      const x = r.get(e.disciplina_id)
       if (!x) continue
       x.feitas += e.questoes_feitas ?? 0
       x.acertadas += e.questoes_acertadas ?? 0

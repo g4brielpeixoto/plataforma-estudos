@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { cn, formatarHorasMinutos } from '@/lib/utils'
-import type { Disciplina, Estudo, Topico } from '@/types'
+import type { Disciplina, Estudo } from '@/types'
 import { Painel } from './ui'
 
 type Aba = 'hoje' | 'semana' | 'mes' | 'total'
@@ -51,17 +51,16 @@ function somar(estudos: Estudo[], de: Date, ate: Date) {
 }
 
 /** Tempo de estudo do dia, da semana, do mês e total, dividido por disciplina */
-export function TempoPizza({ estudos, topicos, disciplinas, className }: { estudos: Estudo[]; topicos: Topico[]; disciplinas: Disciplina[]; className?: string }) {
+export function TempoPizza({ estudos, disciplinas, className }: { estudos: Estudo[]; disciplinas: Disciplina[]; className?: string }) {
   const [aba, setAba] = useState<Aba>('hoje')
 
   const dados = useMemo(() => {
     const { atual, anterior } = intervalos(aba)
     const doPeriodo = somar(estudos, atual[0], atual[1])
-    const disciplinaDoTopico = new Map(topicos.map((t) => [t.id, t.disciplina_id]))
     const porDisciplina = new Map<string, number>()
     for (const e of doPeriodo) {
       if (!e.duracao_segundos) continue
-      const d = disciplinaDoTopico.get(e.topico_id) ?? 'outra'
+      const d = e.disciplina_id
       porDisciplina.set(d, (porDisciplina.get(d) ?? 0) + e.duracao_segundos)
     }
     const fatias = disciplinas
@@ -76,7 +75,7 @@ export function TempoPizza({ estudos, topicos, disciplinas, className }: { estud
       if (antes > 0 && total > 0) variacao = Math.round(((total - antes) / antes) * 100)
     }
     return { fatias, total, variacao }
-  }, [aba, estudos, topicos, disciplinas])
+  }, [aba, estudos, disciplinas])
 
   const subiu = dados.variacao !== null && dados.variacao >= 0
 

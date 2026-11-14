@@ -100,10 +100,11 @@ export interface ResumoTopico {
   sessoes: number
 }
 
-/** Agrega os estudos por tópico */
+/** Agrega os estudos por tópico (os estudos sem tópico ficam de fora) */
 export function resumirPorTopico(estudos: Estudo[]): Map<string, ResumoTopico> {
   const mapa = new Map<string, ResumoTopico>()
   for (const e of estudos) {
+    if (!e.topico_id) continue
     const r = mapa.get(e.topico_id) ?? {
       tempoSegundos: 0,
       questoesFeitas: 0,

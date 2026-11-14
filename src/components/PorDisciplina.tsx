@@ -10,10 +10,9 @@ const tituloCard = 'text-sm font-semibold tracking-[0.08em] text-tinta-suave upp
 /** Tempo, questões, acerto e progresso no edital de cada disciplina */
 export function PorDisciplina({ disciplinas, topicos, estudos }: { disciplinas: Disciplina[]; topicos: Topico[]; estudos: Estudo[] }) {
   const linhas = useMemo(() => {
-    const topicoParaDisciplina = new Map(topicos.map((t) => [t.id, t.disciplina_id]))
     return disciplinas.map((d) => {
       const meus = topicos.filter((t) => t.disciplina_id === d.id)
-      const est = estudos.filter((e) => topicoParaDisciplina.get(e.topico_id) === d.id)
+      const est = estudos.filter((e) => e.disciplina_id === d.id)
       return { disciplina: d, ...calcularIndicadores(est, meus) }
     })
   }, [disciplinas, topicos, estudos])
