@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { useDisciplinas, usePlanner, useSalvarItemPlanner, useTopicos } from '@/hooks/dados'
-import { COR_TIPO, hojeChave, moverItem, proximaOrdem, rotuloMinutos, TIPOS } from '@/lib/planner'
+import { hojeChave, moverItem, proximaOrdem, rotuloMinutos, TIPOS } from '@/lib/planner'
 import { cn, mensagemErro } from '@/lib/utils'
 import type { ItemPlanner, TipoPlanner } from '@/types'
 import { SeletorTopico } from './SeletorTopico'
@@ -102,11 +102,10 @@ export function PlannerItemDialog({
                   key={t.valor}
                   className={cn(
                     'flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-2 py-2 text-sm font-medium transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primaria/50',
-                    tipo === t.valor ? cn('border-transparent text-tinta', COR_TIPO[t.valor].fundo) : 'border-linha text-tinta-suave hover:text-tinta',
+                    tipo === t.valor ? 'border-primaria bg-nevoa text-tinta' : 'border-linha text-tinta-suave hover:text-tinta',
                   )}
                 >
                   <input type="radio" name="tipo" value={t.valor} checked={tipo === t.valor} onChange={() => setTipo(t.valor)} className="sr-only" />
-                  <span className={cn('size-2.5 rounded-full', COR_TIPO[t.valor].barra)} aria-hidden />
                   {t.rotulo}
                 </label>
               ))}

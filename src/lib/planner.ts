@@ -17,11 +17,19 @@ export const TIPOS: { valor: TipoPlanner; rotulo: string }[] = [
 
 export const ROTULO_TIPO: Record<TipoPlanner, string> = { estudo: 'Estudo', resumo: 'Resumo', exercicios: 'Exercícios' }
 
-/** Classes de cor de cada tipo (tokens --c-<tipo> e --c-<tipo>-fundo em index.css) */
-export const COR_TIPO: Record<TipoPlanner, { barra: string; fundo: string; texto: string }> = {
-  estudo: { barra: 'bg-estudo', fundo: 'bg-estudo-fundo', texto: 'text-estudo' },
-  resumo: { barra: 'bg-resumo', fundo: 'bg-resumo-fundo', texto: 'text-resumo' },
-  exercicios: { barra: 'bg-exercicios', fundo: 'bg-exercicios-fundo', texto: 'text-exercicios' },
+/** Cor de quando a disciplina do item foi excluída */
+export const COR_SEM_DISCIPLINA = 'var(--c-tinta-suave)'
+
+/**
+ * Cores de um item do planner (valores CSS, para usar em `style`): a barra e o fundo.
+ * Pendente: a cor da disciplina (a escolhida no edital), com o fundo bem claro dela.
+ * Concluído fica verde e atrasado fica vermelho, que são estados e valem mais que a disciplina.
+ */
+export function coresDoItem(item: Pick<ItemPlanner, 'data' | 'concluido_em'>, corDisciplina: string | undefined, hoje = hojeChave()): { barra: string; fundo: string } {
+  if (item.concluido_em) return { barra: 'var(--c-visto)', fundo: 'var(--c-visto-fundo)' }
+  if (item.data < hoje) return { barra: 'var(--c-ruim)', fundo: 'var(--c-ruim-fundo)' }
+  const cor = corDisciplina ?? COR_SEM_DISCIPLINA
+  return { barra: cor, fundo: `color-mix(in srgb, ${cor} 18%, var(--c-superficie))` }
 }
 
 /** Date → "2026-11-10" (dia do aparelho) */

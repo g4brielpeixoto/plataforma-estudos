@@ -1,8 +1,8 @@
-import { Check } from 'lucide-react'
+import { Check, Pipette } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
 import { useSalvarDisciplina } from '@/hooks/dados'
-import { CORES_DISCIPLINA, cn, mensagemErro } from '@/lib/utils'
+import { CORES_DISCIPLINA, NOME_COR_DISCIPLINA, cn, corSobre, mensagemErro } from '@/lib/utils'
 import type { Disciplina } from '@/types'
 import { Botao, Campo, Dialogo, Entrada } from './ui'
 
@@ -22,6 +22,7 @@ export function DisciplinaDialog({
   const salvar = useSalvarDisciplina()
   const [nome, setNome] = useState('')
   const [cor, setCor] = useState(CORES_DISCIPLINA[0])
+  const corPropria = !CORES_DISCIPLINA.includes(cor)
   const [erro, setErro] = useState('')
 
   useEffect(() => {
@@ -58,15 +59,29 @@ export function DisciplinaDialog({
                 key={c}
                 type="button"
                 onClick={() => setCor(c)}
-                aria-label={`Cor ${c}`}
+                aria-label={`Cor ${(NOME_COR_DISCIPLINA[c] ?? c).toLowerCase()}`}
+                title={NOME_COR_DISCIPLINA[c]}
                 aria-pressed={cor === c}
                 className={cn('grid size-9 place-items-center rounded-full ring-offset-2 ring-offset-superficie transition', cor === c && 'ring-2 ring-tinta/60')}
                 style={{ background: c }}
               >
-                {cor === c && <Check className="size-4 text-white" aria-hidden />}
+                {cor === c && <Check className="size-4" style={{ color: corSobre(c) }} aria-hidden />}
               </button>
             ))}
+            {/* qualquer outra cor: o seletor de cores do aparelho */}
+            <label
+              title="Escolher outra cor"
+              className={cn(
+                'relative grid size-9 cursor-pointer place-items-center rounded-full ring-offset-2 ring-offset-superficie transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primaria',
+                corPropria ? 'ring-2 ring-tinta/60' : 'border-2 border-dashed border-tinta-suave/50 text-tinta-suave hover:border-tinta-suave hover:text-tinta',
+              )}
+              style={corPropria ? { background: cor } : undefined}
+            >
+              <input type="color" value={cor} onChange={(e) => setCor(e.target.value.toUpperCase())} aria-label="Escolher outra cor" className="absolute inset-0 size-full cursor-pointer opacity-0" />
+              {corPropria ? <Check className="size-4" style={{ color: corSobre(cor) }} aria-hidden /> : <Pipette className="size-4" aria-hidden />}
+            </label>
           </div>
+          <p className="mt-2 text-xs text-tinta-suave">É a cor da disciplina no edital, no planner e nos gráficos.</p>
         </fieldset>
         <div className="flex justify-end gap-2">
           <Botao type="button" variante="secundario" onClick={() => aoMudar(false)}>

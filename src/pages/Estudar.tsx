@@ -11,7 +11,7 @@ import { useDisciplinas, useEstudos, useMateriais, usePlanner, useTopicos } from
 import { CONFIG_PADRAO, mostrador, useCronometro, type ConfigPomodoro, type Modo } from '@/hooks/useCronometro'
 import type { PlayDoPlanner } from '@/hooks/usePlannerAcoes'
 import type { Material } from '@/types'
-import { concluido, COR_TIPO, ROTULO_TIPO } from '@/lib/planner'
+import { concluido, coresDoItem, ROTULO_TIPO } from '@/lib/planner'
 import { materiaisDaFamilia } from '@/lib/materiais'
 import { numeracaoDeTodos } from '@/lib/topicos'
 import { cn, formatarDuracao, formatarDuracaoExata, formatarRelogio } from '@/lib/utils'
@@ -114,6 +114,8 @@ export function Estudar() {
 
   const itemPlanner = c.plannerId ? (planner.data ?? []).find((i) => i.id === c.plannerId) : undefined
   const itemPendente = itemPlanner && !concluido(itemPlanner) ? itemPlanner : undefined
+  // a faixa do item do planner usa a cor da disciplina (sem o vermelho de atrasado: aqui ele já está sendo feito)
+  const coresPlanner = itemPendente ? coresDoItem({ data: '9999-12-31', concluido_em: null }, (disciplinas.data ?? []).find((d) => d.id === itemPendente.disciplina_id)?.cor) : undefined
   const nomeDisciplinaPlanner = itemPendente ? (disciplinas.data ?? []).find((d) => d.id === itemPendente.disciplina_id)?.nome : undefined
   const nomeTopicoPlanner = itemPendente?.topico_id ? (topicos.data ?? []).find((t) => t.id === itemPendente.topico_id)?.nome : undefined
 
@@ -153,8 +155,8 @@ export function Estudar() {
       </div>
 
       {itemPendente && (
-        <div className={cn('relative mb-3 flex items-center gap-3 overflow-hidden rounded-xl py-2.5 pr-2 pl-4', COR_TIPO[itemPendente.tipo].fundo)}>
-          <span className={cn('absolute inset-y-0 left-0 w-1', COR_TIPO[itemPendente.tipo].barra)} aria-hidden />
+        <div className="relative mb-3 flex items-center gap-3 overflow-hidden rounded-xl py-2.5 pr-2 pl-4" style={{ background: coresPlanner?.fundo }}>
+          <span className="absolute inset-y-0 left-0 w-1" style={{ background: coresPlanner?.barra }} aria-hidden />
           <CalendarDays className="size-4 shrink-0 text-tinta-suave" aria-hidden />
           <p className="min-w-0 flex-1 text-sm text-tinta">
             <span className="text-tinta-suave">Do planner ({ROTULO_TIPO[itemPendente.tipo].toLowerCase()}): </span>

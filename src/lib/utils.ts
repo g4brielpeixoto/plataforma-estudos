@@ -82,7 +82,43 @@ export function normalizar(texto: string): string {
     .trim()
 }
 
-/** Cores para distinguir disciplinas: a paleta lilás primeiro, depois tons suaves de apoio */
+/** Nome de cada cor da paleta das disciplinas (para leitores de tela e dica do botão) */
+export const NOME_COR_DISCIPLINA: Record<string, string> = {
+  '#8F7193': 'Lilás',
+  '#A788AB': 'Lilás claro',
+  '#B5799A': 'Rosa antigo',
+  '#7C6FA8': 'Lavanda',
+  '#5F8FA3': 'Azul acinzentado',
+  '#5E9479': 'Verde sálvia',
+  '#A68A4E': 'Ocre',
+  '#B4735F': 'Terracota',
+  '#6E7686': 'Cinza azulado',
+  '#9C6B8C': 'Ameixa',
+  '#D9534F': 'Vermelho',
+  '#E07B39': 'Laranja',
+  '#D4A017': 'Mostarda',
+  '#8DAA3B': 'Verde oliva',
+  '#3FA36B': 'Verde',
+  '#2A9D8F': 'Turquesa',
+  '#3A9BC1': 'Azul claro',
+  '#3F6FD1': 'Azul',
+  '#5B5BD6': 'Índigo',
+  '#8E5BD6': 'Violeta',
+  '#C254B8': 'Magenta',
+  '#E0679A': 'Rosa',
+  '#8B5E3C': 'Marrom',
+  '#4B5563': 'Grafite',
+}
+
+/** Cor escrita por cima de uma cor de fundo qualquer: escura nos fundos claros, branca nos demais */
+export function corSobre(hex: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
+  if (!m) return '#fff'
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255)
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.6 ? '#2a1f2d' : '#fff'
+}
+
+/** Cores para distinguir disciplinas: a paleta lilás e os tons suaves primeiro, depois as cores vivas */
 export const CORES_DISCIPLINA = [
   '#8F7193',
   '#A788AB',
@@ -94,4 +130,18 @@ export const CORES_DISCIPLINA = [
   '#B4735F',
   '#6E7686',
   '#9C6B8C',
+  '#D9534F',
+  '#E07B39',
+  '#D4A017',
+  '#8DAA3B',
+  '#3FA36B',
+  '#2A9D8F',
+  '#3A9BC1',
+  '#3F6FD1',
+  '#5B5BD6',
+  '#8E5BD6',
+  '#C254B8',
+  '#E0679A',
+  '#8B5E3C',
+  '#4B5563',
 ]

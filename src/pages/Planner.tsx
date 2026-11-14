@@ -3,7 +3,7 @@ import { format, isSameMonth, isSameYear, startOfMonth, startOfWeek } from 'date
 import { ptBR } from 'date-fns/locale'
 import { CalendarClock, Check, ChevronLeft, ChevronRight, Plus, TriangleAlert } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type HTMLAttributes, type ReactNode } from 'react'
-import { CartaoPlanner, CheckPlanner, coresDoItem, MenuPlanner } from '@/components/CartaoPlanner'
+import { CartaoPlanner, CheckPlanner, MenuPlanner } from '@/components/CartaoPlanner'
 import { Botao, CabecalhoPagina, Carregando, Dialogo, Painel } from '@/components/ui'
 import { useDisciplinas, usePlanner, useTopicos } from '@/hooks/dados'
 import { nomeDoDia, usePlannerAcoes, type AcoesPlanner } from '@/hooks/usePlannerAcoes'
@@ -12,7 +12,7 @@ import {
   chaveData,
   concluido,
   contemHoje,
-  COR_TIPO,
+  coresDoItem,
   deslocar,
   diasDaSemana,
   hojeChave,
@@ -24,7 +24,7 @@ import {
   ROTULO_TIPO,
   rotuloMinutos,
   semanasDoMes,
-  TIPOS,
+  COR_SEM_DISCIPLINA,
   type Visao,
 } from '@/lib/planner'
 import { cn } from '@/lib/utils'
@@ -199,12 +199,14 @@ export function Planner() {
 function Legenda() {
   return (
     <ul className="mb-4 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-tinta-suave" aria-label="Legenda">
-      {TIPOS.map((t) => (
-        <li key={t.valor} className="flex items-center gap-1.5">
-          <span className={cn('size-3 rounded-[4px]', COR_TIPO[t.valor].barra)} aria-hidden />
-          {t.rotulo}
-        </li>
-      ))}
+      <li className="flex items-center gap-1.5">
+        <span className="flex gap-0.5" aria-hidden>
+          <span className="size-3 rounded-[4px] bg-estudo" />
+          <span className="size-3 rounded-[4px] bg-exercicios" />
+          <span className="size-3 rounded-[4px] bg-resumo" />
+        </span>
+        Cor da disciplina (escolhida no edital)
+      </li>
       <li className="flex items-center gap-1.5">
         <span className="grid size-3.5 place-items-center rounded-full bg-visto text-superficie" aria-hidden>
           <Check className="size-2.5" strokeWidth={3.5} />
@@ -428,18 +430,18 @@ function VisaoMes({ referencia, grupos, mapas, aoEscolherDia }: { referencia: Da
               {lista.length > 0 && (
                 <span className="flex flex-wrap justify-center gap-0.5 sm:hidden" aria-hidden>
                   {lista.slice(0, 6).map((i) => (
-                    <span key={i.id} className={cn('size-1.5 rounded-full', coresDoItem(i, hoje).barra)} />
+                    <span key={i.id} className="size-1.5 rounded-full" style={{ background: coresDoItem(i, mapas.disciplinas.get(i.disciplina_id)?.cor, hoje).barra }} />
                   ))}
                 </span>
               )}
               {/* telas maiores: o nome da disciplina */}
               <span className="hidden min-w-0 flex-col gap-1 sm:flex" aria-hidden>
                 {lista.slice(0, 3).map((i) => {
-                  const cores = coresDoItem(i, hoje)
+                  const cores = coresDoItem(i, mapas.disciplinas.get(i.disciplina_id)?.cor, hoje)
                   const feito = concluido(i)
                   return (
-                    <span key={i.id} className={cn('flex min-w-0 items-center gap-1 rounded-md py-0.5 pr-1.5 pl-1 text-xs text-tinta', cores.fundo)}>
-                      <span className={cn('h-3 w-1 shrink-0 rounded-full', cores.barra)} />
+                    <span key={i.id} className="flex min-w-0 items-center gap-1 rounded-md py-0.5 pr-1.5 pl-1 text-xs text-tinta" style={{ background: cores.fundo }}>
+                      <span className="h-3 w-1 shrink-0 rounded-full" style={{ background: cores.barra }} />
                       {feito && <Check className="size-3 shrink-0 text-visto" strokeWidth={3} />}
                       <span className={cn('truncate', feito && 'text-tinta-suave line-through')}>{mapas.disciplinas.get(i.disciplina_id)?.nome ?? 'Disciplina excluída'}</span>
                     </span>
@@ -505,7 +507,7 @@ function PainelAtrasados({ atrasados, mapas, acoes, aoReagendarTodos }: { atrasa
             <li key={i.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 py-2.5">
               <div className="flex min-w-0 flex-1 basis-64 items-center gap-3">
                 <CheckPlanner feito={false} aoClicar={() => acoes.alternar(i)} rotulo={rotulo} />
-                <span className={cn('h-9 w-1 shrink-0 rounded-full', COR_TIPO[i.tipo].barra)} aria-hidden />
+                <span className="h-9 w-1 shrink-0 rounded-full" style={{ background: mapas.disciplinas.get(i.disciplina_id)?.cor ?? COR_SEM_DISCIPLINA }} aria-hidden />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-tinta">
                     {disciplina}

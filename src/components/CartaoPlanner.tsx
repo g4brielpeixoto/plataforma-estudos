@@ -1,7 +1,7 @@
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { CircleAlert, ArrowRight, CalendarArrowUp, Check, Clock, EllipsisVertical, Pencil, Play, Redo2, Trash2 } from 'lucide-react'
 import type { HTMLAttributes, ReactNode, Ref } from 'react'
-import { amanhaChave, atrasado, concluido, COR_TIPO, hojeChave, proximaSemanaChave, ROTULO_TIPO, rotuloMinutos } from '@/lib/planner'
+import { amanhaChave, atrasado, concluido, coresDoItem, hojeChave, proximaSemanaChave, ROTULO_TIPO, rotuloMinutos } from '@/lib/planner'
 import { cn } from '@/lib/utils'
 import type { Disciplina, ItemPlanner, Topico } from '@/types'
 import type { AcoesPlanner } from '@/hooks/usePlannerAcoes'
@@ -87,13 +87,6 @@ export function MenuPlanner({ item, acoes, rotulo, className }: { item: ItemPlan
   )
 }
 
-/** Cores do cartão: concluído (verde), atrasado (vermelho) ou a cor do tipo */
-export function coresDoItem(item: ItemPlanner, hoje = hojeChave()) {
-  if (concluido(item)) return { barra: 'bg-visto', fundo: 'bg-visto-fundo' }
-  if (atrasado(item, hoje)) return { barra: 'bg-ruim', fundo: 'bg-ruim-fundo' }
-  return COR_TIPO[item.tipo]
-}
-
 interface CartaoProps {
   item: ItemPlanner
   disciplina?: Disciplina
@@ -113,7 +106,7 @@ export function CartaoPlanner({ item, disciplina, topico, acoes, variante = 'col
   const hoje = hojeChave()
   const feito = concluido(item)
   const tarde = atrasado(item, hoje)
-  const cores = coresDoItem(item, hoje)
+  const cores = coresDoItem(item, disciplina?.cor, hoje)
   const nomeDisciplina = disciplina?.nome ?? 'Disciplina excluída'
   const rotulo = topico ? `${nomeDisciplina}, ${topico.nome}` : nomeDisciplina
   const largo = variante === 'largo'
@@ -153,21 +146,21 @@ export function CartaoPlanner({ item, disciplina, topico, acoes, variante = 'col
       {...propsArrastar}
       className={cn(
         'relative overflow-hidden rounded-xl pl-3.5 text-tinta',
-        cores.fundo,
         largo ? 'flex items-center gap-3 py-2.5 pr-2' : 'py-2.5 pr-1.5',
         arrastando && 'opacity-40',
         propsArrastar && 'cursor-grab touch-manipulation active:cursor-grabbing',
         className,
       )}
+      style={{ background: cores.fundo }}
     >
-      <span className={cn('absolute inset-y-0 left-0 w-1', cores.barra)} aria-hidden />
+      <span className="absolute inset-y-0 left-0 w-1" style={{ background: cores.barra }} aria-hidden />
 
       {largo ? (
         <>
           <CheckPlanner feito={feito} aoClicar={() => acoes.alternar(item)} rotulo={rotulo} />
           <div className="min-w-0 flex-1">
             <p className="flex flex-wrap items-center gap-x-2 text-xs font-semibold">
-              <span className={cn(COR_TIPO[item.tipo].texto)}>{ROTULO_TIPO[item.tipo]}</span>
+              <span className="text-tinta-suave">{ROTULO_TIPO[item.tipo]}</span>
               {tarde && (
                 <span className="inline-flex items-center gap-1 text-ruim">
                   <CircleAlert className="size-3.5" aria-hidden /> Atrasado
@@ -193,7 +186,7 @@ export function CartaoPlanner({ item, disciplina, topico, acoes, variante = 'col
           <div className="flex items-center gap-1.5">
             <CheckPlanner feito={feito} aoClicar={() => acoes.alternar(item)} rotulo={rotulo} className="size-5" />
             <p className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 text-xs font-semibold">
-              <span className={cn(COR_TIPO[item.tipo].texto)}>{ROTULO_TIPO[item.tipo]}</span>
+              <span className="text-tinta-suave">{ROTULO_TIPO[item.tipo]}</span>
               {tarde && (
                 <span className="inline-flex items-center gap-0.5 text-ruim">
                   <CircleAlert className="size-3" aria-hidden /> Atrasado
