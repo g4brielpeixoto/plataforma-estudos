@@ -178,13 +178,13 @@ export function ListaTopicos({ topicos, visiveis, porTopico, podeArrastar, edita
   )
 }
 
-const COL_QUESTOES = 'w-28 shrink-0 text-center'
-const COL_DATA = 'w-24 shrink-0 text-center'
-const COL_ESTUDO = 'w-24 shrink-0 text-center'
+export const COL_QUESTOES = 'w-28 shrink-0 text-center'
+export const COL_DATA = 'w-24 shrink-0 text-center'
+export const COL_ESTUDO = 'w-24 shrink-0 text-center'
 
-const dataCurta = (iso: string) => format(new Date(iso), 'dd/MM/yy')
+export const dataCurta = (iso: string) => format(new Date(iso), 'dd/MM/yy')
 
-function Traco() {
+export function Traco() {
   return (
     <span className="text-lilas" aria-label="sem registro">
       —
@@ -193,7 +193,7 @@ function Traco() {
 }
 
 /** "6/10 60%": acertos em verde, total e selo de aproveitamento */
-function Questoes({ r }: { r: ResumoTopico }) {
+export function Questoes({ r }: { r: ResumoTopico }) {
   return (
     <span className="inline-flex items-center gap-1.5 numeros">
       <span>
@@ -206,7 +206,7 @@ function Questoes({ r }: { r: ResumoTopico }) {
 }
 
 /** "1h05min 2×": tempo total e quantas vezes o tópico foi estudado */
-function TempoSessoes({ r }: { r: ResumoTopico }) {
+export function TempoSessoes({ r }: { r: ResumoTopico }) {
   return (
     <span className="inline-flex items-baseline gap-1 numeros" title={`${r.sessoes} ${r.sessoes === 1 ? 'sessão de estudo' : 'sessões de estudo'}`}>
       <span className="text-tinta">{r.tempoSegundos > 0 ? formatarDuracao(r.tempoSegundos) : '0min'}</span>

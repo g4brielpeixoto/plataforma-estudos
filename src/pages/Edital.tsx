@@ -4,7 +4,7 @@ import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { DisciplinaDialog } from '@/components/DisciplinaDialog'
 import { ImportarDialog } from '@/components/ImportarDialog'
-import { useRecolhidos } from '@/components/ListaTopicos'
+import { COL_DATA, COL_ESTUDO, COL_QUESTOES, dataCurta, Questoes, TempoSessoes, Traco, useRecolhidos } from '@/components/ListaTopicos'
 import { BarraProgresso, Botao, CabecalhoPagina, Carregando, Confirmar, Painel, Selecao, SeloAcerto, Vazio } from '@/components/ui'
 import { useDisciplinas, useEstudos, useExcluirDisciplina, useSalvarTopico, useTopicos } from '@/hooks/dados'
 import { resumirPorTopico, somarResumos } from '@/lib/indicadores'
@@ -336,19 +336,31 @@ function TopicosDaDisciplina({ topicos, porTopico, aoAlternar }: { topicos: Topi
   if (topicos.length === 0) return <p className="py-4 text-sm text-tinta-suave">Esta disciplina ainda não tem tópicos. Abra a disciplina para adicionar.</p>
   return (
     <>
-      {comFilhos.length > 0 && (
-        <div className="flex justify-end py-1.5">
+      {/* cabeçalho das colunas (só em telas médias para cima; no celular os números vão embaixo do nome) */}
+      <div className="flex items-center gap-2 py-1.5">
+        <span className="flex-1">
+          {comFilhos.length > 0 && (
           <button
             type="button"
             onClick={() => setRecolhidos(algumRecolhido ? new Set() : new Set(comFilhos.map((t) => t.id)))}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-tinta-suave hover:bg-superficie-2 hover:text-tinta"
+            className="-ml-2 inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-tinta-suave hover:bg-superficie-2 hover:text-tinta"
           >
             {algumRecolhido ? <ChevronsUpDown className="size-4" aria-hidden /> : <ChevronsDownUp className="size-4" aria-hidden />}
             {algumRecolhido ? 'Mostrar subtópicos' : 'Esconder subtópicos'}
           </button>
-        </div>
-      )}
-      <ul className={cn('-mx-4 divide-y divide-linha/50 sm:-mx-5', comFilhos.length > 0 && 'border-t border-linha/50')}>
+          )}
+        </span>
+        <span className={cn(COL_QUESTOES, 'hidden text-xs font-semibold text-tinta-suave md:block')} aria-hidden>
+          Questões
+        </span>
+        <span className={cn(COL_DATA, 'hidden text-xs font-semibold text-tinta-suave md:block')} aria-hidden>
+          Último estudo
+        </span>
+        <span className={cn(COL_ESTUDO, 'hidden text-xs font-semibold text-tinta-suave md:block')} aria-hidden>
+          Estudo
+        </span>
+      </div>
+      <ul className="-mx-4 divide-y divide-linha/50 border-t border-linha/50 sm:-mx-5">
         {topicos
           .filter((t) => !escondidos.has(t.id))
           .map((t) => {
@@ -387,7 +399,8 @@ function TopicosDaDisciplina({ topicos, porTopico, aoAlternar }: { topicos: Topi
                   onChange={() => aoAlternar(t)}
                   aria-label={`${t.concluido ? 'Desmarcar' : 'Marcar'} ${t.nome} como concluído`}
                 />
-                <p className="ml-1 min-w-0 flex-1 text-[15px] text-tinta">
+                <div className="ml-1 min-w-0 flex-1">
+                <p className="text-[15px] text-tinta">
                   <span className="mr-1.5 text-tinta-suave numeros">{numeros.get(t.id)}</span>
                   {t.nome}
                   {recolhido && filhos.length > 0 && (
@@ -396,12 +409,24 @@ function TopicosDaDisciplina({ topicos, porTopico, aoAlternar }: { topicos: Topi
                     </span>
                   )}
                 </p>
-                {r && r.questoesFeitas > 0 && (
-                  <p className="flex shrink-0 items-center gap-2 text-sm text-tinta-suave numeros">
-                    {r.questoesAcertadas}/{r.questoesFeitas}
-                    <SeloAcerto pct={r.acertoPct} />
+                {/* celular: questões, último estudo e tempo embaixo do nome */}
+                {r && (r.questoesFeitas > 0 || r.sessoes > 0) && (
+                  <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-tinta-suave numeros md:hidden">
+                    {r.questoesFeitas > 0 && <Questoes r={r} />}
+                    {r.ultimoEstudo && <span>{dataCurta(r.ultimoEstudo)}</span>}
+                    <TempoSessoes r={r} />
                   </p>
                 )}
+                </div>
+                <div className={cn(COL_QUESTOES, 'hidden text-sm md:flex md:justify-center')} title={filhos.length ? 'Inclui os subtópicos' : undefined}>
+                  {r && r.questoesFeitas > 0 ? <Questoes r={r} /> : <Traco />}
+                </div>
+                <div className={cn(COL_DATA, 'hidden text-sm text-tinta-suave numeros md:block')} title={filhos.length ? 'Inclui os subtópicos' : undefined}>
+                  {r?.ultimoEstudo ? dataCurta(r.ultimoEstudo) : <Traco />}
+                </div>
+                <div className={cn(COL_ESTUDO, 'hidden text-sm md:flex md:justify-center')} title={filhos.length ? 'Inclui os subtópicos' : undefined}>
+                  {r ? <TempoSessoes r={r} /> : <Traco />}
+                </div>
               </li>
             )
           })}
