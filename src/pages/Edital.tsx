@@ -1,9 +1,10 @@
-import { ArrowDownAZ, ArrowRight, BookOpen, ChevronDown, ChevronsDownUp, ChevronsUpDown, FileUp, Filter, Pencil, Plus, Scale, Trash2, TrendingUp } from 'lucide-react'
+import { ArrowDownAZ, ArrowRight, BookOpen, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, FileUp, Filter, Pencil, Plus, Scale, Trash2, TrendingUp } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { DisciplinaDialog } from '@/components/DisciplinaDialog'
 import { ImportarDialog } from '@/components/ImportarDialog'
+import { useRecolhidos } from '@/components/ListaTopicos'
 import { BarraProgresso, Botao, CabecalhoPagina, Carregando, Confirmar, Painel, Selecao, SeloAcerto, Vazio } from '@/components/ui'
 import { useDisciplinas, useEstudos, useExcluirDisciplina, useSalvarTopico, useTopicos } from '@/hooks/dados'
 import { resumirPorTopico, somarResumos } from '@/lib/indicadores'
@@ -315,32 +316,96 @@ export function Edital() {
 /** Os tópicos de uma disciplina dentro do Edital: marcar como concluído e ver as questões; o resto é na página da disciplina */
 function TopicosDaDisciplina({ topicos, porTopico, aoAlternar }: { topicos: Topico[]; porTopico: ReturnType<typeof resumirPorTopico>; aoAlternar: (t: Topico) => void }) {
   const numeros = useMemo(() => numeracao(topicos), [topicos])
+  // esconder/mostrar subtópicos: a mesma lista salva da página da disciplina
+  const [recolhidos, setRecolhidos] = useRecolhidos(topicos[0]?.disciplina_id)
+  const filhosDe = useMemo(() => new Map(topicos.map((t) => [t.id, descendentesDe(topicos, t.id)])), [topicos])
+  const escondidos = useMemo(() => {
+    const s = new Set<string>()
+    for (const id of recolhidos) for (const d of filhosDe.get(id) ?? []) s.add(d.id)
+    return s
+  }, [recolhidos, filhosDe])
+  const comFilhos = topicos.filter((t) => (filhosDe.get(t.id)?.length ?? 0) > 0)
+  const algumRecolhido = comFilhos.some((t) => recolhidos.has(t.id))
+  const alternarRecolhido = (id: string) => {
+    const novo = new Set(recolhidos)
+    if (novo.has(id)) novo.delete(id)
+    else novo.add(id)
+    setRecolhidos(novo)
+  }
+
   if (topicos.length === 0) return <p className="py-4 text-sm text-tinta-suave">Esta disciplina ainda não tem tópicos. Abra a disciplina para adicionar.</p>
   return (
-    <ul className="-mx-4 divide-y divide-linha/50 sm:-mx-5">
-      {topicos.map((t) => {
-        // no tópico pai, as questões somam as dos subtópicos
-        const r = somarResumos([t, ...descendentesDe(topicos, t.id)].map((x) => porTopico.get(x.id)))
-        return (
-          <li
-            key={t.id}
-            // concluído: a linha inteira fica no verde claro do "visto"
-            className={cn('flex items-center gap-3 px-4 py-2 transition-colors sm:px-5', t.concluido && 'bg-visto-fundo')}
+    <>
+      {comFilhos.length > 0 && (
+        <div className="flex justify-end py-1.5">
+          <button
+            type="button"
+            onClick={() => setRecolhidos(algumRecolhido ? new Set() : new Set(comFilhos.map((t) => t.id)))}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-tinta-suave hover:bg-superficie-2 hover:text-tinta"
           >
-            <input type="checkbox" className="visto size-5 shrink-0" style={{ marginLeft: `${t.nivel * 1.5}rem` }} checked={t.concluido} onChange={() => aoAlternar(t)} aria-label={`${t.concluido ? 'Desmarcar' : 'Marcar'} ${t.nome} como concluído`} />
-            <p className="min-w-0 flex-1 text-[15px] text-tinta">
-              <span className="mr-1.5 text-tinta-suave numeros">{numeros.get(t.id)}</span>
-              {t.nome}
-            </p>
-            {r && r.questoesFeitas > 0 && (
-              <p className="flex shrink-0 items-center gap-2 text-sm text-tinta-suave numeros">
-                {r.questoesAcertadas}/{r.questoesFeitas}
-                <SeloAcerto pct={r.acertoPct} />
-              </p>
-            )}
-          </li>
-        )
-      })}
-    </ul>
+            {algumRecolhido ? <ChevronsUpDown className="size-4" aria-hidden /> : <ChevronsDownUp className="size-4" aria-hidden />}
+            {algumRecolhido ? 'Mostrar subtópicos' : 'Esconder subtópicos'}
+          </button>
+        </div>
+      )}
+      <ul className={cn('-mx-4 divide-y divide-linha/50 sm:-mx-5', comFilhos.length > 0 && 'border-t border-linha/50')}>
+        {topicos
+          .filter((t) => !escondidos.has(t.id))
+          .map((t) => {
+            const filhos = filhosDe.get(t.id) ?? []
+            const recolhido = recolhidos.has(t.id)
+            // no tópico pai, as questões somam as dos subtópicos
+            const r = somarResumos([t, ...filhos].map((x) => porTopico.get(x.id)))
+            return (
+              <li
+                key={t.id}
+                // concluído: a linha inteira fica no verde claro do "visto"
+                className={cn('flex items-center gap-2 px-4 py-2 transition-colors sm:px-5', t.concluido && 'bg-visto-fundo')}
+              >
+                {/* coluna da seta: só existe se a disciplina tem subtópicos */}
+                {comFilhos.length > 0 && (
+                  <span className="flex w-7 shrink-0 justify-center" style={{ marginLeft: `${t.nivel * 1.5}rem` }}>
+                    {filhos.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => alternarRecolhido(t.id)}
+                        aria-expanded={!recolhido}
+                        aria-label={recolhido ? `Mostrar os ${filhos.length} subtópicos de "${t.nome}"` : `Esconder os subtópicos de "${t.nome}"`}
+                        title={recolhido ? 'Mostrar os subtópicos' : 'Esconder os subtópicos'}
+                        className="grid size-7 place-items-center rounded-lg text-tinta-suave hover:bg-superficie-2 hover:text-tinta"
+                      >
+                        <ChevronRight className={cn('size-4 transition-transform', !recolhido && 'rotate-90')} aria-hidden />
+                      </button>
+                    )}
+                  </span>
+                )}
+                <input
+                  type="checkbox"
+                  className="visto size-5 shrink-0"
+                  style={comFilhos.length > 0 ? undefined : { marginLeft: `${t.nivel * 1.5}rem` }}
+                  checked={t.concluido}
+                  onChange={() => aoAlternar(t)}
+                  aria-label={`${t.concluido ? 'Desmarcar' : 'Marcar'} ${t.nome} como concluído`}
+                />
+                <p className="ml-1 min-w-0 flex-1 text-[15px] text-tinta">
+                  <span className="mr-1.5 text-tinta-suave numeros">{numeros.get(t.id)}</span>
+                  {t.nome}
+                  {recolhido && filhos.length > 0 && (
+                    <span className="ml-2 text-sm whitespace-nowrap text-tinta-suave">
+                      ({filhos.length} {filhos.length === 1 ? 'subtópico' : 'subtópicos'})
+                    </span>
+                  )}
+                </p>
+                {r && r.questoesFeitas > 0 && (
+                  <p className="flex shrink-0 items-center gap-2 text-sm text-tinta-suave numeros">
+                    {r.questoesAcertadas}/{r.questoesFeitas}
+                    <SeloAcerto pct={r.acertoPct} />
+                  </p>
+                )}
+              </li>
+            )
+          })}
+      </ul>
+    </>
   )
 }

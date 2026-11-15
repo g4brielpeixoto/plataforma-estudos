@@ -39,8 +39,8 @@ const instrucoes = {
     'Para mover um tópico, pressione espaço ou Enter, use as setas para cima e para baixo e pressione espaço ou Enter de novo para soltar. Esc cancela. Um tópico leva junto os seus subtópicos.',
 }
 
-/** Tópicos recolhidos ficam salvos no navegador, por disciplina */
-function useRecolhidos(disciplinaId: string | undefined) {
+/** Tópicos recolhidos ficam salvos no navegador, por disciplina (o Edital usa a mesma lista) */
+export function useRecolhidos(disciplinaId: string | undefined) {
   const chave = `recolhidos:${disciplinaId ?? ''}`
   const ler = () => {
     try {
