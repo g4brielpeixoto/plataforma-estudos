@@ -301,7 +301,8 @@ function LinhaTopico({
       className={cn(
         'group relative flex items-center gap-1.5 rounded-xl py-2.5 pr-0.5 pl-0.5 sm:gap-2.5 sm:px-2',
         !sub && 'mt-1 before:absolute before:inset-x-2 before:-top-0.5 before:h-px before:bg-linha/60 first:mt-0 first:before:hidden',
-        isDragging ? 'z-10 bg-superficie shadow-lg ring-1 ring-lilas' : 'hover:bg-superficie-2/70',
+        // concluído: a linha inteira fica no verde claro do "visto"
+        isDragging ? 'z-10 bg-superficie shadow-lg ring-1 ring-lilas' : t.concluido ? 'bg-visto-fundo hover:bg-visto-fundo' : 'hover:bg-superficie-2/70',
       )}
     >
       {podeArrastar && (
@@ -415,7 +416,7 @@ function LinhaTopico({
                 t.nivel === 0 && 'text-[15px] font-medium',
                 t.nivel === 1 && 'text-[14.5px]',
                 t.nivel === 2 && 'text-sm',
-                t.concluido ? 'text-tinta-suave line-through decoration-lilas' : 'text-tinta',
+                'text-tinta',
               )}
             >
               {t.nome}

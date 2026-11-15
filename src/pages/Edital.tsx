@@ -267,7 +267,7 @@ export function Edital() {
                       </div>
                     </div>
                     {aberta && (
-                      <div id={`topicos-${d.id}`} className="border-t border-linha/70 px-4 pt-1 pb-3 sm:px-5">
+                      <div id={`topicos-${d.id}`} className="border-t border-linha/70 px-4 pb-3 sm:px-5">
                         <TopicosDaDisciplina
                           topicos={topicosDe.get(d.id) ?? []}
                           porTopico={porTopico}
@@ -317,14 +317,18 @@ function TopicosDaDisciplina({ topicos, porTopico, aoAlternar }: { topicos: Topi
   const numeros = useMemo(() => numeracao(topicos), [topicos])
   if (topicos.length === 0) return <p className="py-4 text-sm text-tinta-suave">Esta disciplina ainda não tem tópicos. Abra a disciplina para adicionar.</p>
   return (
-    <ul className="divide-y divide-linha/50">
+    <ul className="-mx-4 divide-y divide-linha/50 sm:-mx-5">
       {topicos.map((t) => {
         // no tópico pai, as questões somam as dos subtópicos
         const r = somarResumos([t, ...descendentesDe(topicos, t.id)].map((x) => porTopico.get(x.id)))
         return (
-          <li key={t.id} className="flex items-center gap-3 py-2" style={{ paddingLeft: `${t.nivel * 1.5}rem` }}>
-            <input type="checkbox" className="visto size-5 shrink-0" checked={t.concluido} onChange={() => aoAlternar(t)} aria-label={`${t.concluido ? 'Desmarcar' : 'Marcar'} ${t.nome} como concluído`} />
-            <p className={cn('min-w-0 flex-1 text-[15px]', t.concluido ? 'text-tinta-suave' : 'text-tinta')}>
+          <li
+            key={t.id}
+            // concluído: a linha inteira fica no verde claro do "visto"
+            className={cn('flex items-center gap-3 px-4 py-2 transition-colors sm:px-5', t.concluido && 'bg-visto-fundo')}
+          >
+            <input type="checkbox" className="visto size-5 shrink-0" style={{ marginLeft: `${t.nivel * 1.5}rem` }} checked={t.concluido} onChange={() => aoAlternar(t)} aria-label={`${t.concluido ? 'Desmarcar' : 'Marcar'} ${t.nome} como concluído`} />
+            <p className="min-w-0 flex-1 text-[15px] text-tinta">
               <span className="mr-1.5 text-tinta-suave numeros">{numeros.get(t.id)}</span>
               {t.nome}
             </p>
