@@ -13,9 +13,30 @@ export const TIPOS: { valor: TipoPlanner; rotulo: string }[] = [
   { valor: 'estudo', rotulo: 'Estudo' },
   { valor: 'resumo', rotulo: 'Resumo' },
   { valor: 'exercicios', rotulo: 'Exercícios' },
+  { valor: 'revisao', rotulo: 'Revisão' },
 ]
 
-export const ROTULO_TIPO: Record<TipoPlanner, string> = { estudo: 'Estudo', resumo: 'Resumo', exercicios: 'Exercícios' }
+export const ROTULO_TIPO: Record<TipoPlanner, string> = { estudo: 'Estudo', resumo: 'Resumo', exercicios: 'Exercícios', revisao: 'Revisão' }
+
+/*
+  Revisões programadas no "Salvar estudo": cada intervalo (em dias depois do estudo) vira um item
+  de revisão no planner. Os intervalos escolhidos ficam salvos no navegador para a próxima vez.
+*/
+export const REVISOES_PADRAO = [1, 7, 21, 45]
+export const REVISOES_SUGERIDAS = [1, 7, 15, 30]
+export const REVISAO_MAXIMA = 365
+
+/** Intervalos válidos, sem repetir e em ordem crescente */
+export function limparIntervalos(dias: unknown): number[] {
+  if (!Array.isArray(dias)) return []
+  const validos = dias.map((d) => Math.round(Number(d))).filter((d) => Number.isFinite(d) && d >= 1 && d <= REVISAO_MAXIMA)
+  return [...new Set(validos)].sort((a, b) => a - b)
+}
+
+/** O dia (yyyy-mm-dd) de cada revisão a partir do dia do estudo */
+export function datasDasRevisoes(diaDoEstudo: string, intervalos: number[]): { dias: number; data: string }[] {
+  return limparIntervalos(intervalos).map((dias) => ({ dias, data: chaveData(addDays(paraData(diaDoEstudo), dias)) }))
+}
 
 /** Cor de quando a disciplina do item foi excluída */
 export const COR_SEM_DISCIPLINA = 'var(--c-tinta-suave)'

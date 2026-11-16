@@ -1,5 +1,5 @@
 import * as Menu from '@radix-ui/react-dropdown-menu'
-import { CircleAlert, ArrowRight, CalendarArrowUp, Check, Clock, EllipsisVertical, Pencil, Play, Redo2, Trash2 } from 'lucide-react'
+import { CircleAlert, ArrowRight, CalendarArrowUp, Check, Clock, EllipsisVertical, Pencil, Play, Redo2, Trash2, RotateCcw } from 'lucide-react'
 import type { HTMLAttributes, ReactNode, Ref } from 'react'
 import { amanhaChave, atrasado, concluido, coresDoItem, hojeChave, proximaSemanaChave, ROTULO_TIPO, rotuloMinutos } from '@/lib/planner'
 import { cn } from '@/lib/utils'
@@ -160,7 +160,7 @@ export function CartaoPlanner({ item, disciplina, topico, acoes, variante = 'col
           <CheckPlanner feito={feito} aoClicar={() => acoes.alternar(item)} rotulo={rotulo} />
           <div className="min-w-0 flex-1">
             <p className="flex flex-wrap items-center gap-x-2 text-xs font-semibold">
-              <span className="text-tinta-suave">{ROTULO_TIPO[item.tipo]}</span>
+              <EtiquetaTipo tipo={item.tipo} />
               {tarde && (
                 <span className="inline-flex items-center gap-1 text-ruim">
                   <CircleAlert className="size-3.5" aria-hidden /> Atrasado
@@ -186,7 +186,7 @@ export function CartaoPlanner({ item, disciplina, topico, acoes, variante = 'col
           <div className="flex items-center gap-1.5">
             <CheckPlanner feito={feito} aoClicar={() => acoes.alternar(item)} rotulo={rotulo} className="size-5" />
             <p className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 text-xs font-semibold">
-              <span className="text-tinta-suave">{ROTULO_TIPO[item.tipo]}</span>
+              <EtiquetaTipo tipo={item.tipo} />
               {tarde && (
                 <span className="inline-flex items-center gap-0.5 text-ruim">
                   <CircleAlert className="size-3" aria-hidden /> Atrasado
@@ -211,5 +211,15 @@ export function CartaoPlanner({ item, disciplina, topico, acoes, variante = 'col
         </>
       )}
     </article>
+  )
+}
+
+/** O tipo do item; a revisão vem como etiqueta, para se destacar dos estudos do dia */
+function EtiquetaTipo({ tipo }: { tipo: ItemPlanner['tipo'] }) {
+  if (tipo !== 'revisao') return <span className="text-tinta-suave">{ROTULO_TIPO[tipo]}</span>
+  return (
+    <span className="inline-flex items-center gap-1 rounded-md bg-revisao px-1.5 py-px text-[11px] font-semibold text-sobre-primaria">
+      <RotateCcw className="size-3" aria-hidden /> Revisão
+    </span>
   )
 }

@@ -123,7 +123,7 @@ export interface Prova {
   criado_em: string
 }
 
-export type TipoPlanner = 'estudo' | 'resumo' | 'exercicios'
+export type TipoPlanner = 'estudo' | 'resumo' | 'exercicios' | 'revisao'
 
 export interface ItemPlanner {
   id: string

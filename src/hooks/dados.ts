@@ -516,6 +516,19 @@ export function useSalvarItemPlanner() {
   })
 }
 
+/** Cria vários itens de uma vez (as revisões programadas ao salvar um estudo) */
+export function useCriarItensPlanner() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async (itens: (DadosItemPlanner & { ordem: number })[]) => {
+      if (itens.length === 0) return
+      const { error } = await supabase.from('planner_itens').insert(itens.map((i) => ({ ...i, data_original: i.data })))
+      if (error) throw error
+    },
+    onSuccess: () => invalidar('planner'),
+  })
+}
+
 export function useExcluirItemPlanner() {
   const invalidar = useInvalidar()
   return useMutation({
