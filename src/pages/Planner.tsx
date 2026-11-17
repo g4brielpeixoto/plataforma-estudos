@@ -4,7 +4,7 @@ import { ptBR } from 'date-fns/locale'
 import { CalendarClock, Check, ChevronLeft, ChevronRight, Plus, TriangleAlert } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type HTMLAttributes, type ReactNode } from 'react'
 import { CartaoPlanner, CheckPlanner, MenuPlanner } from '@/components/CartaoPlanner'
-import { Botao, CabecalhoPagina, Carregando, Dialogo, Painel } from '@/components/ui'
+import { Botao, CabecalhoPagina, Carregando, Dialogo, Entrada, Painel } from '@/components/ui'
 import { useDisciplinas, usePlanner, useTopicos } from '@/hooks/dados'
 import { nomeDoDia, usePlannerAcoes, type AcoesPlanner } from '@/hooks/usePlannerAcoes'
 import {
@@ -552,18 +552,24 @@ function ReagendarDialog({
   itens: ItemPlanner[]
   aoConfirmar: (inicio: string, porDia: number) => void
 }) {
-  const [comeco, setComeco] = useState<'hoje' | 'amanha'>('hoje')
+  const [comeco, setComeco] = useState<'hoje' | 'amanha' | 'outra'>('hoje')
+  // "Outra data": qualquer dia de hoje em diante, escolhido no calendário
+  const [outraData, setOutraData] = useState('')
   const [porDiaMax, setPorDiaMax] = useState(2)
   const n = itens.length
-  const inicio = comeco === 'hoje' ? hojeChave() : amanhaChave()
+  const hoje = hojeChave()
+  const dataValida = /^\d{4}-\d{2}-\d{2}$/.test(outraData) && outraData >= hoje
+  const inicio = comeco === 'hoje' ? hoje : comeco === 'amanha' ? amanhaChave() : dataValida ? outraData : null
 
   const previa = useMemo(() => {
     const contagem = new Map<string, number>()
+    if (!inicio) return []
     for (const i of reagendar(itens, inicio, porDiaMax, [])) contagem.set(i.data, (contagem.get(i.data) ?? 0) + 1)
     return [...contagem.entries()]
   }, [itens, inicio, porDiaMax])
 
   const opcoes = [1, 2, 3, 4, 5].filter((x) => x < n)
+  const refOutraData = useRef<HTMLInputElement>(null)
 
   return (
     <Dialogo
@@ -581,19 +587,49 @@ function ReagendarDialog({
               [
                 ['hoje', 'Hoje'],
                 ['amanha', 'Amanhã'],
+                ['outra', 'Outra data'],
               ] as const
             ).map(([v, r]) => (
               <button
                 key={v}
                 type="button"
                 aria-pressed={comeco === v}
-                onClick={() => setComeco(v)}
+                onClick={() => {
+                  setComeco(v)
+                  if (v === 'outra') {
+                    if (!outraData) setOutraData(amanhaChave())
+                    // já abre o calendário do aparelho, onde o navegador deixa
+                    requestAnimationFrame(() => {
+                      const campo = refOutraData.current
+                      campo?.focus()
+                      try {
+                        campo?.showPicker?.()
+                      } catch {
+                        /* navegador sem showPicker: o campo fica focado para escolher */
+                      }
+                    })
+                  }
+                }}
                 className={cn('rounded-lg px-4 py-1.5 text-sm font-medium transition-colors', comeco === v ? 'bg-superficie text-tinta shadow-sm' : 'text-tinta-suave hover:text-tinta')}
               >
                 {r}
               </button>
             ))}
           </div>
+          {comeco === 'outra' && (
+            <div className="mt-2.5">
+              <Entrada
+                ref={refOutraData}
+                type="date"
+                aria-label="Data em que o reagendamento começa"
+                min={hoje}
+                value={outraData}
+                onChange={(e) => setOutraData(e.target.value)}
+                className="w-full sm:w-56"
+              />
+              {!dataValida && <p className="mt-1.5 text-sm text-ruim">{outraData ? 'Escolha uma data de hoje em diante.' : 'Escolha a data.'}</p>}
+            </div>
+          )}
         </fieldset>
         <fieldset>
           <legend className="mb-1.5 text-sm font-medium text-tinta">Quantos por dia</legend>
@@ -617,6 +653,7 @@ function ReagendarDialog({
         <div className="rounded-xl bg-superficie-2/70 px-4 py-3">
           <p className="text-sm font-medium text-tinta">Como fica</p>
           <ul className="mt-1.5 space-y-0.5 text-sm text-tinta-suave numeros">
+            {previa.length === 0 && <li>Escolha a data para ver a distribuição.</li>}
             {previa.map(([data, q]) => (
               <li key={data} className="flex justify-between gap-4">
                 <span className="first-letter:uppercase">{nomeDoDia(data)}</span>
@@ -633,7 +670,9 @@ function ReagendarDialog({
           </Botao>
           <Botao
             type="button"
+            disabled={!inicio}
             onClick={() => {
+              if (!inicio) return
               aoConfirmar(inicio, porDiaMax)
               aoMudar(false)
             }}
