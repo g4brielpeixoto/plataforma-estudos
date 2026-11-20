@@ -284,3 +284,96 @@ export function entradasDoSumario(lista: (Item & Pick<LeiLinha, 'incidencia'>)[]
   })
   return saida
 }
+
+// ---------- ordem dos artigos ----------
+
+const RE_NUMERO_ARTIGO = /^arts?\.?\s*(\d{1,3}(?:\.\d{3})+|\d+)\s*(?:º|°|ª|o\b)?\.?(?:\s*-\s*([A-Za-z]{1,2})\b)?/i
+
+/** Número do artigo com que a linha começa, pronto para comparar ("Art. 11-A" fica entre o 11 e o 12); null se não começa com artigo */
+export function numeroDoArtigo(texto: string): number | null {
+  const m = texto.trim().match(RE_NUMERO_ARTIGO)
+  if (!m) return null
+  const n = Number(m[1].replace(/\./g, ''))
+  if (!Number.isFinite(n)) return null
+  const letras = (m[2] ?? '').toUpperCase()
+  let fracao = 0
+  for (let k = 0; k < letras.length; k++) fracao += (letras.charCodeAt(k) - 64) / 27 ** (k + 1)
+  return n + fracao
+}
+
+type ItemComTexto = Item & { texto: string }
+const semHtml = (html: string) => html.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ')
+const numeroDaLinha = (l: ItemComTexto) => numeroDoArtigo(semHtml(l.texto))
+
+/** As irmãs da linha i (mesmo pai), cada uma com a sua subárvore: [início, fim) */
+function blocosIrmaos(lista: Item[], i: number): { ini: number; fim: number }[] {
+  const nivel = lista[i].nivel
+  let comeco = i
+  while (comeco > 0 && lista[comeco - 1].nivel >= nivel) comeco--
+  const blocos: { ini: number; fim: number }[] = []
+  for (let k = comeco; k < lista.length && lista[k].nivel >= nivel; ) {
+    const fim = fimDaSubarvore(lista, k)
+    blocos.push({ ini: k, fim })
+    k = fim
+  }
+  return blocos
+}
+
+/**
+ * Põe o artigo no lugar dele entre os artigos vizinhos (com o que está dentro dele).
+ * Só mexe se a linha começa com "Art. N" e os outros artigos em volta já estão em ordem;
+ * linhas que não são artigo (título, capítulo) funcionam como divisória e não são atravessadas.
+ */
+export function encaixarArtigo<T extends ItemComTexto>(lista: T[], id: string): T[] {
+  const i = indiceDe(lista, id)
+  if (i < 0) return lista
+  const numero = numeroDaLinha(lista[i])
+  if (numero === null) return lista
+  const blocos = blocosIrmaos(lista, i)
+  const meu = blocos.findIndex((b) => b.ini === i)
+  // o trecho de artigos seguidos em que a linha está
+  let a = meu
+  while (a > 0 && numeroDaLinha(lista[blocos[a - 1].ini]) !== null) a--
+  let z = meu
+  while (z < blocos.length - 1 && numeroDaLinha(lista[blocos[z + 1].ini]) !== null) z++
+  const outros = blocos.slice(a, z + 1).filter((_, k) => a + k !== meu)
+  const numeros = outros.map((b) => numeroDaLinha(lista[b.ini]) as number)
+  if (numeros.some((n, k) => k > 0 && n < numeros[k - 1])) return lista
+  let pos = outros.findIndex((_, k) => numeros[k] > numero)
+  if (pos < 0) pos = outros.length
+  if (pos === meu - a) return lista
+  const fatia = lista.slice(blocos[meu].ini, blocos[meu].fim)
+  const resto = [...lista.slice(0, blocos[meu].ini), ...lista.slice(blocos[meu].fim)]
+  const alvoId = pos < outros.length ? lista[outros[pos].ini].id : null
+  const onde = alvoId ? indiceDe(resto, alvoId) : indiceDe(resto, lista[outros[outros.length - 1].ini].id) >= 0 ? fimDaSubarvore(resto, indiceDe(resto, lista[outros[outros.length - 1].ini].id)) : resto.length
+  return [...resto.slice(0, onde), ...fatia, ...resto.slice(onde)]
+}
+
+/** Ordena os artigos de toda a lei, em cada nível, sem atravessar as linhas que não são artigo */
+export function ordenarPorArtigo<T extends ItemComTexto>(lista: T[]): T[] {
+  const ordenar = (ini: number, fim: number, nivel: number): T[] => {
+    const blocos: { numero: number | null; linhas: T[] }[] = []
+    for (let k = ini; k < fim; ) {
+      const f = Math.min(fimDaSubarvore(lista, k), fim)
+      blocos.push({ numero: numeroDaLinha(lista[k]), linhas: [lista[k], ...ordenar(k + 1, f, nivel + 1)] })
+      k = f
+    }
+    const saida: T[] = []
+    for (let k = 0; k < blocos.length; ) {
+      let j = k
+      while (j < blocos.length && blocos[j].numero !== null) j++
+      if (j === k) {
+        saida.push(...blocos[k].linhas)
+        k++
+        continue
+      }
+      const trecho = blocos.slice(k, j).map((b, pos) => ({ b, pos }))
+      trecho.sort((x, y) => (x.b.numero as number) - (y.b.numero as number) || x.pos - y.pos)
+      for (const t of trecho) saida.push(...t.b.linhas)
+      k = j
+    }
+    return saida
+  }
+  const nova = ordenar(0, lista.length, 0)
+  return nova.every((l, k) => l === lista[k]) ? lista : nova
+}

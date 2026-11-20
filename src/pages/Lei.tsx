@@ -1,6 +1,6 @@
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { format } from 'date-fns'
-import { ArrowDown, ArrowLeft, ArrowUp, ChevronRight, ChevronsDownUp, ChevronsUpDown, CornerDownRight, EllipsisVertical, FileUp, Flag, IndentDecrease, IndentIncrease, Layers, Pilcrow, LoaderCircle, Menu as IconeMenu, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowDown01, ArrowLeft, ArrowUp, ChevronRight, ChevronsDownUp, ChevronsUpDown, CornerDownRight, EllipsisVertical, FileUp, Flag, IndentDecrease, IndentIncrease, Layers, Pilcrow, LoaderCircle, Menu as IconeMenu, Pencil, Plus, Trash2 } from 'lucide-react'
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
@@ -34,6 +34,9 @@ import {
   resumirLei,
   ROTULO_INCIDENCIA,
   temFilhos,
+  encaixarArtigo,
+  numeroDoArtigo,
+  ordenarPorArtigo,
   type FiltroLei,
   type LinhaImportada,
 } from '@/lib/leis'
@@ -142,6 +145,7 @@ export function PaginaLei() {
   const entradas = useMemo(() => entradasDoSumario(todas), [todas])
   const resumo = useMemo(() => resumirLei(todas), [todas])
   const algumaRecolhida = [...recolhidas].some((r) => comFilhos.has(r))
+  const foraDeOrdem = useMemo(() => ordenarPorArtigo(todas) !== todas, [todas])
 
   // flashcards desta lei que dá para estudar hoje
   const notasDaLei = useMemo(() => new Set(todas.map((l) => l.nota_id).filter((x): x is string => !!x)), [todas])
@@ -300,6 +304,16 @@ export function PaginaLei() {
     }
     if (texto !== linha.texto) mudar((a) => a.map((l) => (l.id === linhaId ? { ...l, texto } : l)))
     acertarCartao(linhaId, antes, texto)
+    // artigo novo (ou com o número trocado) vai para o lugar dele entre os artigos vizinhos
+    const numero = numeroDoArtigo(textoPuro(texto))
+    if (numero !== null && numero !== numeroDoArtigo(textoPuro(antes))) {
+      const comTexto = lista.map((l) => (l.id === linhaId ? { ...l, texto } : l))
+      if (encaixarArtigo(comTexto, linhaId) !== comTexto) {
+        mudar((a) => encaixarArtigo(a, linhaId))
+        toast.success('O artigo foi para o lugar dele, na ordem dos números.')
+        if (acao !== 'enter') requestAnimationFrame(() => irPara(linhaId))
+      }
+    }
     if (acao === 'enter') novaLinha(linhaId)
     else setEditando(null)
   }
@@ -449,6 +463,19 @@ export function PaginaLei() {
               ))}
             </div>
             <span className="flex-1" />
+            {foraDeOrdem && (
+              <button
+                type="button"
+                onClick={() => {
+                  mudar((a) => ordenarPorArtigo(a))
+                  toast.success('Artigos em ordem.')
+                }}
+                title="Põe os artigos na ordem dos números (cada um leva o que está dentro dele). Títulos e outras linhas ficam onde estão"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-primaria-forte hover:bg-superficie-2 dark:text-primaria"
+              >
+                <ArrowDown01 className="size-4" aria-hidden /> Ordenar artigos
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
