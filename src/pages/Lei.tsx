@@ -306,10 +306,13 @@ export function PaginaLei() {
     acertarCartao(linhaId, antes, texto)
     // artigo novo (ou com o número trocado) vai para o lugar dele entre os artigos vizinhos
     const numero = numeroDoArtigo(textoPuro(texto))
-    if (numero !== null && numero !== numeroDoArtigo(textoPuro(antes))) {
+    const numeroAntes = numeroDoArtigo(textoPuro(antes))
+    if (numero !== null && numero !== numeroAntes) {
+      // um artigo que já existia leva os parágrafos escritos depois dele; um recém-escrito vai sozinho
+      const comSeguintes = numeroAntes !== null
       const comTexto = lista.map((l) => (l.id === linhaId ? { ...l, texto } : l))
-      if (encaixarArtigo(comTexto, linhaId) !== comTexto) {
-        mudar((a) => encaixarArtigo(a, linhaId))
+      if (encaixarArtigo(comTexto, linhaId, comSeguintes) !== comTexto) {
+        mudar((a) => encaixarArtigo(a, linhaId, comSeguintes))
         toast.success('O artigo foi para o lugar dele, na ordem dos números.')
         if (acao !== 'enter') requestAnimationFrame(() => irPara(linhaId))
       }

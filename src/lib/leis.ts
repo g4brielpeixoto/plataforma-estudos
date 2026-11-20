@@ -119,13 +119,14 @@ export type FiltroLei = 'tudo' | 'alta' | 'alta-media' | 'pendentes'
 const passa = (l: Pick<LeiLinha, 'incidencia' | 'revisado_em'>, filtro: FiltroLei) =>
   filtro === 'alta' ? l.incidencia === 'alta' : filtro === 'alta-media' ? l.incidencia === 'alta' || l.incidencia === 'media' : !!l.incidencia && !l.revisado_em
 
-/** Linhas que aparecem no filtro: as que passam, com tudo o que está dentro delas */
-export function linhasDoFiltro<T extends Item & Pick<LeiLinha, 'incidencia' | 'revisado_em'>>(lista: T[], filtro: FiltroLei): T[] {
+/** Linhas que aparecem no filtro: as que passam, com o que está dentro delas e, num artigo, os parágrafos e incisos escritos logo depois */
+export function linhasDoFiltro<T extends Item & Pick<LeiLinha, 'incidencia' | 'revisado_em'> & { texto?: string }>(lista: T[], filtro: FiltroLei): T[] {
   if (filtro === 'tudo') return lista
+  const comTexto = lista.map((l) => ({ id: l.id, nivel: l.nivel, texto: l.texto ?? '' }))
   const fora: T[] = []
   for (let i = 0; i < lista.length; ) {
     if (passa(lista[i], filtro)) {
-      const fim = fimDaSubarvore(lista, i)
+      const fim = fimDoArtigo(comTexto, i)
       fora.push(...lista.slice(i, fim))
       i = fim
     } else i++
@@ -305,75 +306,123 @@ type ItemComTexto = Item & { texto: string }
 const semHtml = (html: string) => html.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ')
 const numeroDaLinha = (l: ItemComTexto) => numeroDoArtigo(semHtml(l.texto))
 
-/** As irmãs da linha i (mesmo pai), cada uma com a sua subárvore: [início, fim) */
-function blocosIrmaos(lista: Item[], i: number): { ini: number; fim: number }[] {
-  const nivel = lista[i].nivel
-  let comeco = i
-  while (comeco > 0 && lista[comeco - 1].nivel >= nivel) comeco--
-  const blocos: { ini: number; fim: number }[] = []
-  for (let k = comeco; k < lista.length && lista[k].nivel >= nivel; ) {
-    const fim = fimDaSubarvore(lista, k)
-    blocos.push({ ini: k, fim })
-    k = fim
-  }
-  return blocos
+const RE_DIVISORIA = /^(t[ií]tulo|cap[ií]tulo|se[cç][aã]o|subse[cç][aã]o|livro|parte)\b/i
+/** Título, capítulo, seção…: separa os trechos de artigos e não pertence a nenhum artigo */
+export const ehDivisoria = (texto: string) => RE_DIVISORIA.test(texto.trim())
+
+interface Grupo {
+  ini: number
+  /** fim da linha com o que está dentro dela */
+  fimProprio: number
+  /** fim contando os parágrafos, incisos e anotações escritos logo depois do artigo, no mesmo nível */
+  fim: number
+  numero: number | null
 }
 
 /**
- * Põe o artigo no lugar dele entre os artigos vizinhos (com o que está dentro dele).
- * Só mexe se a linha começa com "Art. N" e os outros artigos em volta já estão em ordem;
- * linhas que não são artigo (título, capítulo) funcionam como divisória e não são atravessadas.
+ * As linhas de mesmo pai entre [ini, fim), em grupos: um artigo leva consigo as linhas seguintes do mesmo nível
+ * que não são artigo nem divisória (os parágrafos e incisos dele); as outras linhas ficam cada uma no seu grupo.
  */
-export function encaixarArtigo<T extends ItemComTexto>(lista: T[], id: string): T[] {
+function gruposIrmaos(lista: ItemComTexto[], ini: number, fim: number): Grupo[] {
+  const grupos: Grupo[] = []
+  for (let k = ini; k < fim; ) {
+    const f = Math.min(fimDaSubarvore(lista, k), fim)
+    const numero = numeroDaLinha(lista[k])
+    const atual = grupos[grupos.length - 1]
+    if (numero === null && atual && atual.numero !== null && !ehDivisoria(semHtml(lista[k].texto))) atual.fim = f
+    else grupos.push({ ini: k, fimProprio: f, fim: f, numero })
+    k = f
+  }
+  return grupos
+}
+
+/** Onde começam e terminam as irmãs da linha i (mesmo pai) */
+function faixaDasIrmas(lista: Item[], i: number): [number, number] {
+  const nivel = lista[i].nivel
+  let ini = i
+  while (ini > 0 && lista[ini - 1].nivel >= nivel) ini--
+  let fim = i
+  while (fim < lista.length && lista[fim].nivel >= nivel) fim++
+  return [ini, fim]
+}
+
+/** Fim (exclusivo) do artigo que começa em i, contando os parágrafos e incisos escritos logo depois dele no mesmo nível */
+export function fimDoArtigo(lista: ItemComTexto[], i: number): number {
+  const proprio = fimDaSubarvore(lista, i)
+  if (numeroDaLinha(lista[i]) === null) return proprio
+  const [, fim] = faixaDasIrmas(lista, i)
+  return gruposIrmaos(lista, i, fim)[0]?.fim ?? proprio
+}
+
+/**
+ * Põe o artigo no lugar dele entre os artigos vizinhos, com o que está dentro dele.
+ * Só mexe se a linha começa com "Art. N" e os outros artigos em volta já estão em ordem;
+ * divisórias (título, capítulo) e linhas soltas antes do primeiro artigo não são atravessadas.
+ * `comSeguintes`: leva também os parágrafos e incisos escritos logo depois dele no mesmo nível
+ * (num artigo recém-escrito no meio de outro não, porque o que vem depois é do artigo de cima).
+ */
+export function encaixarArtigo<T extends ItemComTexto>(lista: T[], id: string, comSeguintes = false): T[] {
   const i = indiceDe(lista, id)
   if (i < 0) return lista
   const numero = numeroDaLinha(lista[i])
   if (numero === null) return lista
-  const blocos = blocosIrmaos(lista, i)
-  const meu = blocos.findIndex((b) => b.ini === i)
-  // o trecho de artigos seguidos em que a linha está
-  let a = meu
-  while (a > 0 && numeroDaLinha(lista[blocos[a - 1].ini]) !== null) a--
-  let z = meu
-  while (z < blocos.length - 1 && numeroDaLinha(lista[blocos[z + 1].ini]) !== null) z++
-  const outros = blocos.slice(a, z + 1).filter((_, k) => a + k !== meu)
-  const numeros = outros.map((b) => numeroDaLinha(lista[b.ini]) as number)
-  if (numeros.some((n, k) => k > 0 && n < numeros[k - 1])) return lista
-  let pos = outros.findIndex((_, k) => numeros[k] > numero)
-  if (pos < 0) pos = outros.length
-  if (pos === meu - a) return lista
-  const fatia = lista.slice(blocos[meu].ini, blocos[meu].fim)
-  const resto = [...lista.slice(0, blocos[meu].ini), ...lista.slice(blocos[meu].fim)]
-  const alvoId = pos < outros.length ? lista[outros[pos].ini].id : null
-  const onde = alvoId ? indiceDe(resto, alvoId) : indiceDe(resto, lista[outros[outros.length - 1].ini].id) >= 0 ? fimDaSubarvore(resto, indiceDe(resto, lista[outros[outros.length - 1].ini].id)) : resto.length
+  const meuFim = comSeguintes ? fimDoArtigo(lista, i) : fimDaSubarvore(lista, i)
+  const fatia = lista.slice(i, meuFim)
+  const resto = [...lista.slice(0, i), ...lista.slice(meuFim)]
+  if (!resto.length) return lista
+  // sem a linha, as irmãs em volta de onde ela estava
+  const nivel = lista[i].nivel
+  let ini = i
+  while (ini > 0 && resto[ini - 1].nivel >= nivel) ini--
+  let fim = i
+  while (fim < resto.length && resto[fim].nivel >= nivel) fim++
+  if (ini === fim) return lista
+  const grupos = gruposIrmaos(resto, ini, fim)
+  // o artigo logo acima (a linha estava depois dele ou no meio dos parágrafos dele) ou, senão, o logo abaixo
+  let perto = grupos.findIndex((g) => g.numero !== null && g.ini < i && g.fim >= i)
+  if (perto < 0) perto = grupos.findIndex((g) => g.numero !== null && g.ini === i)
+  if (perto < 0) return lista
+  let a = perto
+  while (a > 0 && grupos[a - 1].numero !== null) a--
+  let z = perto
+  while (z < grupos.length - 1 && grupos[z + 1].numero !== null) z++
+  const trecho = grupos.slice(a, z + 1)
+  if (trecho.some((g, k) => k > 0 && (g.numero as number) < (trecho[k - 1].numero as number))) return lista
+  const proximo = trecho.find((g) => (g.numero as number) > numero)
+  const onde = proximo ? proximo.ini : trecho[trecho.length - 1].fim
+  if (onde === i) return lista
   return [...resto.slice(0, onde), ...fatia, ...resto.slice(onde)]
 }
 
-/** Ordena os artigos de toda a lei, em cada nível, sem atravessar as linhas que não são artigo */
+/** Ordena os artigos de toda a lei, em cada nível; cada artigo leva os parágrafos e incisos dele, e as divisórias ficam onde estão */
 export function ordenarPorArtigo<T extends ItemComTexto>(lista: T[]): T[] {
-  const ordenar = (ini: number, fim: number, nivel: number): T[] => {
-    const blocos: { numero: number | null; linhas: T[] }[] = []
-    for (let k = ini; k < fim; ) {
-      const f = Math.min(fimDaSubarvore(lista, k), fim)
-      blocos.push({ numero: numeroDaLinha(lista[k]), linhas: [lista[k], ...ordenar(k + 1, f, nivel + 1)] })
-      k = f
+  const ordenar = (ini: number, fim: number): T[] => {
+    const grupos = gruposIrmaos(lista, ini, fim)
+    const linhasDe = (g: Grupo): T[] => {
+      const saida: T[] = []
+      for (let k = g.ini; k < g.fim; ) {
+        const f = fimDaSubarvore(lista, k)
+        saida.push(lista[k], ...ordenar(k + 1, Math.min(f, g.fim)))
+        k = Math.min(f, g.fim)
+      }
+      return saida
     }
     const saida: T[] = []
-    for (let k = 0; k < blocos.length; ) {
+    for (let k = 0; k < grupos.length; ) {
       let j = k
-      while (j < blocos.length && blocos[j].numero !== null) j++
+      while (j < grupos.length && grupos[j].numero !== null) j++
       if (j === k) {
-        saida.push(...blocos[k].linhas)
+        saida.push(...linhasDe(grupos[k]))
         k++
         continue
       }
-      const trecho = blocos.slice(k, j).map((b, pos) => ({ b, pos }))
-      trecho.sort((x, y) => (x.b.numero as number) - (y.b.numero as number) || x.pos - y.pos)
-      for (const t of trecho) saida.push(...t.b.linhas)
+      const trecho = grupos.slice(k, j).map((g, pos) => ({ g, pos }))
+      trecho.sort((x, y) => (x.g.numero as number) - (y.g.numero as number) || x.pos - y.pos)
+      for (const t of trecho) saida.push(...linhasDe(t.g))
       k = j
     }
     return saida
   }
-  const nova = ordenar(0, lista.length, 0)
+  const nova = ordenar(0, lista.length)
   return nova.every((l, k) => l === lista[k]) ? lista : nova
 }
