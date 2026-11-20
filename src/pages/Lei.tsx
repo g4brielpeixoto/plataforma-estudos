@@ -1,6 +1,6 @@
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { format } from 'date-fns'
-import { ArrowDown, ArrowLeft, ArrowUp, ChevronRight, ChevronsDownUp, ChevronsUpDown, CornerDownRight, EllipsisVertical, FileUp, Flag, IndentDecrease, IndentIncrease, Layers, LoaderCircle, Menu as IconeMenu, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowUp, ChevronRight, ChevronsDownUp, ChevronsUpDown, CornerDownRight, EllipsisVertical, FileUp, Flag, IndentDecrease, IndentIncrease, Layers, Pilcrow, LoaderCircle, Menu as IconeMenu, Pencil, Plus, Trash2 } from 'lucide-react'
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
@@ -91,6 +91,14 @@ export function PaginaLei() {
     }
   })
   const [sumarioCelular, setSumarioCelular] = useState(false)
+  // texto com cara de lei: primeira linha de cada parágrafo recuada e texto justificado
+  const [recuo, setRecuo] = useState(() => {
+    try {
+      return localStorage.getItem('lei:recuo') === '1'
+    } catch {
+      return false
+    }
+  })
   const [ativa, setAtiva] = useState<string | null>(null)
   const [destaque, setDestaque] = useState<string | null>(null)
   const [editandoLei, setEditandoLei] = useState(false)
@@ -441,6 +449,18 @@ export function PaginaLei() {
               ))}
             </div>
             <span className="flex-1" />
+            <button
+              type="button"
+              onClick={() => {
+                setRecuo(!recuo)
+                guardar('lei:recuo', recuo ? '0' : '1')
+              }}
+              aria-pressed={recuo}
+              title="Recuo de parágrafo: a primeira linha de cada parágrafo começa mais para dentro e o texto fica justificado, como no texto da lei"
+              className={cn('inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-tinta-suave hover:bg-superficie-2 hover:text-tinta', recuo && 'bg-nevoa/70 text-tinta')}
+            >
+              <Pilcrow className="size-4" aria-hidden /> Recuo
+            </button>
             {comFilhos.size > 0 && (
               <button
                 type="button"
@@ -502,11 +522,11 @@ export function PaginaLei() {
                             <ChevronRight className={cn('size-4 transition-transform', !recolhida && 'rotate-90')} aria-hidden />
                           </button>
                         ) : (
-                          <span className="size-1.5 rounded-full bg-lilas" aria-hidden />
+                          !recuo && <span className="size-1.5 rounded-full bg-lilas" aria-hidden />
                         )}
                       </span>
 
-                      <div className="min-w-0 flex-1">
+                      <div className={cn('min-w-0 flex-1', recuo && '[&_[role=textbox]]:indent-5 sm:[&_[role=textbox]]:indent-8 sm:[&_[role=textbox]]:text-justify')}>
                         {editando === l.id ? (
                           <EditorDaLinha
                             inicial={l.texto}
@@ -527,7 +547,7 @@ export function PaginaLei() {
                                 setEditando(l.id)
                               }
                             }}
-                            className="min-h-8 cursor-text rounded-lg border border-transparent px-2 py-1 hover:bg-superficie-2/60 focus-visible:border-primaria focus-visible:outline-none"
+                            className={cn('min-h-8 cursor-text rounded-lg border border-transparent px-2 py-1 hover:bg-superficie-2/60 focus-visible:border-primaria focus-visible:outline-none', recuo && 'indent-5 sm:indent-8 sm:text-justify')}
                           >
                             <TextoDaLinha html={l.texto} />
                             {recolhida && <span className="ml-2 text-sm whitespace-nowrap text-tinta-suave">({descendentes(todas, l.id).length} dentro)</span>}
