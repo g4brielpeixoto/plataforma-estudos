@@ -2,9 +2,10 @@ import { ArrowDownAZ, ArrowRight, BookOpen, ChevronDown, ChevronRight, ChevronsD
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
+import { BalaoObservacao } from '@/components/BalaoObservacao'
 import { DisciplinaDialog } from '@/components/DisciplinaDialog'
 import { ImportarDialog } from '@/components/ImportarDialog'
-import { COL_DATA, COL_ESTUDO, COL_QUESTOES, dataCurta, Questoes, TempoSessoes, Traco, useRecolhidos } from '@/components/ListaTopicos'
+import { COL_BALAO, COL_DATA, COL_ESTUDO, COL_QUESTOES, dataCurta, Questoes, TempoSessoes, Traco, useRecolhidos } from '@/components/ListaTopicos'
 import { BarraProgresso, Botao, CabecalhoPagina, Carregando, Confirmar, Painel, Selecao, SeloAcerto, Vazio } from '@/components/ui'
 import { useDisciplinas, useEstudos, useExcluirDisciplina, useSalvarTopico, useTopicos } from '@/hooks/dados'
 import { resumirPorTopico, somarResumos } from '@/lib/indicadores'
@@ -359,6 +360,7 @@ function TopicosDaDisciplina({ topicos, porTopico, aoAlternar }: { topicos: Topi
         <span className={cn(COL_ESTUDO, 'hidden text-xs font-semibold text-tinta-suave md:block')} aria-hidden>
           Estudo
         </span>
+        <span className={cn(COL_BALAO, 'hidden md:block')} aria-hidden />
       </div>
       <ul className="-mx-4 divide-y divide-linha/50 border-t border-linha/50 sm:-mx-5">
         {topicos
@@ -368,6 +370,8 @@ function TopicosDaDisciplina({ topicos, porTopico, aoAlternar }: { topicos: Topi
             const recolhido = recolhidos.has(t.id)
             // no tópico pai, as questões somam as dos subtópicos
             const r = somarResumos([t, ...filhos].map((x) => porTopico.get(x.id)))
+            const obs = r?.ultimaObservacao
+            const obsDe = obs && obs.topicoId !== t.id ? filhos.find((x) => x.id === obs.topicoId)?.nome : undefined
             return (
               <li
                 key={t.id}
@@ -415,6 +419,7 @@ function TopicosDaDisciplina({ topicos, porTopico, aoAlternar }: { topicos: Topi
                     {r.questoesFeitas > 0 && <Questoes r={r} />}
                     {r.ultimoEstudo && <span>{dataCurta(r.ultimoEstudo)}</span>}
                     <TempoSessoes r={r} />
+                    {obs && <BalaoObservacao obs={obs} deOutroTopico={obsDe} className="-my-1" />}
                   </p>
                 )}
                 </div>
@@ -427,6 +432,7 @@ function TopicosDaDisciplina({ topicos, porTopico, aoAlternar }: { topicos: Topi
                 <div className={cn(COL_ESTUDO, 'hidden text-sm md:flex md:justify-center')} title={filhos.length ? 'Inclui os subtópicos' : undefined}>
                   {r ? <TempoSessoes r={r} /> : <Traco />}
                 </div>
+                <div className={cn(COL_BALAO, 'hidden md:block')}>{obs && <BalaoObservacao obs={obs} deOutroTopico={obsDe} />}</div>
               </li>
             )
           })}

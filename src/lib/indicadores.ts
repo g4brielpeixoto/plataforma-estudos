@@ -98,6 +98,17 @@ export interface ResumoTopico {
   acertoPct: number | null
   ultimoEstudo: string | null
   sessoes: number
+  /** a observação mais recente escrita num estudo do tópico (no tópico pai, a mais recente entre ele e os subtópicos) */
+  ultimaObservacao?: UltimaObservacao
+}
+
+export interface UltimaObservacao {
+  texto: string
+  /** quando foi o estudo */
+  data: string
+  categoria: string | null
+  /** o tópico do estudo (num tópico pai pode ser um subtópico) */
+  topicoId: string
 }
 
 /** Agrega os estudos por tópico (os estudos sem tópico ficam de fora) */
@@ -118,6 +129,9 @@ export function resumirPorTopico(estudos: Estudo[]): Map<string, ResumoTopico> {
     r.questoesAcertadas += e.questoes_acertadas ?? 0
     r.sessoes += 1
     if (!r.ultimoEstudo || e.data_hora > r.ultimoEstudo) r.ultimoEstudo = e.data_hora
+    const texto = e.observacao?.trim()
+    if (texto && (!r.ultimaObservacao || e.data_hora > r.ultimaObservacao.data))
+      r.ultimaObservacao = { texto, data: e.data_hora, categoria: e.categoria ?? null, topicoId: e.topico_id }
     mapa.set(e.topico_id, r)
   }
   for (const r of mapa.values()) r.acertoPct = porcentagem(r.questoesAcertadas, r.questoesFeitas)
@@ -135,6 +149,7 @@ export function somarResumos(lista: (ResumoTopico | undefined)[]): ResumoTopico 
     total.questoesAcertadas += r.questoesAcertadas
     total.sessoes += r.sessoes
     if (r.ultimoEstudo && (!total.ultimoEstudo || r.ultimoEstudo > total.ultimoEstudo)) total.ultimoEstudo = r.ultimoEstudo
+    if (r.ultimaObservacao && (!total.ultimaObservacao || r.ultimaObservacao.data > total.ultimaObservacao.data)) total.ultimaObservacao = r.ultimaObservacao
   }
   total.acertoPct = porcentagem(total.questoesAcertadas, total.questoesFeitas)
   return total

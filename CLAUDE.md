@@ -34,6 +34,7 @@ src/
   lib/supabase.ts         cliente + buscarTodos (paginação)
   components/ui.tsx       componentes base (Botao, Entrada, EntradaSenha, Selecao, Interruptor, Dialogo, Confirmar, Painel, SeloAcerto…)
   components/ListaTopicos.tsx  lista de tópicos com colunas Questões, Último estudo e Estudo (no tópico pai os números somam os subtópicos); a alça de arrastar e o número editável só aparecem no modo "Editar ordem"
+  components/BalaoObservacao.tsx  ícone de balão com a última observação escrita num estudo do tópico (`ResumoTopico.ultimaObservacao`, calculada em `resumirPorTopico`/`somarResumos`): abre com o mouse em cima ou com o foco, e no toque/clique fica aberto até tocar fora; mostra data, categoria e, num tópico pai, de qual subtópico veio. Só aparece quando existe observação. Fica numa coluna estreita (`COL_BALAO`) depois de Estudo no Edital e na página da disciplina; no celular, no fim da linha de números embaixo do nome
   components/Materiais.tsx     etiquetas de material (links) e o diálogo de materiais do tópico
   components/SeletorTopico.tsx campo de tópico com busca (abre uma janela; digita parte do nome ou o número do edital; setas + Enter). Usado em Estudar, Salvar estudo, Planner e Flashcards
   lib/buscaTopicos.ts     regras da busca de tópico: cada palavra bate com o nome ou com a numeração ("4" acha 4, 4.1, 4.2…; número no nome só inteiro) — testadas

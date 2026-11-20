@@ -10,6 +10,7 @@ import { somarResumos, type ResumoTopico } from '@/lib/indicadores'
 import { avancar, descendentesDe, filhosDe, irmaosDe, moverParaPosicao, moverPorArrasto, NIVEL_MAXIMO, numeracao, paiDe, podeRecuar, recuar } from '@/lib/topicos'
 import { cn, formatarDuracao } from '@/lib/utils'
 import type { Material, Topico } from '@/types'
+import { BalaoObservacao } from './BalaoObservacao'
 import { ChipsMateriais } from './Materiais'
 import { Botao, Entrada, SeloAcerto } from './ui'
 
@@ -133,12 +134,15 @@ export function ListaTopicos({ topicos, visiveis, porTopico, podeArrastar, edita
           <span className={cn(COL_ESTUDO, 'hidden md:block')} aria-hidden>
             Estudo
           </span>
+          <span className={cn(COL_BALAO, 'hidden md:block')} aria-hidden />
           <span className="hidden w-9 shrink-0 md:block" />
         </div>
         <ul className="p-2">
           {exibidos.map((t) => {
             const pai = paiDe(topicos, t.id)
             const descendentes = descendentesDe(topicos, t.id)
+            const resumo = descendentes.length ? somarResumos([porTopico.get(t.id), ...descendentes.map((f) => porTopico.get(f.id))]) : porTopico.get(t.id)
+            const obs = resumo?.ultimaObservacao
             return (
               <LinhaTopico
                 key={t.id}
@@ -147,7 +151,8 @@ export function ListaTopicos({ topicos, visiveis, porTopico, podeArrastar, edita
                 maximo={irmaosDe(topicos, t.id).length}
                 nomePai={pai?.nome}
                 qtdFilhos={filhosDe(topicos, t.id).length}
-                resumo={descendentes.length ? somarResumos([porTopico.get(t.id), ...descendentes.map((f) => porTopico.get(f.id))]) : porTopico.get(t.id)}
+                resumo={resumo}
+                obsDe={obs && obs.topicoId !== t.id ? descendentes.find((f) => f.id === obs.topicoId)?.nome : undefined}
                 podeArrastar={podeArrastar && editando}
                 colunaRecolher={podeArrastar}
                 podeNumerar={editando}
@@ -181,6 +186,8 @@ export function ListaTopicos({ topicos, visiveis, porTopico, podeArrastar, edita
 export const COL_QUESTOES = 'w-28 shrink-0 text-center'
 export const COL_DATA = 'w-24 shrink-0 text-center'
 export const COL_ESTUDO = 'w-24 shrink-0 text-center'
+/** coluna estreita do balão da última observação */
+export const COL_BALAO = 'w-7 shrink-0 text-center'
 
 export const dataCurta = (iso: string) => format(new Date(iso), 'dd/MM/yy')
 
@@ -237,6 +244,7 @@ function LinhaTopico({
   nomePai,
   qtdFilhos,
   resumo: r,
+  obsDe,
   podeArrastar,
   colunaRecolher,
   podeNumerar,
@@ -259,6 +267,8 @@ function LinhaTopico({
   nomePai?: string
   qtdFilhos: number
   resumo?: ResumoTopico
+  /** nome do subtópico de onde veio a última observação, quando não é do próprio tópico */
+  obsDe?: string
   podeArrastar: boolean
   /** lista completa: reserva a coluna da seta de recolher em todas as linhas */
   colunaRecolher: boolean
@@ -281,6 +291,7 @@ function LinhaTopico({
   const [editandoNumero, setEditandoNumero] = useState<string | null>(null)
   const [renomeando, setRenomeando] = useState<string | null>(null)
   const sub = t.nivel > 0
+  const obs = r?.ultimaObservacao
   const posicaoAtual = numero.split('.').pop() ?? ''
 
   const confirmarNumero = () => {
@@ -428,6 +439,7 @@ function LinhaTopico({
                     {r.questoesFeitas > 0 && <Questoes r={r} />}
                     {r.ultimoEstudo && <span>{dataCurta(r.ultimoEstudo)}</span>}
                     <TempoSessoes r={r} />
+                    {obs && <BalaoObservacao obs={obs} deOutroTopico={obsDe} className="-my-1" />}
                   </>
                 ) : (
                   <span>Ainda não estudado</span>
@@ -454,6 +466,7 @@ function LinhaTopico({
       <div className={cn(COL_ESTUDO, 'hidden text-sm md:flex md:justify-center')} title={qtdFilhos ? 'Inclui os subtópicos' : undefined}>
         {r ? <TempoSessoes r={r} /> : <Traco />}
       </div>
+      <div className={cn(COL_BALAO, 'hidden md:block')}>{obs && <BalaoObservacao obs={obs} deOutroTopico={obsDe} />}</div>
 
       {renomeando !== null && <span className="hidden w-9 shrink-0 md:block" />}
       {renomeando === null && (
