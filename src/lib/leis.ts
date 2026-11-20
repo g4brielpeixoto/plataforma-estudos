@@ -436,3 +436,115 @@ export function ordenarPorArtigo<T extends ItemComTexto>(lista: T[]): T[] {
   const nova = ordenar(0, lista.length)
   return nova.every((l, k) => l === lista[k]) ? lista : nova
 }
+
+// ---------- ligações entre dispositivos (estilo RemNote) ----------
+
+/** Ids dos dispositivos ligados num texto (`<span data-ref="id">`) */
+export function refsDoTexto(html: string): string[] {
+  return [...html.matchAll(/data-ref="([0-9a-f-]{36})"/gi)].map((m) => m[1].toLowerCase())
+}
+
+const semTagsNem = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim()
+
+/** Nome curto de um dispositivo: "Art. 482", "§ 2º", "Parágrafo único", "inciso IV", "alínea b"; null se a linha não começa com um */
+export function rotuloDispositivo(texto: string): string | null {
+  const t = semTagsNem(texto).replace(/^[“"]\s*/, '')
+  if (/^arts?\.?\s*\d/i.test(t)) return rotuloSumario(t)
+  let m = t.match(/^§\s*(\d+)\s*([º°o])?(?:-([A-Z]))?/)
+  if (m) return `§ ${m[1]}${m[2] || Number(m[1]) < 10 ? 'º' : ''}${m[3] ? `-${m[3]}` : ''}`
+  if (/^par[áa]grafo [úu]nico/i.test(t)) return 'Parágrafo único'
+  m = t.match(/^([IVXLC]+(?:-[A-Z])?)\s*[-–]/)
+  if (m) return `inciso ${m[1]}`
+  m = t.match(/^([a-z])\)/)
+  if (m) return `alínea ${m[1]}`
+  return null
+}
+
+/** Os dispositivos acima da linha (artigo, §, inciso) e ela mesma, do mais geral ao mais específico */
+function cadeia<T extends ItemComTexto>(lista: T[], i: number): T[] {
+  const acima = ancestrais(lista, lista[i].id)
+  const topo = acima[0] ?? lista[i]
+  const iTopo = indiceDe(lista, topo.id)
+  // parágrafo escrito sem Tab depois do artigo: o artigo é o "dono" dele
+  if (numeroDaLinha(topo) === null && !linhaDivisoria(topo) && topo.nivel === 0) {
+    for (let k = iTopo - 1; k >= 0; k--) {
+      const l = lista[k]
+      if (l.nivel !== topo.nivel) continue
+      if (linhaDivisoria(l)) break
+      if (numeroDaLinha(l) !== null) return [l, ...acima, lista[i]]
+    }
+  }
+  return [...acima, lista[i]]
+}
+
+/** Caminho do dispositivo, para a etiqueta da ligação: "Art. 482, § 2º, inciso IV" (ou o começo do texto) */
+export function caminhoDoDispositivo(lista: ItemComTexto[], id: string): string {
+  const i = indiceDe(lista, id)
+  if (i < 0) return ''
+  const partes = cadeia(lista, i)
+    .map((l) => rotuloDispositivo(l.texto))
+    .filter((x): x is string => !!x)
+  if (partes.length && rotuloDispositivo(lista[i].texto)) return partes.join(', ')
+  const t = semTagsNem(lista[i].texto)
+  const curto = t.length > 40 ? `${t.slice(0, 38).trimEnd()}…` : t
+  return partes.length ? `${partes.join(', ')} › ${curto}` : curto
+}
+
+const chaveBusca = (t: string) =>
+  t
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[º°ª]/g, '')
+    .replace(/(\d)\.(?=\d)/g, '$1')
+    .replace(/§/g, ' § ')
+    .replace(/[.,;:()“”"]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+export interface ItemBusca {
+  id: string
+  leiId: string
+  rotulo: string
+  /** texto da linha sem formatação */
+  texto: string
+  chave: string
+}
+
+/** Índice para procurar dispositivos em todas as leis (nome da lei + caminho + texto) */
+export function indiceDeBusca(leis: { id: string; nome: string }[], linhasPorLei: Map<string, ItemComTexto[]>): ItemBusca[] {
+  const itens: ItemBusca[] = []
+  for (const lei of leis) {
+    const lista = linhasPorLei.get(lei.id) ?? []
+    lista.forEach((l) => {
+      if (linhaDivisoria(l)) return
+      const caminho = caminhoDoDispositivo(lista, l.id)
+      const texto = semTagsNem(l.texto)
+      if (!texto) return
+      const rotulo = `${lei.nome} › ${caminho}`
+      itens.push({ id: l.id, leiId: lei.id, rotulo, texto, chave: chaveBusca(`${rotulo} ${texto}`) })
+    })
+  }
+  return itens
+}
+
+/**
+ * Procura dispositivos: cada palavra precisa aparecer; número de artigo vale inteiro ("482" acha o art. 482, não o 1.482).
+ * Os que batem no rótulo (lei e caminho) vêm antes dos que só batem no texto.
+ */
+export function buscarDispositivos(indice: ItemBusca[], consulta: string, limite = 30): ItemBusca[] {
+  const palavras = chaveBusca(consulta).split(' ').filter(Boolean)
+  if (!palavras.length) return []
+  const bate = (alvo: string, p: string) => (/^\d+$/.test(p) ? new RegExp(`(^|\\D)${p}(?!\\d)`).test(alvo) : alvo.includes(p))
+  const achados: { item: ItemBusca; peso: number }[] = []
+  for (const item of indice) {
+    if (!palavras.every((p) => bate(item.chave, p))) continue
+    const rot = chaveBusca(item.rotulo)
+    const peso = palavras.filter((p) => bate(rot, p)).length
+    achados.push({ item, peso })
+  }
+  return achados
+    .sort((a, b) => b.peso - a.peso)
+    .slice(0, limite)
+    .map((a) => a.item)
+}

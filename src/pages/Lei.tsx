@@ -1,10 +1,11 @@
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { format } from 'date-fns'
-import { ArrowDown, ArrowDown01, ArrowLeft, ArrowUp, ChevronRight, ChevronsDownUp, ChevronsUpDown, CornerDownRight, EllipsisVertical, FileUp, Flag, IndentDecrease, IndentIncrease, Layers, Pilcrow, LoaderCircle, Menu as IconeMenu, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowDown01, ArrowLeft, ArrowUp, ChevronRight, ChevronsDownUp, ChevronsUpDown, CornerDownRight, EllipsisVertical, FileUp, Flag, IndentDecrease, IndentIncrease, Layers, Link2, Pilcrow, LoaderCircle, Menu as IconeMenu, Pencil, Plus, Trash2 } from 'lucide-react'
 import { cloneElement, memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactElement, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
-import { CampoRico, type CampoRicoRef } from '@/components/flashcards/CampoRico'
+import { BotaoFerramenta, CampoRico, type CampoRicoRef } from '@/components/flashcards/CampoRico'
+import { BuscaDispositivo, htmlDaLigacao, PreviaLigacao, rotularLigacoes, useLigacoes, type Ligacoes } from '@/components/leis/Ligacoes'
 import { NotaFlashDialog } from '@/components/flashcards/NotaFlashDialog'
 import { ImportarLeiDialog } from '@/components/leis/ImportarLeiDialog'
 import { LeiDialog } from '@/components/leis/LeiDialog'
@@ -34,6 +35,7 @@ import {
   resumirLei,
   ROTULO_INCIDENCIA,
   temFilhos,
+  refsDoTexto,
   encaixarArtigo,
   numeroDoArtigo,
   ordenarPorArtigo,
@@ -77,6 +79,11 @@ export function PaginaLei() {
   const salvarNota = useSalvarNotaFlash()
   const excluirNotas = useExcluirNotasFlash()
   const { linhas, mudar, pendente } = useEditorLei(id)
+  const ligacoes = useLigacoes(id, linhas)
+  // prévia da ligação (mouse em cima da etiqueta ou primeiro toque)
+  const [previa, setPrevia] = useState<{ id: string; el: HTMLElement } | null>(null)
+  const timerPrevia = useRef(0)
+  const fecharPrevia = useCallback(() => setPrevia(null), [])
 
   const lei = leis.data?.find((l) => l.id === id)
   const disciplina = lei ? flash.disciplinaPorId.get(lei.disciplina_id) : undefined
@@ -359,7 +366,31 @@ export function PaginaLei() {
   }
 
   // ações das linhas num objeto estável: as linhas (memo) não precisam redesenhar quando a página muda
+  const abrirLigacao = (alvo: string) => {
+    setPrevia(null)
+    const d = ligacoes.destino(alvo)
+    if (!d) return void toast.info('O dispositivo ligado foi apagado da lei.')
+    if (d.leiId === id) irPara(alvo)
+    else navegar(`/leis/${d.leiId}?linha=${alvo}`)
+  }
   acoes.current = {
+    ligacoes,
+    mostrarPrevia: (alvo, el) => {
+      window.clearTimeout(timerPrevia.current)
+      setPrevia((p) => (p?.id === alvo && p.el === el ? p : { id: alvo, el }))
+    },
+    esconderPrevia: () => {
+      window.clearTimeout(timerPrevia.current)
+      timerPrevia.current = window.setTimeout(() => setPrevia(null), 250)
+    },
+    previaAberta: (alvo) => previa?.id === alvo,
+    abrirLigacao,
+    citacoes: (alvo) =>
+      (ligacoes.citadoEm.get(alvo) ?? []).map((origem) => {
+        const d = ligacoes.destino(origem)
+        const l = ligacoes.linhaPorId.get(origem)
+        return { id: origem, rotulo: d ? `${d.leiNome} › ${d.caminho}` : 'Linha', texto: l ? textoPuro(l.texto) : '' }
+      }),
     editar: (id, ponto) => setEditando(id, ponto),
     alternarRecolhida: (id) => setRecolhidas(recolhidas.has(id) ? new Set([...recolhidas].filter((x) => x !== id)) : new Set([...recolhidas, id])),
     rascunho: aoRascunho,
@@ -556,6 +587,8 @@ export function PaginaLei() {
                       temDentro={temDentro}
                       dentroRecolhidas={recolhida ? descendentes(todas, l.id).length : 0}
                       recuo={recuo}
+                      chaveRefs={l.texto.includes('data-ref') ? refsDoTexto(l.texto).map((r) => { const d = ligacoes.destino(r); return d ? `${d.leiNome}›${d.caminho}` : '∅' }).join('|') : undefined}
+                      citacoes={ligacoes.citadoEm.get(l.id)?.length ?? 0}
                       cartao={nota ? (novoCartao ? 'ainda não estudado' : proxima ? `próxima revisão em ${format(new Date(proxima), 'dd/MM/yy')}` : 'criado') : null}
                     />
                   )
@@ -589,6 +622,14 @@ export function PaginaLei() {
         </div>
       )}
 
+      <PreviaLigacao
+        alvo={previa}
+        ligacoes={ligacoes}
+        aoSair={fecharPrevia}
+        aoAbrir={abrirLigacao}
+        aoEntrarMouse={() => window.clearTimeout(timerPrevia.current)}
+        aoSairMouse={() => acoes.current.esconderPrevia()}
+      />
       <LeiDialog aberto={editandoLei} aoMudar={setEditandoLei} lei={lei} aoExcluir={() => navegar('/leis')} />
       <ImportarLeiDialog aberto={importando} aoMudar={setImportando} aoImportar={importar} />
       <NotaFlashDialog
@@ -658,6 +699,12 @@ export function PaginaLei() {
 }
 
 interface AcoesDaLinha {
+  ligacoes: Ligacoes
+  mostrarPrevia: (id: string, el: HTMLElement) => void
+  esconderPrevia: () => void
+  previaAberta: (id: string) => boolean
+  abrirLigacao: (id: string) => void
+  citacoes: (id: string) => { id: string; rotulo: string; texto: string }[]
   editar: (id: string, ponto?: { x: number; y: number }) => void
   alternarRecolhida: (id: string) => void
   rascunho: (id: string, html: string) => void
@@ -681,6 +728,8 @@ const LinhaDaLei = memo(function LinhaDaLei({
   dentroRecolhidas,
   recuo,
   cartao,
+  chaveRefs,
+  citacoes,
 }: {
   l: LeiLinha
   acoes: { current: AcoesDaLinha }
@@ -693,7 +742,12 @@ const LinhaDaLei = memo(function LinhaDaLei({
   recuo: boolean
   /** situação do flashcard da linha, ou null sem flashcard */
   cartao: string | null
+  /** muda quando o nome de algum dispositivo ligado nesta linha muda (para a etiqueta se atualizar) */
+  chaveRefs?: string
+  /** quantas linhas ligam para esta */
+  citacoes: number
 }) {
+  const tipoPonteiro = useRef('mouse')
   const recolhida = dentroRecolhidas > 0
   const a = () => acoes.current
   return (
@@ -730,14 +784,40 @@ const LinhaDaLei = memo(function LinhaDaLei({
             aoRascunho={(html) => a().rascunho(l.id, html)}
             aoAcao={(html, acao) => a().acao(l.id, html, acao)}
             aoColarVarias={(partes) => a().colarVarias(l.id, partes)}
+            acoes={acoes}
           />
         ) : (
           <div
             role="button"
             tabIndex={0}
             aria-label={`Editar a linha: ${textoPuro(l.texto).slice(0, 120) || 'em branco'}`}
-            onClick={(e) => a().editar(l.id, { x: e.clientX, y: e.clientY })}
+            onPointerDown={(e) => (tipoPonteiro.current = e.pointerType)}
+            onClick={(e) => {
+              const ref = (e.target as HTMLElement).closest<HTMLElement>('[data-ref]')
+              if (ref) {
+                // ligação: mouse abre direto (a prévia já apareceu); no toque, o primeiro toque mostra a prévia
+                const alvo = ref.dataset.ref!
+                if (tipoPonteiro.current === 'mouse' || a().previaAberta(alvo)) a().abrirLigacao(alvo)
+                else a().mostrarPrevia(alvo, ref)
+                return
+              }
+              a().editar(l.id, { x: e.clientX, y: e.clientY })
+            }}
+            onMouseOver={(e) => {
+              const ref = (e.target as HTMLElement).closest<HTMLElement>('[data-ref]')
+              if (ref) a().mostrarPrevia(ref.dataset.ref!, ref)
+            }}
+            onMouseOut={(e) => {
+              if ((e.target as HTMLElement).closest('[data-ref]')) a().esconderPrevia()
+            }}
             onKeyDown={(e) => {
+              const ref = (e.target as HTMLElement).closest<HTMLElement>('[data-ref]')
+              if (ref && e.key === 'Enter') {
+                e.preventDefault()
+                e.stopPropagation()
+                return a().abrirLigacao(ref.dataset.ref!)
+              }
+              if (e.target !== e.currentTarget) return
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault()
                 a().editar(l.id)
@@ -745,13 +825,31 @@ const LinhaDaLei = memo(function LinhaDaLei({
             }}
             className={cn('min-h-8 cursor-text rounded-lg border border-transparent px-2 py-1 hover:bg-superficie-2/60 focus-visible:border-primaria focus-visible:outline-none', recuo && 'indent-5 sm:indent-8 sm:text-justify')}
           >
-            <TextoDaLinha html={l.texto} />
+            <TextoDaLinha html={l.texto} chaveRefs={chaveRefs} destino={a().ligacoes.destino} />
             {recolhida && <span className="ml-2 text-sm whitespace-nowrap text-tinta-suave">({dentroRecolhidas} dentro)</span>}
           </div>
         )}
       </div>
 
       <div className="flex h-8 shrink-0 items-center gap-0.5">
+        {citacoes > 0 && (
+          <MenuSobDemanda
+            gatilho={
+              <button
+                type="button"
+                aria-label={`Citado em ${citacoes} ${citacoes === 1 ? 'lugar' : 'lugares'}`}
+                title="Onde este dispositivo é citado nas suas anotações"
+                className="inline-flex h-7 items-center gap-1 rounded-lg px-1.5 text-xs font-semibold text-primaria-forte hover:bg-superficie-2 numeros dark:text-primaria"
+              >
+                <Link2 className="size-3.5" aria-hidden />
+                {citacoes}
+              </button>
+            }
+            largura="w-80"
+          >
+            <ListaCitacoes alvo={l.id} acoes={acoes} />
+          </MenuSobDemanda>
+        )}
         {cartao && (
           <button
             type="button"
@@ -816,8 +914,28 @@ const LinhaDaLei = memo(function LinhaDaLei({
 const negritoDoTexto = (html: string) => html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
 
 /** O texto da linha fora da edição (limpo de novo ao exibir) */
-const TextoDaLinha = memo(function TextoDaLinha({ html }: { html: string }) {
-  const limpo = useMemo(() => linhaParaExibir(limparHtml(html)), [html])
+function ListaCitacoes({ alvo, acoes }: { alvo: string; acoes: { current: AcoesDaLinha } }) {
+  const lista = acoes.current.citacoes(alvo)
+  return (
+    <>
+      <Menu.Label className="px-3 pt-1.5 pb-1 text-xs text-tinta-suave">Citado em</Menu.Label>
+      {lista.map((c) => (
+        <Menu.Item
+          key={c.id}
+          onSelect={() => acoes.current.abrirLigacao(c.id)}
+          className="flex cursor-pointer flex-col rounded-lg px-3 py-2 outline-none select-none data-[highlighted]:bg-superficie-2"
+        >
+          <span className="text-sm font-medium text-tinta">{c.rotulo}</span>
+          <span className="line-clamp-2 text-xs text-tinta-suave">{c.texto}</span>
+        </Menu.Item>
+      ))}
+    </>
+  )
+}
+
+const TextoDaLinha = memo(function TextoDaLinha({ html, chaveRefs, destino }: { html: string; chaveRefs?: string; destino: Ligacoes['destino'] }) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const limpo = useMemo(() => rotularLigacoes(linhaParaExibir(limparHtml(html)), destino), [html, chaveRefs])
   if (!limpo) return <span className="text-[15px] leading-relaxed text-tinta-suave/70">Linha em branco</span>
   return <span className="texto-rico inline text-[15px] leading-relaxed text-tinta [overflow-wrap:anywhere]" dangerouslySetInnerHTML={{ __html: limpo }} />
 })
@@ -828,16 +946,36 @@ function EditorDaLinha({
   aoRascunho,
   aoAcao,
   aoColarVarias,
+  acoes,
 }: {
   inicial: string
   ponto?: { x: number; y: number }
   aoRascunho: (html: string) => void
   aoAcao: (html: string, acao: Acao) => void
   aoColarVarias: (partes: string[]) => boolean
+  acoes: { current: AcoesDaLinha }
 }) {
   const [html, setHtml] = useState(inicial)
   const atual = useRef(inicial)
   const campo = useRef<CampoRicoRef>(null)
+  // busca de dispositivo aberta: o editor não fecha por perder o foco para a janela
+  const [buscando, setBuscando] = useState(false)
+  const buscandoRef = useRef(false)
+  const apagar = useRef(0)
+  const abrirBusca = (apagarAntes: number) => {
+    campo.current?.guardarCursor()
+    apagar.current = apagarAntes
+    buscandoRef.current = true
+    setBuscando(true)
+  }
+  const fecharBusca = (html?: string) => {
+    setBuscando(false)
+    requestAnimationFrame(() => {
+      if (html) campo.current?.inserirHtml(html, apagar.current)
+      else campo.current?.focar()
+      buscandoRef.current = false
+    })
+  }
 
   useEffect(() => {
     campo.current?.focar(ponto)
@@ -864,11 +1002,21 @@ function EditorDaLinha({
     if (e.altKey && e.key === 'ArrowUp') return agir('cima')
     if (e.altKey && e.key === 'ArrowDown') return agir('baixo')
     if (e.key === 'Backspace' && vazio(atual.current)) return agir('apagar')
+    // "[[" abre a busca para ligar a um dispositivo
+    if (e.key === '[') {
+      const sel = window.getSelection()
+      const no = sel?.anchorNode
+      if (sel?.isCollapsed && no?.nodeType === Node.TEXT_NODE && sel.anchorOffset > 0 && no.textContent?.[sel.anchorOffset - 1] === '[') {
+        e.preventDefault()
+        abrirBusca(1)
+      }
+    }
   }
 
   return (
     <div
       onBlur={(e) => {
+        if (buscandoRef.current) return
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) aoAcao(atual.current, 'sair')
       }}
     >
@@ -884,7 +1032,21 @@ function EditorDaLinha({
         }}
         aoTecla={tecla}
         aoColarVarias={aoColarVarias}
-        placeholder="Art. 11-A — assunto, pegadinha, súmula…"
+        placeholder="Art. 11-A — assunto, pegadinha, súmula…  ([[ liga a outro artigo)"
+        extras={
+          <BotaoFerramenta rotulo="Ligar a um artigo, parágrafo ou inciso ([[)" aoClicar={() => abrirBusca(0)}>
+            <Link2 className="size-4" />
+          </BotaoFerramenta>
+        }
+      />
+      <BuscaDispositivo
+        aberto={buscando}
+        buscar={acoes.current.ligacoes.buscar}
+        aoFechar={() => fecharBusca()}
+        aoEscolher={(item) => {
+          const d = acoes.current.ligacoes.destino(item.id)
+          fecharBusca(d ? htmlDaLigacao(d) : undefined)
+        }}
       />
     </div>
   )

@@ -28,6 +28,10 @@ import { cn, mensagemErro } from '@/lib/utils'
 export interface CampoRicoRef {
   /** põe o foco no editor; com um ponto da tela, o cursor vai para lá (senão, para o fim) */
   focar: (ponto?: { x: number; y: number }) => void
+  /** guarda onde o cursor está (para inserir algo ali depois de abrir uma janela) */
+  guardarCursor: () => void
+  /** insere HTML onde o cursor estava; `apagarAntes` tira esse número de caracteres antes do cursor (ex.: o "[" de "[[") */
+  inserirHtml: (html: string, apagarAntes?: number) => void
 }
 
 interface Props {
@@ -48,6 +52,8 @@ interface Props {
   aoTecla?: (e: KeyboardEvent<HTMLDivElement>) => void
   /** colaram um texto com várias linhas (só no modo linha): devolva true para o editor não colar */
   aoColarVarias?: (linhas: string[]) => boolean
+  /** botões a mais na barra (ex.: ligar a um artigo, no menu Leis) */
+  extras?: ReactNode
 }
 
 /*
@@ -56,7 +62,7 @@ interface Props {
   Imagens: botão, colar (print da tela) ou arrastar. Elas vão para o bucket e entram no texto pelo endereço.
   Usa document.execCommand, que todos os navegadores ainda suportam para edição simples.
 */
-export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id, valor, aoMudar, placeholder, omissao, rotulo, invalido, className, aoEnviar, linha, aoTecla, aoColarVarias }, ref) {
+export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id, valor, aoMudar, placeholder, omissao, rotulo, invalido, className, aoEnviar, linha, aoTecla, aoColarVarias, extras }, ref) {
   const editor = useRef<HTMLDivElement>(null)
   const seletor = useRef<HTMLInputElement>(null)
   // onde o cursor estava (para a imagem entrar no lugar certo depois do envio)
@@ -82,6 +88,26 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
   useImperativeHandle(
     ref,
     () => ({
+      guardarCursor: () => guardarCursor(),
+      inserirHtml: (html, apagarAntes = 0) => {
+        const el = editor.current
+        if (!el) return
+        el.focus()
+        const sel = window.getSelection()
+        if (!sel) return
+        sel.removeAllRanges()
+        if (cursor.current && el.contains(cursor.current.startContainer)) sel.addRange(cursor.current)
+        else {
+          const fim = document.createRange()
+          fim.selectNodeContents(el)
+          fim.collapse(false)
+          sel.addRange(fim)
+        }
+        for (let k = 0; k < apagarAntes; k++) sel.modify('extend', 'backward', 'character')
+        document.execCommand('insertHTML', false, html)
+        travarLigacoes()
+        emitir()
+      },
       focar: (ponto) => {
         const el = editor.current
         if (!el) return
@@ -104,8 +130,17 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
   // só reescreve o conteúdo quando o valor muda por fora (abrir outro cartão, limpar o formulário)
   useEffect(() => {
     const el = editor.current
-    if (el && el.innerHTML !== valor) el.innerHTML = valor
+    if (el && el.innerHTML !== valor) {
+      el.innerHTML = valor
+      travarLigacoes()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [valor])
+
+  /** a etiqueta de uma ligação (menu Leis) é um bloco só: não dá para escrever dentro dela, o Backspace apaga inteira */
+  const travarLigacoes = () => {
+    for (const ref of Array.from(editor.current?.querySelectorAll('[data-ref]') ?? [])) ref.setAttribute('contenteditable', 'false')
+  }
 
   const emitir = () => {
     guardarCursor()
@@ -479,6 +514,7 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
         />
           </>
         )}
+        {extras}
         {enviando > 0 && (
           <span className="ml-1 inline-flex items-center gap-1.5 text-xs text-tinta-suave" role="status">
             <LoaderCircle className="size-3.5 animate-spin" aria-hidden /> Enviando imagem…
@@ -597,7 +633,7 @@ const BLOCOS_ALINHAVEIS = new Set(['P', 'DIV', 'LI', 'BLOCKQUOTE', 'TD', 'TH'])
 /** cor de fundo provisória que o navegador aplica na seleção antes de virar <mark> (não fica gravada) */
 const COR_PROVISORIA = 'rgb(254, 253, 1)'
 
-function BotaoFerramenta({ rotulo, aoClicar, ativo, children }: { rotulo: string; aoClicar: () => void; ativo?: boolean; children: ReactNode }) {
+export function BotaoFerramenta({ rotulo, aoClicar, ativo, children }: { rotulo: string; aoClicar: () => void; ativo?: boolean; children: ReactNode }) {
   return (
     <button
       type="button"
