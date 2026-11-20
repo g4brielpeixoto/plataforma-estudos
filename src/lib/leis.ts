@@ -288,15 +288,18 @@ export function entradasDoSumario(lista: (Item & Pick<LeiLinha, 'incidencia'>)[]
 
 // ---------- ordem dos artigos ----------
 
-const RE_NUMERO_ARTIGO = /^arts?\.?\s*(\d{1,3}(?:\.\d{3})+|\d+)\s*(?:º|°|ª|o\b)?\.?(?:\s*-\s*([A-Za-z]{1,2})\b)?/i
+const RE_NUMERO_ARTIGO = /^arts?\.?\s*(\d{1,3}(?:\.\d{3})+|\d+)\s*(?:º|°|ª|o\b)?/i
+// letra do artigo colada no número por hífen (11-A, 384-AB); "Art. 391 - Não…" não tem letra
+const RE_LETRA_ARTIGO = /^-([A-Z]{1,2})(?![A-Za-zÀ-ÿ])/
 
 /** Número do artigo com que a linha começa, pronto para comparar ("Art. 11-A" fica entre o 11 e o 12); null se não começa com artigo */
 export function numeroDoArtigo(texto: string): number | null {
-  const m = texto.trim().match(RE_NUMERO_ARTIGO)
+  const t = texto.trim()
+  const m = t.match(RE_NUMERO_ARTIGO)
   if (!m) return null
   const n = Number(m[1].replace(/\./g, ''))
   if (!Number.isFinite(n)) return null
-  const letras = (m[2] ?? '').toUpperCase()
+  const letras = t.slice(m[0].length).match(RE_LETRA_ARTIGO)?.[1] ?? ''
   let fracao = 0
   for (let k = 0; k < letras.length; k++) fracao += (letras.charCodeAt(k) - 64) / 27 ** (k + 1)
   return n + fracao
@@ -309,6 +312,13 @@ const numeroDaLinha = (l: ItemComTexto) => numeroDoArtigo(semHtml(l.texto))
 const RE_DIVISORIA = /^(t[ií]tulo|cap[ií]tulo|se[cç][aã]o|subse[cç][aã]o|livro|parte)\b/i
 /** Título, capítulo, seção…: separa os trechos de artigos e não pertence a nenhum artigo */
 export const ehDivisoria = (texto: string) => RE_DIVISORIA.test(texto.trim())
+/** Linha toda em negrito (como os títulos e as epígrafes da lei): também é divisória */
+const todaEmNegrito = (html: string) => {
+  const t = html.trim()
+  if (!t.startsWith('<b>') || !t.endsWith('</b>')) return false
+  return !/<\/?b>/.test(t.slice(3, -4).replace(/<\/b>\s*<b>/g, ''))
+}
+const linhaDivisoria = (l: ItemComTexto) => ehDivisoria(semHtml(l.texto)) || (todaEmNegrito(l.texto) && numeroDaLinha(l) === null)
 
 interface Grupo {
   ini: number
@@ -329,7 +339,7 @@ function gruposIrmaos(lista: ItemComTexto[], ini: number, fim: number): Grupo[] 
     const f = Math.min(fimDaSubarvore(lista, k), fim)
     const numero = numeroDaLinha(lista[k])
     const atual = grupos[grupos.length - 1]
-    if (numero === null && atual && atual.numero !== null && !ehDivisoria(semHtml(lista[k].texto))) atual.fim = f
+    if (numero === null && atual && atual.numero !== null && !linhaDivisoria(lista[k])) atual.fim = f
     else grupos.push({ ini: k, fimProprio: f, fim: f, numero })
     k = f
   }

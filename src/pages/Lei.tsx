@@ -1,7 +1,7 @@
 import * as Menu from '@radix-ui/react-dropdown-menu'
 import { format } from 'date-fns'
 import { ArrowDown, ArrowDown01, ArrowLeft, ArrowUp, ChevronRight, ChevronsDownUp, ChevronsUpDown, CornerDownRight, EllipsisVertical, FileUp, Flag, IndentDecrease, IndentIncrease, Layers, Pilcrow, LoaderCircle, Menu as IconeMenu, Pencil, Plus, Trash2 } from 'lucide-react'
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { cloneElement, memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactElement, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { CampoRico, type CampoRicoRef } from '@/components/flashcards/CampoRico'
@@ -113,6 +113,7 @@ export function PaginaLei() {
   const linhasRef = useRef<LeiLinha[]>([])
   linhasRef.current = linhas ?? []
   const filaCartoes = useRef<Promise<unknown>>(Promise.resolve())
+  const acoes = useRef<AcoesDaLinha>(null!)
 
   useEffect(() => {
     setRecolhidasEstado(lerConjunto(`lei:recolhidas:${id}`))
@@ -353,8 +354,23 @@ export function PaginaLei() {
 
   const importar = (novas: LinhaImportada[]) => {
     if (!id) return
-    mudar((a) => [...a, ...novas.map((n) => ({ id: crypto.randomUUID(), lei_id: id, ordem: 0, nivel: n.nivel, texto: textoParaHtml(n.texto), incidencia: n.incidencia, revisado_em: null, nota_id: null }))])
+    mudar((a) => [...a, ...novas.map((n) => ({ id: crypto.randomUUID(), lei_id: id, ordem: 0, nivel: n.nivel, texto: negritoDoTexto(textoParaHtml(n.texto)), incidencia: n.incidencia, revisado_em: null, nota_id: null }))])
     toast.success(`${novas.length} ${novas.length === 1 ? 'linha importada' : 'linhas importadas'}.`)
+  }
+
+  // ações das linhas num objeto estável: as linhas (memo) não precisam redesenhar quando a página muda
+  acoes.current = {
+    editar: (id, ponto) => setEditando(id, ponto),
+    alternarRecolhida: (id) => setRecolhidas(recolhidas.has(id) ? new Set([...recolhidas].filter((x) => x !== id)) : new Set([...recolhidas, id])),
+    rascunho: aoRascunho,
+    acao: aoAcao,
+    colarVarias: aoColarVarias,
+    mudarLinha,
+    abrirCartao: (l) => setCartaoDe({ linha: l, nota: (l.nota_id ? flash.notaPorId.get(l.nota_id) : undefined) ?? null }),
+    novaDentro: (id) => novaLinha(id, true),
+    estrutura: (id, tipo) =>
+      mudar((a) => (tipo === 'recuar' ? recuarLinha(a, id) : tipo === 'avancar' ? avancarLinha(a, id) : moverLinha(a, id, tipo === 'cima' ? -1 : 1))),
+    excluir: pedirExclusao,
   }
 
   if (leis.isLoading || flash.carregando) return <Carregando />
@@ -530,120 +546,18 @@ export function PaginaLei() {
                   const temDentro = comFilhos.has(l.id)
                   const recolhida = temDentro && recolhidas.has(l.id)
                   return (
-                    <li
+                    <LinhaDaLei
                       key={l.id}
-                      data-linha={l.id}
-                      className={cn(
-                        'group flex scroll-mt-24 items-start gap-1 py-0.5 pr-2 transition-colors duration-700 sm:pr-3 lg:scroll-mt-6',
-                        l.revisado_em && l.incidencia && 'bg-visto-fundo',
-                        destaque === l.id && 'bg-nevoa',
-                      )}
-                      style={{ paddingLeft: `${0.5 + l.nivel * 1.25}rem` }}
-                    >
-                      <span className="flex h-8 w-6 shrink-0 items-center justify-center">
-                        {temDentro ? (
-                          <button
-                            type="button"
-                            onClick={() => setRecolhidas(recolhida ? new Set([...recolhidas].filter((x) => x !== l.id)) : new Set([...recolhidas, l.id]))}
-                            aria-expanded={!recolhida}
-                            aria-label={recolhida ? 'Mostrar as linhas de dentro' : 'Esconder as linhas de dentro'}
-                            className="grid size-6 place-items-center rounded-md text-tinta-suave hover:bg-superficie-2 hover:text-tinta"
-                          >
-                            <ChevronRight className={cn('size-4 transition-transform', !recolhida && 'rotate-90')} aria-hidden />
-                          </button>
-                        ) : (
-                          !recuo && <span className="size-1.5 rounded-full bg-lilas" aria-hidden />
-                        )}
-                      </span>
-
-                      <div className={cn('min-w-0 flex-1', recuo && '[&_[role=textbox]]:indent-5 sm:[&_[role=textbox]]:indent-8 sm:[&_[role=textbox]]:text-justify')}>
-                        {editando === l.id ? (
-                          <EditorDaLinha
-                            inicial={l.texto}
-                            ponto={abertura.current?.id === l.id ? abertura.current.ponto : undefined}
-                            aoRascunho={(html) => aoRascunho(l.id, html)}
-                            aoAcao={(html, acao) => aoAcao(l.id, html, acao)}
-                            aoColarVarias={(partes) => aoColarVarias(l.id, partes)}
-                          />
-                        ) : (
-                          <div
-                            role="button"
-                            tabIndex={0}
-                            aria-label={`Editar a linha: ${textoPuro(l.texto) || 'em branco'}`}
-                            onClick={(e) => setEditando(l.id, { x: e.clientX, y: e.clientY })}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault()
-                                setEditando(l.id)
-                              }
-                            }}
-                            className={cn('min-h-8 cursor-text rounded-lg border border-transparent px-2 py-1 hover:bg-superficie-2/60 focus-visible:border-primaria focus-visible:outline-none', recuo && 'indent-5 sm:indent-8 sm:text-justify')}
-                          >
-                            <TextoDaLinha html={l.texto} />
-                            {recolhida && <span className="ml-2 text-sm whitespace-nowrap text-tinta-suave">({descendentes(todas, l.id).length} dentro)</span>}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex h-8 shrink-0 items-center gap-0.5">
-                        {nota && (
-                          <button
-                            type="button"
-                            onClick={() => setCartaoDe({ linha: l, nota })}
-                            title={`Flashcard desta linha · ${novoCartao ? 'ainda não estudado' : proxima ? `próxima revisão em ${format(new Date(proxima), 'dd/MM/yy')}` : ''}`}
-                            aria-label="Abrir o flashcard desta linha"
-                            className="grid size-7 place-items-center rounded-lg text-primaria-forte hover:bg-superficie-2 dark:text-primaria"
-                          >
-                            <Layers className="size-4" aria-hidden />
-                          </button>
-                        )}
-                        <MenuIncidencia valor={l.incidencia} aoMudar={(v) => mudarLinha(l.id, { incidencia: v, revisado_em: v ? l.revisado_em : null })} />
-                        {l.incidencia && (
-                          <input
-                            type="checkbox"
-                            className="visto mx-1 size-5 shrink-0"
-                            checked={!!l.revisado_em}
-                            onChange={() => mudarLinha(l.id, { revisado_em: l.revisado_em ? null : new Date().toISOString() })}
-                            aria-label={`${l.revisado_em ? 'Desmarcar' : 'Marcar'} como revisado: ${textoPuro(l.texto)}`}
-                            title={l.revisado_em ? `Revisado em ${format(new Date(l.revisado_em), 'dd/MM/yy')}` : 'Marcar como revisado'}
-                          />
-                        )}
-                        <Menu.Root>
-                          <Menu.Trigger asChild>
-                            <button type="button" aria-label="Ações da linha" className="grid size-7 place-items-center rounded-lg text-tinta-suave hover:bg-superficie-2 hover:text-tinta">
-                              <EllipsisVertical className="size-4" aria-hidden />
-                            </button>
-                          </Menu.Trigger>
-                          <Menu.Portal>
-                            <Menu.Content align="end" sideOffset={4} className="z-50 min-w-60 rounded-xl border border-linha bg-superficie p-1.5 shadow-xl">
-                              <ItemMenu icone={<Layers className="size-4" />} onSelect={() => setCartaoDe({ linha: l, nota: nota ?? null })}>
-                                {nota ? 'Editar o flashcard' : 'Criar flashcard'}
-                              </ItemMenu>
-                              <ItemMenu icone={<CornerDownRight className="size-4" />} onSelect={() => novaLinha(l.id, true)}>
-                                Nova linha dentro
-                              </ItemMenu>
-                              <Menu.Separator className="my-1 h-px bg-linha/70" />
-                              <ItemMenu icone={<IndentIncrease className="size-4" />} atalho="Tab" onSelect={() => mudar((a) => recuarLinha(a, l.id))}>
-                                Colocar dentro da de cima
-                              </ItemMenu>
-                              <ItemMenu icone={<IndentDecrease className="size-4" />} atalho="Shift+Tab" onSelect={() => mudar((a) => avancarLinha(a, l.id))}>
-                                Tirar de dentro
-                              </ItemMenu>
-                              <ItemMenu icone={<ArrowUp className="size-4" />} atalho="Alt+↑" onSelect={() => mudar((a) => moverLinha(a, l.id, -1))}>
-                                Mover para cima
-                              </ItemMenu>
-                              <ItemMenu icone={<ArrowDown className="size-4" />} atalho="Alt+↓" onSelect={() => mudar((a) => moverLinha(a, l.id, 1))}>
-                                Mover para baixo
-                              </ItemMenu>
-                              <Menu.Separator className="my-1 h-px bg-linha/70" />
-                              <ItemMenu icone={<Trash2 className="size-4" />} perigo onSelect={() => pedirExclusao(l)}>
-                                Excluir
-                              </ItemMenu>
-                            </Menu.Content>
-                          </Menu.Portal>
-                        </Menu.Root>
-                      </div>
-                    </li>
+                      l={l}
+                      acoes={acoes}
+                      editando={editando === l.id}
+                      ponto={editando === l.id && abertura.current?.id === l.id ? abertura.current.ponto : undefined}
+                      destaque={destaque === l.id}
+                      temDentro={temDentro}
+                      dentroRecolhidas={recolhida ? descendentes(todas, l.id).length : 0}
+                      recuo={recuo}
+                      cartao={nota ? (novoCartao ? 'ainda não estudado' : proxima ? `próxima revisão em ${format(new Date(proxima), 'dd/MM/yy')}` : 'criado') : null}
+                    />
                   )
                 })}
               </ul>
@@ -743,6 +657,164 @@ export function PaginaLei() {
   )
 }
 
+interface AcoesDaLinha {
+  editar: (id: string, ponto?: { x: number; y: number }) => void
+  alternarRecolhida: (id: string) => void
+  rascunho: (id: string, html: string) => void
+  acao: (id: string, html: string, acao: Acao) => void
+  colarVarias: (id: string, partes: string[]) => boolean
+  mudarLinha: (id: string, dados: Partial<LeiLinha>) => void
+  abrirCartao: (l: LeiLinha) => void
+  novaDentro: (id: string) => void
+  estrutura: (id: string, tipo: 'recuar' | 'avancar' | 'cima' | 'baixo') => void
+  excluir: (l: LeiLinha) => void
+}
+
+/** Uma linha da lei; só redesenha quando ela mesma muda (leis grandes têm milhares de linhas) */
+const LinhaDaLei = memo(function LinhaDaLei({
+  l,
+  acoes,
+  editando,
+  ponto,
+  destaque,
+  temDentro,
+  dentroRecolhidas,
+  recuo,
+  cartao,
+}: {
+  l: LeiLinha
+  acoes: { current: AcoesDaLinha }
+  editando: boolean
+  ponto?: { x: number; y: number }
+  destaque: boolean
+  temDentro: boolean
+  /** quantas linhas estão escondidas dentro dela (0 = aberta) */
+  dentroRecolhidas: number
+  recuo: boolean
+  /** situação do flashcard da linha, ou null sem flashcard */
+  cartao: string | null
+}) {
+  const recolhida = dentroRecolhidas > 0
+  const a = () => acoes.current
+  return (
+    <li
+      data-linha={l.id}
+      className={cn(
+        'group flex scroll-mt-24 items-start gap-1 py-0.5 pr-2 transition-colors duration-700 sm:pr-3 lg:scroll-mt-6',
+        l.revisado_em && l.incidencia && 'bg-visto-fundo',
+        destaque && 'bg-nevoa',
+      )}
+      style={{ paddingLeft: `${0.5 + l.nivel * 1.25}rem` }}
+    >
+      <span className="flex h-8 w-6 shrink-0 items-center justify-center">
+        {temDentro ? (
+          <button
+            type="button"
+            onClick={() => a().alternarRecolhida(l.id)}
+            aria-expanded={!recolhida}
+            aria-label={recolhida ? 'Mostrar as linhas de dentro' : 'Esconder as linhas de dentro'}
+            className="grid size-6 place-items-center rounded-md text-tinta-suave hover:bg-superficie-2 hover:text-tinta"
+          >
+            <ChevronRight className={cn('size-4 transition-transform', !recolhida && 'rotate-90')} aria-hidden />
+          </button>
+        ) : (
+          !recuo && <span className="size-1.5 rounded-full bg-lilas" aria-hidden />
+        )}
+      </span>
+
+      <div className={cn('min-w-0 flex-1', recuo && '[&_[role=textbox]]:indent-5 sm:[&_[role=textbox]]:indent-8 sm:[&_[role=textbox]]:text-justify')}>
+        {editando ? (
+          <EditorDaLinha
+            inicial={l.texto}
+            ponto={ponto}
+            aoRascunho={(html) => a().rascunho(l.id, html)}
+            aoAcao={(html, acao) => a().acao(l.id, html, acao)}
+            aoColarVarias={(partes) => a().colarVarias(l.id, partes)}
+          />
+        ) : (
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label={`Editar a linha: ${textoPuro(l.texto).slice(0, 120) || 'em branco'}`}
+            onClick={(e) => a().editar(l.id, { x: e.clientX, y: e.clientY })}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                a().editar(l.id)
+              }
+            }}
+            className={cn('min-h-8 cursor-text rounded-lg border border-transparent px-2 py-1 hover:bg-superficie-2/60 focus-visible:border-primaria focus-visible:outline-none', recuo && 'indent-5 sm:indent-8 sm:text-justify')}
+          >
+            <TextoDaLinha html={l.texto} />
+            {recolhida && <span className="ml-2 text-sm whitespace-nowrap text-tinta-suave">({dentroRecolhidas} dentro)</span>}
+          </div>
+        )}
+      </div>
+
+      <div className="flex h-8 shrink-0 items-center gap-0.5">
+        {cartao && (
+          <button
+            type="button"
+            onClick={() => a().abrirCartao(l)}
+            title={`Flashcard desta linha · ${cartao}`}
+            aria-label="Abrir o flashcard desta linha"
+            className="grid size-7 place-items-center rounded-lg text-primaria-forte hover:bg-superficie-2 dark:text-primaria"
+          >
+            <Layers className="size-4" aria-hidden />
+          </button>
+        )}
+        <MenuIncidencia valor={l.incidencia} aoMudar={(v) => a().mudarLinha(l.id, { incidencia: v, revisado_em: v ? l.revisado_em : null })} />
+        {l.incidencia && (
+          <input
+            type="checkbox"
+            className="visto mx-1 size-5 shrink-0"
+            checked={!!l.revisado_em}
+            onChange={() => a().mudarLinha(l.id, { revisado_em: l.revisado_em ? null : new Date().toISOString() })}
+            aria-label={`${l.revisado_em ? 'Desmarcar' : 'Marcar'} como revisado: ${textoPuro(l.texto).slice(0, 80)}`}
+            title={l.revisado_em ? `Revisado em ${format(new Date(l.revisado_em), 'dd/MM/yy')}` : 'Marcar como revisado'}
+          />
+        )}
+        <MenuSobDemanda
+          gatilho={
+            <button type="button" aria-label="Ações da linha" className="grid size-7 place-items-center rounded-lg text-tinta-suave hover:bg-superficie-2 hover:text-tinta">
+              <EllipsisVertical className="size-4" aria-hidden />
+            </button>
+          }
+        >
+            <Menu.Content align="end" sideOffset={4} className="z-50 min-w-60 rounded-xl border border-linha bg-superficie p-1.5 shadow-xl">
+              <ItemMenu icone={<Layers className="size-4" />} onSelect={() => a().abrirCartao(l)}>
+                {cartao ? 'Editar o flashcard' : 'Criar flashcard'}
+              </ItemMenu>
+              <ItemMenu icone={<CornerDownRight className="size-4" />} onSelect={() => a().novaDentro(l.id)}>
+                Nova linha dentro
+              </ItemMenu>
+              <Menu.Separator className="my-1 h-px bg-linha/70" />
+              <ItemMenu icone={<IndentIncrease className="size-4" />} atalho="Tab" onSelect={() => a().estrutura(l.id, 'recuar')}>
+                Colocar dentro da de cima
+              </ItemMenu>
+              <ItemMenu icone={<IndentDecrease className="size-4" />} atalho="Shift+Tab" onSelect={() => a().estrutura(l.id, 'avancar')}>
+                Tirar de dentro
+              </ItemMenu>
+              <ItemMenu icone={<ArrowUp className="size-4" />} atalho="Alt+↑" onSelect={() => a().estrutura(l.id, 'cima')}>
+                Mover para cima
+              </ItemMenu>
+              <ItemMenu icone={<ArrowDown className="size-4" />} atalho="Alt+↓" onSelect={() => a().estrutura(l.id, 'baixo')}>
+                Mover para baixo
+              </ItemMenu>
+              <Menu.Separator className="my-1 h-px bg-linha/70" />
+              <ItemMenu icone={<Trash2 className="size-4" />} perigo onSelect={() => a().excluir(l)}>
+                Excluir
+              </ItemMenu>
+            </Menu.Content>
+        </MenuSobDemanda>
+      </div>
+    </li>
+  )
+})
+
+/** "**trecho**" vira negrito (na importação por lista) */
+const negritoDoTexto = (html: string) => html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+
 /** O texto da linha fora da edição (limpo de novo ao exibir) */
 const TextoDaLinha = memo(function TextoDaLinha({ html }: { html: string }) {
   const limpo = useMemo(() => linhaParaExibir(limparHtml(html)), [html])
@@ -820,9 +892,9 @@ function EditorDaLinha({
 
 function MenuIncidencia({ valor, aoMudar }: { valor: Incidencia | null; aoMudar: (v: Incidencia | null) => void }) {
   return (
-    <Menu.Root>
-      <Menu.Trigger asChild>
-        {valor ? (
+    <MenuSobDemanda
+      gatilho={
+        valor ? (
           <button
             type="button"
             aria-label={`Incidência ${ROTULO_INCIDENCIA[valor].toLowerCase()}. Mudar`}
@@ -841,10 +913,10 @@ function MenuIncidencia({ valor, aoMudar }: { valor: Incidencia | null; aoMudar:
           >
             <Flag className="size-4" aria-hidden />
           </button>
-        )}
-      </Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Content align="end" sideOffset={4} className="z-50 min-w-48 rounded-xl border border-linha bg-superficie p-1.5 shadow-xl">
+        )
+      }
+      largura="min-w-48"
+    >
           <Menu.Label className="px-3 pt-1.5 pb-1 text-xs text-tinta-suave">Incidência nas provas</Menu.Label>
           {INCIDENCIAS.map((i) => (
             <ItemMenu key={i} icone={<span className="size-2.5 rounded-full" style={{ background: COR_INCIDENCIA[i] }} />} onSelect={() => aoMudar(i)}>
@@ -856,6 +928,23 @@ function MenuIncidencia({ valor, aoMudar }: { valor: Incidencia | null; aoMudar:
               Sem incidência
             </ItemMenu>
           )}
+    </MenuSobDemanda>
+  )
+}
+
+/**
+ * Menu que só é montado no primeiro clique: numa lei com milhares de linhas, montar dois menus por linha deixa a tela lenta.
+ * Não é modal (não esconde o resto da página), o que também deixa abrir e fechar rápido.
+ */
+function MenuSobDemanda({ gatilho, children, largura = 'min-w-60' }: { gatilho: ReactElement<{ onClick?: () => void }>; children: ReactNode; largura?: string }) {
+  const [montado, setMontado] = useState(false)
+  if (!montado) return cloneElement(gatilho, { onClick: () => setMontado(true) })
+  return (
+    <Menu.Root defaultOpen modal={false}>
+      <Menu.Trigger asChild>{gatilho}</Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Content align="end" sideOffset={4} className={cn('z-50 rounded-xl border border-linha bg-superficie p-1.5 shadow-xl', largura)}>
+          {children}
         </Menu.Content>
       </Menu.Portal>
     </Menu.Root>

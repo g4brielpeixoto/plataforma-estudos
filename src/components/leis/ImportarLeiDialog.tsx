@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { FileText } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { analisarLinhasDeLei, type LinhaImportada } from '@/lib/leis'
 import { Botao, Dialogo } from '../ui'
 
 /** Colar uma lista de artigos: uma linha por artigo, recuo = linha de dentro, [alta]/[média]/[baixa] no fim marca a incidência */
 export function ImportarLeiDialog({ aberto, aoMudar, aoImportar }: { aberto: boolean; aoMudar: (v: boolean) => void; aoImportar: (linhas: LinhaImportada[]) => void }) {
   const [texto, setTexto] = useState('')
+  const arquivo = useRef<HTMLInputElement>(null)
   useEffect(() => {
     if (aberto) setTexto('')
   }, [aberto])
@@ -23,8 +26,32 @@ export function ImportarLeiDialog({ aberto, aoMudar, aoImportar }: { aberto: boo
           placeholder={'Art. 7º - Direitos dos trabalhadores [alta]\n    XIII - jornada de 8h diárias e 44h semanais\n    XVI - hora extra de no mínimo 50%\nArt. 8º - Liberdade sindical [média]\nArt. 9º - Direito de greve'}
           className="w-full rounded-xl border border-linha bg-superficie px-3 py-2.5 font-mono text-sm leading-relaxed text-tinta outline-none placeholder:text-tinta-suave/60 focus:border-primaria focus:ring-2 focus:ring-primaria/40"
         />
+        <div className="flex flex-wrap items-center gap-2">
+          <Botao type="button" variante="secundario" tamanho="sm" onClick={() => arquivo.current?.click()}>
+            <FileText className="size-4" aria-hidden /> Escolher arquivo .txt
+          </Botao>
+          <span className="text-sm text-tinta-suave">ou cole o texto acima</span>
+          <input
+            ref={arquivo}
+            type="file"
+            accept=".txt,text/plain"
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden
+            onChange={async (e) => {
+              const f = e.target.files?.[0]
+              e.target.value = ''
+              if (!f) return
+              if (f.size > 5_000_000) return void toast.error('O arquivo passa de 5 MB. Divida a lei em partes menores.')
+              setTexto(await f.text())
+            }}
+          />
+        </div>
         <ul className="list-disc space-y-0.5 pl-5 text-sm text-tinta-suave">
           <li>Linha com recuo (espaços ou tab) fica dentro da linha de cima.</li>
+          <li>
+            Trecho entre <strong className="font-semibold text-tinta">**asteriscos duplos**</strong> fica em negrito; uma linha inteira em negrito vira um título, como as epígrafes da lei.
+          </li>
           <li>
             Termine a linha com <strong className="font-semibold text-tinta">[alta]</strong>, <strong className="font-semibold text-tinta">[média]</strong> ou <strong className="font-semibold text-tinta">[baixa]</strong> para já marcar a incidência.
           </li>
