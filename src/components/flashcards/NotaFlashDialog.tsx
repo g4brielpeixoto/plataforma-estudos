@@ -28,12 +28,18 @@ export function NotaFlashDialog({
   nota,
   disciplinaInicial,
   topicoInicial,
+  frenteInicial,
+  aoCriar,
 }: {
   aberto: boolean
   aoMudar: (aberto: boolean) => void
   nota?: FlashNota | null
   disciplinaInicial?: string
   topicoInicial?: string | null
+  /** texto que já vem na frente de um cartão novo (ex.: a linha da lei) */
+  frenteInicial?: string
+  /** avisa o id do cartão criado e fecha (sem "Salvar e criar novo") */
+  aoCriar?: (notaId: string) => void
 }) {
   const disciplinas = useDisciplinas()
   const topicos = useTopicos()
@@ -65,8 +71,9 @@ export function NotaFlashDialog({
     setTipo(nota?.tipo ?? 'basico')
     setDisciplinaId(nota?.disciplina_id ?? disciplinaInicial ?? '')
     setTopicoId(nota?.topico_id ?? topicoInicial ?? '')
-    setFrente(nota?.frente ?? '')
+    setFrente(nota?.frente ?? frenteInicial ?? '')
     setVerso(nota?.verso ?? '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aberto, nota, disciplinaInicial, topicoInicial])
 
   const omissao = tipo === 'omissao'
@@ -101,8 +108,9 @@ export function NotaFlashDialog({
     if (f.length > 20000 || v.length > 20000) return setErro('O cartão ficou grande demais (limite de 20 mil caracteres por lado).')
     const posicao = (cartoes.data ?? []).reduce((m, c) => Math.max(m, c.posicao), 0) + 1
     try {
-      await salvar.mutateAsync({ id: nota?.id, dados: { disciplina_id: disciplinaId, topico_id: topicoId || null, tipo, frente: f, verso: v }, ordens, posicao })
-      if (nota || !criarNovo) {
+      const idSalvo = await salvar.mutateAsync({ id: nota?.id, dados: { disciplina_id: disciplinaId, topico_id: topicoId || null, tipo, frente: f, verso: v }, ordens, posicao })
+      if (!nota && aoCriar) aoCriar(idSalvo)
+      if (nota || !criarNovo || aoCriar) {
         toast.success(nota ? 'Cartão atualizado.' : 'Cartão criado.')
         return aoMudar(false)
       }
@@ -255,10 +263,10 @@ export function NotaFlashDialog({
           )}
 
           <div className="-mx-5 border-t border-linha/70 px-5 pt-4 sm:-mx-6 sm:px-6">
-            {!nota && (
+            {!nota && !aoCriar && (
               <Interruptor ligado={criarNovo} aoMudar={alternarCriarNovo} rotulo="Salvar e criar novo" descricao="Salva este cartão e abre outro no mesmo baralho e tópico. O lado fixado continua preenchido." />
             )}
-            <div className={cn('flex justify-end gap-2', !nota && 'mt-4')}>
+            <div className={cn('flex justify-end gap-2', !nota && !aoCriar && 'mt-4')}>
               <Botao type="button" variante="secundario" onClick={() => aoMudar(false)}>
                 {salvos > 0 ? 'Fechar' : 'Cancelar'}
               </Botao>

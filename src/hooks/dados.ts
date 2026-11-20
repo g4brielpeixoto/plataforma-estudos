@@ -6,7 +6,7 @@ import { camposDeNovo } from '@/lib/flashcards/agenda'
 import type { CartaoImportado } from '@/lib/flashcards/anki'
 import { imagensDoHtml, limparHtmlComInfo, srcPermitido } from '@/lib/flashcards/html'
 import { EXTENSAO, prepararImagem } from '@/lib/flashcards/imagens'
-import type { Convite, DadosProvaFeita, Disciplina, Estudo, FlashCartao, FlashConfig, FlashNota, FlashRevisao, ItemPlanner, Material, Metas, NivelTopico, NovoEstudo, Perfil, Prova, ProvaFeita, Topico } from '@/types'
+import type { Convite, DadosProvaFeita, Disciplina, Estudo, FlashCartao, FlashConfig, FlashNota, FlashRevisao, ItemPlanner, Lei, LeiLinha, Material, Metas, NivelTopico, NovoEstudo, Perfil, Prova, ProvaFeita, Topico } from '@/types'
 
 /*
   Acesso aos dados. Toda leitura usa o React Query (cache + recarga automática);
@@ -29,6 +29,8 @@ export const chaves = {
   flashRevisoes: ['flash', 'revisoes'] as const,
   flashConfig: ['flash', 'config'] as const,
   materiais: ['materiais'] as const,
+  leis: ['leis'] as const,
+  leiLinhas: ['leis', 'linhas'] as const,
 }
 
 // ---------- leituras ----------
@@ -905,4 +907,68 @@ export function useExcluirMaterial() {
     },
     onSuccess: () => invalidar('materiais'),
   })
+}
+
+// ---------- leis (mapeamento dos artigos) ----------
+
+export function useLeis() {
+  return useQuery({
+    queryKey: chaves.leis,
+    queryFn: () => buscarTodos<Lei>((de, ate) => supabase.from('leis').select('*').order('criado_em').order('id').range(de, ate)),
+  })
+}
+
+/** Todas as linhas de todas as leis, na ordem de cada lei */
+export function useLeiLinhas() {
+  return useQuery({
+    queryKey: chaves.leiLinhas,
+    queryFn: async () => {
+      const linhas = await buscarTodos<LeiLinha>((de, ate) => supabase.from('lei_linhas').select('*').order('lei_id').order('ordem').order('id').range(de, ate))
+      // a ordem das linhas é o que monta a árvore: garante aqui também
+      return linhas.sort((a, b) => a.lei_id.localeCompare(b.lei_id) || a.ordem - b.ordem || a.id.localeCompare(b.id))
+    },
+  })
+}
+
+export function useSalvarLei() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async ({ id, nome, disciplina_id }: { id?: string; nome: string; disciplina_id: string }) => {
+      if (id) {
+        const { error } = await supabase.from('leis').update({ nome, disciplina_id }).eq('id', id)
+        if (error) throw error
+        return id
+      }
+      const novo = crypto.randomUUID()
+      const { error } = await supabase.from('leis').insert({ id: novo, nome, disciplina_id })
+      if (error) throw error
+      return novo
+    },
+    onSuccess: () => invalidar('leis'),
+  })
+}
+
+export function useExcluirLei() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('leis').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => invalidar('leis', 'leiLinhas'),
+  })
+}
+
+const colunasDaLinha = (l: LeiLinha) => ({ id: l.id, lei_id: l.lei_id, ordem: l.ordem, nivel: l.nivel, texto: l.texto, incidencia: l.incidencia, revisado_em: l.revisado_em, nota_id: l.nota_id })
+
+/** Grava (cria ou atualiza) e apaga linhas de uma lei; usado pela sincronização da tela da lei */
+export async function gravarLinhasDaLei(gravar: LeiLinha[], apagar: string[]) {
+  for (const lote of lotes(gravar, 500)) {
+    const { error } = await supabase.from('lei_linhas').upsert(lote.map(colunasDaLinha), { onConflict: 'id' })
+    if (error) throw error
+  }
+  for (const lote of lotes(apagar, 200)) {
+    const { error } = await supabase.from('lei_linhas').delete().in('id', lote)
+    if (error) throw error
+  }
 }

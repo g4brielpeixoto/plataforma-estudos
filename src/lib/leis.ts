@@ -10,6 +10,8 @@ import { limparLinha } from './importacao'
 
 export const NIVEL_MAXIMO_LEI = 4
 export const INCIDENCIAS: Incidencia[] = ['alta', 'media', 'baixa']
+/** cor da bolinha de cada incidência (tokens do tema) */
+export const COR_INCIDENCIA: Record<Incidencia, string> = { alta: 'var(--c-ruim)', media: 'var(--c-medio)', baixa: 'var(--c-revisao)' }
 export const ROTULO_INCIDENCIA: Record<Incidencia, string> = { alta: 'Alta', media: 'Média', baixa: 'Baixa' }
 
 type Item = Pick<LeiLinha, 'id' | 'nivel'>
@@ -250,5 +252,35 @@ export function analisarLinhasDeLei(texto: string): LinhaImportada[] {
     }
     saida.push({ texto: linha, nivel: pilha.length - 1, incidencia })
   }
+  return saida
+}
+
+// ---------- sumário ----------
+
+const RE_ARTIGO = /^(arts?\.?\s*\d+[\dºª°.\-A-Za-z]*(?:\s+(?:a|e|ao)\s+\d+[\dºª°.\-A-Za-z]*)?)/i
+
+/** Nome curto da linha no sumário: "Art. 11-A" quando começa com o artigo; senão, o começo do texto */
+export function rotuloSumario(texto: string): string {
+  const t = texto.trim()
+  const m = t.match(RE_ARTIGO)
+  if (m) return m[1].replace(/[.-]+$/, '')
+  return t.length > 44 ? `${t.slice(0, 42).trimEnd()}…` : t
+}
+
+export interface EntradaSumario {
+  id: string
+  nivel: number
+  /** linha do topo sem incidência que tem artigos mapeados dentro (título, capítulo) */
+  divisao: boolean
+}
+
+/** O que entra no sumário: as linhas do topo e toda linha com incidência (artigo mapeado) */
+export function entradasDoSumario(lista: (Item & Pick<LeiLinha, 'incidencia'>)[]): EntradaSumario[] {
+  const saida: EntradaSumario[] = []
+  lista.forEach((l, i) => {
+    if (l.nivel !== 0 && !l.incidencia) return
+    const divisao = !l.incidencia && lista.slice(i + 1, fimDaSubarvore(lista, i)).some((d) => d.incidencia)
+    saida.push({ id: l.id, nivel: Math.min(l.nivel, 2), divisao })
+  })
   return saida
 }

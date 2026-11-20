@@ -14,6 +14,8 @@ import { Inicio } from './pages/Inicio'
 import { Perfil } from './pages/Perfil'
 import { Planner } from './pages/Planner'
 import { RaioX } from './pages/RaioX'
+import { Leis } from './pages/Leis'
+import { PaginaLei } from './pages/Lei'
 import { RevisaoFlash } from './pages/RevisaoFlash'
 import { Usuarios } from './pages/Usuarios'
 
@@ -69,6 +71,8 @@ const router = createHashRouter([
           { path: '/flashcards/:id', element: <BaralhoFlash /> },
           { path: '/estudar', element: <Estudar /> },
           { path: '/historico', element: <Historico /> },
+          { path: '/leis', element: <Leis /> },
+          { path: '/leis/:id', element: <PaginaLei /> },
           { path: '/raio-x', element: <RaioX /> },
           { path: '/perfil', element: <Perfil /> },
           { element: <SoMaster />, children: [{ path: '/usuarios', element: <Usuarios /> }] },
