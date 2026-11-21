@@ -1,5 +1,5 @@
-import { ArrowDown, ArrowUp, ClipboardCheck, Clock, Target } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { ArrowDown, ArrowUp, ChevronDown, ClipboardCheck, Clock, Target } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
 import { dentro, estudosEm, mesAnteriorMesmoTrecho, mesAtual, somarEstudos, variacaoPct } from '@/lib/periodos'
 import { cn, formatarHorasMinutos, nivelAcerto, porcentagem, textoNivel } from '@/lib/utils'
 import type { Estudo, Topico } from '@/types'
@@ -44,6 +44,34 @@ function Cartao({ titulo, icone, valor, complemento, rodape, variacao, className
   )
 }
 
+/** Número pequeno da linha de resumos do celular; aberto, mostra o "neste mês" embaixo */
+function Mini({ rotulo, valor, detalhe, mes, variacao, aberto }: { rotulo: string; valor: ReactNode; detalhe: ReactNode; mes: ReactNode; variacao: Variacao | null; aberto: boolean }) {
+  return (
+    <span className="flex min-w-0 flex-col px-1 text-left">
+      <span className="truncate text-[1.3rem] leading-none font-semibold tracking-tight text-tinta numeros">{valor}</span>
+      <span className="mt-1 text-xs text-tinta-suave">{rotulo}</span>
+      {aberto && (
+        <span className="mt-2 flex flex-col items-start gap-1 border-t border-linha/70 pt-2 text-xs leading-snug text-tinta-suave numeros">
+          <span>{detalhe}</span>
+          <span>
+            Neste mês: <strong className="font-semibold text-tinta">{mes}</strong>
+          </span>
+          <Selo v={variacao} />
+        </span>
+      )}
+    </span>
+  )
+}
+
+/** Tempo curto para caber na linha do celular: "36h", "9h05", "45min" (o exato aparece ao abrir) */
+function horasCurtas(segundos: number) {
+  const min = Math.floor(segundos / 60)
+  const h = Math.floor(min / 60)
+  if (h >= 10) return `${h}h`
+  if (h >= 1) return `${h}h${String(min % 60).padStart(2, '0')}`
+  return `${min}min`
+}
+
 const DICA = 'em relação ao mesmo período do mês passado'
 
 /** Linha de resumos do topo: tempo total, desempenho, progresso no edital (com o mês atual) e o versículo do dia */
@@ -73,8 +101,29 @@ export function ResumoTopo({ estudos, topicos }: { estudos: Estudo[]; topicos: T
   const concluidosAnterior = concluidos.filter((t) => t.concluido_em && dentro(t.concluido_em, anterior)).length
   const difEdital = concluidosMes - concluidosAnterior
 
+  const variacaoTempo = vTempo !== null && vTempo !== 0 ? { texto: `${Math.abs(vTempo)}%`, subiu: vTempo > 0, dica: DICA } : null
+  const variacaoAcerto = pp !== null && pp !== 0 ? { texto: `${Math.abs(pp)} p.p.`, subiu: pp > 0, dica: `pontos percentuais de acerto ${DICA}` } : null
+  const variacaoEdital =
+    difEdital !== 0 && (concluidosMes > 0 || concluidosAnterior > 0) ? { texto: String(Math.abs(difEdital)), subiu: difEdital > 0, dica: `tópicos concluídos ${DICA}` } : null
+
   return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+    <>
+      {/* celular: os três números numa linha só; tocar mostra o "neste mês" */}
+      <ResumoCelular
+        tempo={horasCurtas(total.segundos)}
+        tempoDetalhe={`Total: ${formatarHorasMinutos(total.segundos)}`}
+        tempoMes={formatarHorasMinutos(doMes.segundos)}
+        variacaoTempo={variacaoTempo}
+        acerto={<span className={cn(nivel && textoNivel[nivel])}>{pctTotal === null ? '—' : `${pctTotal}%`}</span>}
+        acertoDetalhe={`${total.feitas} ${total.feitas === 1 ? 'questão' : 'questões'}`}
+        acertoMes={pctMes === null ? 'sem questões' : `${pctMes}% (${doMes.feitas} q)`}
+        variacaoAcerto={variacaoAcerto}
+        edital={pctEdital === null ? '—' : `${pctEdital}%`}
+        editalDetalhe={`${concluidos.length} de ${topicos.length} tópicos`}
+        editalMes={`${concluidosMes} ${concluidosMes === 1 ? 'tópico' : 'tópicos'}`}
+        variacaoEdital={variacaoEdital}
+      />
+      <div className="hidden grid-cols-2 gap-4 sm:grid xl:grid-cols-4">
       <Cartao
         titulo="Tempo de estudo"
         icone={<Clock className="size-[18px]" aria-hidden />}
@@ -84,7 +133,7 @@ export function ResumoTopo({ estudos, topicos }: { estudos: Estudo[]; topicos: T
             Neste mês: <strong className="font-semibold text-tinta">{formatarHorasMinutos(doMes.segundos)}</strong>
           </>
         }
-        variacao={vTempo !== null && vTempo !== 0 ? { texto: `${Math.abs(vTempo)}%`, subiu: vTempo > 0, dica: DICA } : null}
+        variacao={variacaoTempo}
       />
       <Cartao
         titulo="Desempenho"
@@ -100,11 +149,10 @@ export function ResumoTopo({ estudos, topicos }: { estudos: Estudo[]; topicos: T
             </>
           )
         }
-        variacao={pp !== null && pp !== 0 ? { texto: `${Math.abs(pp)} p.p.`, subiu: pp > 0, dica: `pontos percentuais de acerto ${DICA}` } : null}
+        variacao={variacaoAcerto}
       />
       <Cartao
-        className="col-span-2 sm:col-span-1"
-        titulo="Progresso no edital"
+                titulo="Progresso no edital"
         icone={<ClipboardCheck className="size-[18px]" aria-hidden />}
         valor={pctEdital === null ? '—' : `${pctEdital}%`}
         complemento={`(${concluidos.length} de ${topicos.length} tópicos)`}
@@ -113,9 +161,45 @@ export function ResumoTopo({ estudos, topicos }: { estudos: Estudo[]; topicos: T
             Neste mês: <strong className="font-semibold text-tinta">{concluidosMes}</strong> {concluidosMes === 1 ? 'tópico concluído' : 'tópicos concluídos'}
           </>
         }
-        variacao={difEdital !== 0 && (concluidosMes > 0 || concluidosAnterior > 0) ? { texto: String(Math.abs(difEdital)), subiu: difEdital > 0, dica: `tópicos concluídos ${DICA}` } : null}
+        variacao={variacaoEdital}
       />
-      <VersiculoMini className="col-span-2 sm:col-span-1" />
+      <VersiculoMini className="col-span-1" />
     </div>
+    </>
+  )
+}
+
+function ResumoCelular(p: {
+  tempo: string
+  tempoDetalhe: string
+  tempoMes: string
+  variacaoTempo: Variacao | null
+  acerto: ReactNode
+  acertoDetalhe: string
+  acertoMes: string
+  variacaoAcerto: Variacao | null
+  edital: string
+  editalDetalhe: string
+  editalMes: string
+  variacaoEdital: Variacao | null
+}) {
+  const [aberto, setAberto] = useState(false)
+  return (
+    <button
+      type="button"
+      onClick={() => setAberto((v) => !v)}
+      aria-expanded={aberto}
+      className="relative grid grid-cols-3 items-start divide-x divide-linha/70 rounded-2xl border border-linha/70 bg-superficie py-3.5 pr-7 pl-2 text-left sm:hidden"
+    >
+      <Mini rotulo="de estudo" valor={p.tempo} detalhe={p.tempoDetalhe} mes={p.tempoMes} variacao={p.variacaoTempo} aberto={aberto} />
+      <span className="pl-2.5">
+        <Mini rotulo="de acerto" valor={p.acerto} detalhe={p.acertoDetalhe} mes={p.acertoMes} variacao={p.variacaoAcerto} aberto={aberto} />
+      </span>
+      <span className="pl-2.5">
+        <Mini rotulo="do edital" valor={p.edital} detalhe={p.editalDetalhe} mes={p.editalMes} variacao={p.variacaoEdital} aberto={aberto} />
+      </span>
+      <span className="sr-only">{aberto ? 'Esconder os números deste mês' : 'Mostrar os números deste mês'}</span>
+      <ChevronDown className={cn('absolute top-3.5 right-2 size-4 text-tinta-suave transition-transform', aberto && 'rotate-180')} aria-hidden />
+    </button>
   )
 }

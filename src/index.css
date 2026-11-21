@@ -267,6 +267,16 @@ select option:disabled {
   }
 }
 
+/* menu lateral do celular */
+@keyframes gaveta-entra {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
 /* card de contagem das provas: entra de baixo (próxima) ou de cima (anterior) */
 @keyframes prova-entra-baixo {
   from {

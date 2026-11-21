@@ -1,6 +1,7 @@
-import { BookOpen, CalendarDays, History, House, Layers, LogOut, Moon, PanelLeftClose, PanelLeftOpen, Scale, ScanSearch, Sun, Timer, Users } from 'lucide-react'
+import * as RadixDialog from '@radix-ui/react-dialog'
+import { BookOpen, CalendarDays, ChevronRight, History, House, Layers, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Scale, ScanSearch, Sun, Timer, Users, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { NavLink, Outlet } from 'react-router'
+import { NavLink, Outlet, useLocation } from 'react-router'
 import { useAuth } from '@/contexts/AuthContext'
 import { Avatar } from './Avatar'
 import { Logo } from './Logo'
@@ -17,8 +18,9 @@ const itens = [
   { para: '/historico', rotulo: 'Histórico', icone: History, fim: false },
   { para: '/raio-x', rotulo: 'Raio-X', icone: ScanSearch, fim: false },
 ]
-// a barra de baixo do celular tem espaço para 6; Leis e Raio-X ficam no topo
-const itensCelular = itens.filter((i) => i.para !== '/raio-x' && i.para !== '/leis')
+// a barra de baixo do celular tem só os 4 atalhos mais usados; o resto fica no menu lateral (☰)
+const ATALHOS_CELULAR = ['/', '/edital', '/planner', '/flashcards']
+const itensCelular = itens.filter((i) => ATALHOS_CELULAR.includes(i.para))
 
 export function useTema() {
   const [escuro, setEscuro] = useState(() => document.documentElement.classList.contains('dark'))
@@ -58,6 +60,7 @@ export function Layout() {
       return false
     }
   })
+  const [menuAberto, setMenuAberto] = useState(false)
   const alternarMenu = () =>
     setRecolhido((v) => {
       try {
@@ -158,32 +161,30 @@ export function Layout() {
         </div>
       </aside>
 
-      {/* topo (celular e tablet) */}
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-linha/70 bg-fundo/90 px-4 py-3 backdrop-blur lg:hidden">
+      {/* topo (celular e tablet): menu, logo e foto */}
+      <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-linha/70 bg-fundo/90 py-2 pr-3 pl-2 backdrop-blur lg:hidden">
+        <button
+          onClick={() => setMenuAberto(true)}
+          aria-label="Abrir menu"
+          aria-expanded={menuAberto}
+          className="grid size-11 shrink-0 place-items-center rounded-xl text-tinta hover:bg-nevoa/60"
+        >
+          <Menu className="size-6" aria-hidden />
+        </button>
         <Marca />
-        <div className="flex items-center gap-1">
-          <NavLink to="/leis" aria-label="Leis" title="Leis" className={({ isActive }) => cn('rounded-lg p-2', isActive ? 'bg-nevoa text-tinta' : 'text-tinta-suave')}>
-            <Scale className="size-5" />
-          </NavLink>
-          <NavLink to="/raio-x" aria-label="Raio-X" title="Raio-X" className={({ isActive }) => cn('rounded-lg p-2', isActive ? 'bg-nevoa text-tinta' : 'text-tinta-suave')}>
-            <ScanSearch className="size-5" />
-          </NavLink>
-          {master && (
-            <NavLink to="/usuarios" aria-label="Usuários" className={({ isActive }) => cn('rounded-lg p-2', isActive ? 'bg-nevoa text-tinta' : 'text-tinta-suave')}>
-              <Users className="size-5" />
-            </NavLink>
-          )}
-          <NavLink to="/perfil" aria-label="Meu perfil" className={({ isActive }) => cn('rounded-full p-1', isActive && 'bg-nevoa')}>
-            <Avatar nome={perfil?.nome} email={perfil?.email} foto={perfil?.foto_url} tamanho={30} />
-          </NavLink>
-          <button onClick={alternar} aria-label={escuro ? 'Usar tema claro' : 'Usar tema escuro'} className="rounded-lg p-2 text-tinta-suave">
-            {escuro ? <Sun className="size-5" /> : <Moon className="size-5" />}
-          </button>
-          <button onClick={() => void sair()} aria-label="Sair" className="rounded-lg p-2 text-tinta-suave">
-            <LogOut className="size-5" />
-          </button>
-        </div>
+        <NavLink
+          to="/perfil"
+          aria-label="Meu perfil"
+          title="Meu perfil"
+          className={({ isActive }) =>
+            cn('ml-auto grid size-11 shrink-0 place-items-center rounded-full', isActive && 'ring-2 ring-primaria ring-inset')
+          }
+        >
+          <Avatar nome={perfil?.nome} email={perfil?.email} foto={perfil?.foto_url} tamanho={34} />
+        </NavLink>
       </header>
+
+      <MenuCelular aberto={menuAberto} aoMudar={setMenuAberto} itens={todos} escuro={escuro} alternarTema={alternar} />
 
       <main className="w-full min-w-0 flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-8 lg:pt-8 lg:pb-12 2xl:px-10">
         <Outlet />
@@ -192,7 +193,7 @@ export function Layout() {
 
       {/* navegação inferior (celular e tablet) */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-linha/70 bg-superficie/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-linha/70 bg-superficie/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
         aria-label="Principal"
       >
         {itensCelular.map(({ para, rotulo, icone: Icone, fim }) => (
@@ -201,12 +202,12 @@ export function Layout() {
             to={para}
             end={fim}
             className={({ isActive }) =>
-              cn('flex min-w-0 flex-col items-center gap-1 py-2.5 text-[11px] font-medium sm:text-xs', isActive ? 'text-primaria' : 'text-tinta-suave')
+              cn('flex min-w-0 flex-col items-center gap-1 py-2.5 text-xs font-medium', isActive ? 'text-primaria' : 'text-tinta-suave')
             }
           >
             {({ isActive }) => (
               <>
-                <span className={cn('rounded-full px-3 py-1 transition-colors', isActive && 'bg-nevoa')}>
+                <span className={cn('rounded-full px-5 py-1 transition-colors', isActive && 'bg-nevoa')}>
                   <Icone className="size-5" aria-hidden />
                 </span>
                 {rotulo}
@@ -216,5 +217,85 @@ export function Layout() {
         ))}
       </nav>
     </div>
+  )
+}
+
+/** Menu lateral do celular: todas as telas, perfil, tema e sair. Fecha ao escolher uma tela, ao tocar fora ou com Esc. */
+function MenuCelular({
+  aberto,
+  aoMudar,
+  itens,
+  escuro,
+  alternarTema,
+}: {
+  aberto: boolean
+  aoMudar: (aberto: boolean) => void
+  itens: { para: string; rotulo: string; icone: typeof House; fim: boolean }[]
+  escuro: boolean
+  alternarTema: () => void
+}) {
+  const { perfil, sair } = useAuth()
+  const { pathname } = useLocation()
+  // trocou de tela (inclusive pelo voltar do navegador): fecha
+  useEffect(() => aoMudar(false), [pathname, aoMudar])
+
+  const linha = 'flex w-full items-center gap-3.5 rounded-xl px-3 py-3 text-[15px] font-medium transition-colors'
+  return (
+    <RadixDialog.Root open={aberto} onOpenChange={aoMudar}>
+      <RadixDialog.Portal>
+        <RadixDialog.Overlay className="fixed inset-0 z-40 bg-[#2a1f2d]/45 backdrop-blur-[2px] data-[state=open]:animate-[aparecer_150ms_ease-out] lg:hidden" />
+        <RadixDialog.Content
+          aria-describedby={undefined}
+          className="fixed inset-y-0 left-0 z-50 flex w-[min(20rem,85vw)] flex-col overflow-y-auto rounded-r-3xl bg-superficie px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl motion-safe:data-[state=open]:animate-[gaveta-entra_220ms_cubic-bezier(.2,.8,.2,1)] lg:hidden"
+        >
+          <RadixDialog.Title className="sr-only">Menu</RadixDialog.Title>
+          <div className="flex items-center justify-between pr-1 pl-3">
+            <Marca className="h-7" />
+            <RadixDialog.Close className="grid size-11 place-items-center rounded-xl text-tinta-suave hover:bg-nevoa/60 hover:text-tinta" aria-label="Fechar menu">
+              <X className="size-5" aria-hidden />
+            </RadixDialog.Close>
+          </div>
+
+          <NavLink
+            to="/perfil"
+            onClick={() => aoMudar(false)}
+            className={({ isActive }) => cn('mt-3 flex items-center gap-3 rounded-2xl p-3 transition-colors', isActive ? 'bg-nevoa' : 'bg-nevoa/45 hover:bg-nevoa/70')}
+          >
+            <Avatar nome={perfil?.nome} email={perfil?.email} foto={perfil?.foto_url} tamanho={44} />
+            <span className="min-w-0 flex-1 leading-tight">
+              <span className="block truncate font-semibold text-tinta">{perfil?.nome || 'Meu perfil'}</span>
+              <span className="mt-0.5 block truncate text-sm text-tinta-suave">{perfil?.nome ? 'Ver perfil' : 'Adicione seu nome e sua foto'}</span>
+            </span>
+            <ChevronRight className="size-5 shrink-0 text-tinta-suave" aria-hidden />
+          </NavLink>
+
+          <nav className="mt-4 flex flex-col gap-0.5" aria-label="Menu">
+            {itens.map(({ para, rotulo, icone: Icone, fim }) => (
+              <NavLink
+                key={para}
+                to={para}
+                end={fim}
+                onClick={() => aoMudar(false)}
+                className={({ isActive }) => cn(linha, isActive ? 'bg-nevoa text-tinta' : 'text-tinta-suave hover:bg-nevoa/50 hover:text-tinta')}
+              >
+                <Icone className="size-5 shrink-0" aria-hidden />
+                {rotulo}
+              </NavLink>
+            ))}
+          </nav>
+
+          <div className="mt-auto space-y-0.5 border-t border-linha/70 pt-3">
+            <button onClick={alternarTema} className={cn(linha, 'text-tinta-suave hover:bg-nevoa/50 hover:text-tinta')}>
+              {escuro ? <Sun className="size-5 shrink-0" aria-hidden /> : <Moon className="size-5 shrink-0" aria-hidden />}
+              {escuro ? 'Tema claro' : 'Tema escuro'}
+            </button>
+            <button onClick={() => void sair()} className={cn(linha, 'text-tinta-suave hover:bg-nevoa/50 hover:text-tinta')}>
+              <LogOut className="size-5 shrink-0" aria-hidden />
+              Sair
+            </button>
+          </div>
+        </RadixDialog.Content>
+      </RadixDialog.Portal>
+    </RadixDialog.Root>
   )
 }

@@ -1,7 +1,7 @@
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ArrowRight, Plus, ScanSearch } from 'lucide-react'
-import { useState } from 'react'
+import { ArrowRight, CalendarClock, Plus, ScanSearch } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Constancia } from '@/components/Constancia'
 import { ContagemProvas } from '@/components/ContagemProvas'
@@ -13,8 +13,25 @@ import { ResumoTopo } from '@/components/ResumoTopo'
 import { TempoPizza } from '@/components/TempoPizza'
 import { Botao, Carregando, Painel } from '@/components/ui'
 import { useAuth } from '@/contexts/AuthContext'
-import { useDisciplinas, useEstudos, useTopicos } from '@/hooks/dados'
+import { VersiculoMini } from '@/components/VersiculoCard'
+import { useDisciplinas, useEstudos, useProvas, useTopicos } from '@/hooks/dados'
 import { primeiroNome } from '@/lib/foto'
+import { provasFuturas, seloProva } from '@/lib/provas'
+
+/** Prova mais próxima numa linha discreta embaixo da saudação (só no celular; o cartão completo fica mais abaixo) */
+function ProximaProva() {
+  const provas = useProvas()
+  const proxima = useMemo(() => provasFuturas(provas.data ?? [])[0], [provas.data])
+  if (!proxima) return null
+  return (
+    <p className="mt-1.5 text-sm leading-snug text-tinta-suave sm:hidden">
+      <CalendarClock className="mr-1.5 inline size-4 -translate-y-px align-middle text-primaria" aria-hidden />
+      <span className="font-medium text-tinta">{proxima.nome}</span>
+      <span aria-hidden> · </span>
+      <span className="whitespace-nowrap numeros">{seloProva(proxima).replace(/^F/, 'f').replace(/^É/, 'é')}</span>
+    </p>
+  )
+}
 
 function saudacao() {
   const h = new Date().getHours()
@@ -39,24 +56,24 @@ export function Inicio() {
 
   return (
     <>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-4">
-          <div className="min-w-0">
-            <p className="text-tinta-suave">{format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}</p>
-            <h1 className="text-[1.85rem] leading-tight font-medium tracking-[-0.01em] text-tinta">
-              {saudacao()}
-              {nome ? `, ${nome}` : ''}!
-            </h1>
-            {!nome && (
-              <Link to="/perfil" className="text-sm font-medium text-primaria-forte underline-offset-2 hover:underline dark:text-primaria">
-                Adicione seu nome e sua foto
-              </Link>
-            )}
-          </div>
+      <div className="mb-5 flex items-start justify-between gap-3 sm:mb-6 sm:flex-wrap sm:items-end">
+        <div className="min-w-0">
+          <p className="text-sm text-tinta-suave sm:text-base">{format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}</p>
+          <h1 className="text-[1.4rem] leading-tight font-medium tracking-[-0.01em] text-tinta sm:text-[1.85rem]">
+            {saudacao()}
+            {nome ? `, ${nome}` : ''}!
+          </h1>
+          {!nome && (
+            <Link to="/perfil" className="text-sm font-medium text-primaria-forte underline-offset-2 hover:underline dark:text-primaria">
+              Adicione seu nome e sua foto
+            </Link>
+          )}
+          <ProximaProva />
         </div>
         {/* o cronômetro abre pelo botão redondo fixo no canto da tela (MiniCronometro) */}
-        <Botao onClick={() => setAdicionando(true)} className="h-11 w-full px-3 text-sm sm:h-10 sm:w-auto sm:px-4 sm:text-[15px]">
-          <Plus className="size-4" aria-hidden /> Adicionar estudo
+        <Botao onClick={() => setAdicionando(true)} aria-label="Adicionar estudo" className="mt-1 h-10 shrink-0 px-3.5 text-sm sm:mt-0 sm:px-4 sm:text-[15px]">
+          <Plus className="size-4" aria-hidden /> <span className="sm:hidden">Estudo</span>
+          <span className="hidden sm:inline">Adicionar estudo</span>
         </Botao>
       </div>
 
@@ -76,15 +93,19 @@ export function Inicio() {
           <ContagemProvas />
         </div>
       ) : (
-        <div className="space-y-5">
+        // no celular tudo vira uma coluna só (as caixas internas ficam em `contents`) e a ordem vem das classes order-*:
+        // versículo, resumos, planejamento, constância, provas, metas, estudo semanal, tempo de estudo, Raio-X
+        <div className="flex flex-col gap-4 sm:gap-5">
+          <VersiculoMini className="px-4 pt-7 pb-4 sm:hidden" />
+
           {/* 1. resumos do topo: tempo, desempenho, edital e versículo */}
           <ResumoTopo estudos={todos} topicos={topicos.data ?? []} />
 
-          {/* 2. constância, de ponta a ponta */}
-          <Constancia estudos={todos} aoVerDetalhes={() => navegar('/raio-x')} />
+          {/* 2. constância, de ponta a ponta (no celular, logo depois do planejamento de hoje) */}
+          <Constancia estudos={todos} aoVerDetalhes={() => navegar('/raio-x')} className="order-2 sm:order-none" />
 
           {/* 3. acompanhamento do dia e da semana; a análise detalhada fica no Raio-X */}
-          <div className="flex flex-col gap-5 xl:grid xl:grid-cols-2 xl:items-start">
+          <div className="contents xl:grid xl:grid-cols-2 xl:items-start xl:gap-5">
             <div className="contents xl:block xl:space-y-5">
               <div className="order-1 space-y-5">
                 <PlanejamentoHoje disciplinas={disciplinas.data ?? []} topicos={topicos.data ?? []} />
