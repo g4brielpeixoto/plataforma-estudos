@@ -495,7 +495,7 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
       {painel === 'tamanho' && (
         <div className="flex flex-wrap items-center gap-1.5 border-b border-linha/70 bg-superficie-2/40 px-2.5 py-1.5" role="group" aria-label="Tamanho do texto">
           <span className="mr-0.5 text-xs text-tinta-suave">Selecione o texto e escolha o tamanho:</span>
-          {([TAMANHOS_TEXTO[0], null, TAMANHOS_TEXTO[1], TAMANHOS_TEXTO[2]] as (TamanhoTexto | null)[]).map((tam) => (
+          {([null, ...TAMANHOS_TEXTO] as (TamanhoTexto | null)[]).map((tam) => (
             <button
               key={tam ?? 'normal'}
               type="button"

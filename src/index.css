@@ -425,9 +425,6 @@ select option:disabled {
   --c-texto-rosa: #b8246c;
 }
 /* tamanho do texto, relativo ao tamanho de onde o cartão aparece (lista, editor ou revisão) */
-.texto-rico .tam-pequeno {
-  font-size: 0.85em;
-}
 .texto-rico .tam-grande {
   font-size: 1.3em;
   line-height: 1.45;
@@ -448,7 +445,8 @@ select option:disabled {
 }
 /* o cartão na revisão: centralizado e grande, como no Anki */
 .conteudo-cartao {
-  font-size: 1.3rem;
+  /* o normal é o antigo "pequeno" (0,85 × 1,3rem); Grande e Muito grande crescem a partir dele */
+  font-size: 1.1rem;
   line-height: 1.6;
   text-align: center;
   overflow-wrap: anywhere;

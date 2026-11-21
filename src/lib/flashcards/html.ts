@@ -77,9 +77,10 @@ export const ROTULO_COR_TEXTO: Record<CorTexto, string> = { vermelho: 'Vermelho'
 export const classeCor = (cor: CorTexto) => `cor-${cor}`
 
 /** Tamanhos além do normal (o normal é não ter classe) */
-export const TAMANHOS_TEXTO = ['pequeno', 'grande', 'enorme'] as const
+// o antigo "pequeno" virou o normal (o cartão inteiro ficou desse tamanho); tam-pequeno gravado antes é descartado pelo limparHtml
+export const TAMANHOS_TEXTO = ['grande', 'enorme'] as const
 export type TamanhoTexto = (typeof TAMANHOS_TEXTO)[number]
-export const ROTULO_TAMANHO: Record<TamanhoTexto, string> = { pequeno: 'Pequeno', grande: 'Grande', enorme: 'Muito grande' }
+export const ROTULO_TAMANHO: Record<TamanhoTexto, string> = { grande: 'Grande', enorme: 'Muito grande' }
 export const classeTamanho = (tamanho: TamanhoTexto) => `tam-${tamanho}`
 
 export const ALINHAMENTOS = ['esquerda', 'centro', 'justificado'] as const
