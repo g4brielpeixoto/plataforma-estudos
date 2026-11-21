@@ -26,12 +26,7 @@ import { proximoNumero } from '@/lib/flashcards/omissao'
 import { cn, mensagemErro } from '@/lib/utils'
 
 export interface CampoRicoRef {
-  /** põe o foco no editor; com um ponto da tela, o cursor vai para lá (senão, para o fim) */
-  focar: (ponto?: { x: number; y: number }) => void
-  /** guarda onde o cursor está (para inserir algo ali depois de abrir uma janela) */
-  guardarCursor: () => void
-  /** insere HTML onde o cursor estava; `apagarAntes` tira esse número de caracteres antes do cursor (ex.: o "[" de "[[") */
-  inserirHtml: (html: string, apagarAntes?: number) => void
+  focar: () => void
 }
 
 interface Props {
@@ -46,14 +41,6 @@ interface Props {
   className?: string
   /** avisa quantas imagens estão sendo enviadas (para segurar o "Salvar" até terminar) */
   aoEnviar?: (quantas: number) => void
-  /** editor de uma linha só (anotações da lei): barra menor embaixo do texto, sem listas, alinhamento e imagem */
-  linha?: boolean
-  /** recebe a tecla antes do editor; se chamar preventDefault, o editor não faz mais nada */
-  aoTecla?: (e: KeyboardEvent<HTMLDivElement>) => void
-  /** colaram um texto com várias linhas (só no modo linha): devolva true para o editor não colar */
-  aoColarVarias?: (linhas: string[]) => boolean
-  /** botões a mais na barra (ex.: ligar a um artigo, no menu Leis) */
-  extras?: ReactNode
 }
 
 /*
@@ -62,7 +49,7 @@ interface Props {
   Imagens: botão, colar (print da tela) ou arrastar. Elas vão para o bucket e entram no texto pelo endereço.
   Usa document.execCommand, que todos os navegadores ainda suportam para edição simples.
 */
-export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id, valor, aoMudar, placeholder, omissao, rotulo, invalido, className, aoEnviar, linha, aoTecla, aoColarVarias, extras }, ref) {
+export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id, valor, aoMudar, placeholder, omissao, rotulo, invalido, className, aoEnviar }, ref) {
   const editor = useRef<HTMLDivElement>(null)
   const seletor = useRef<HTMLInputElement>(null)
   // onde o cursor estava (para a imagem entrar no lugar certo depois do envio)
@@ -85,62 +72,13 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
     if (sel?.rangeCount && editor.current?.contains(sel.anchorNode)) cursor.current = sel.getRangeAt(0).cloneRange()
   }
 
-  useImperativeHandle(
-    ref,
-    () => ({
-      guardarCursor: () => guardarCursor(),
-      inserirHtml: (html, apagarAntes = 0) => {
-        const el = editor.current
-        if (!el) return
-        el.focus()
-        const sel = window.getSelection()
-        if (!sel) return
-        sel.removeAllRanges()
-        if (cursor.current && el.contains(cursor.current.startContainer)) sel.addRange(cursor.current)
-        else {
-          const fim = document.createRange()
-          fim.selectNodeContents(el)
-          fim.collapse(false)
-          sel.addRange(fim)
-        }
-        for (let k = 0; k < apagarAntes; k++) sel.modify('extend', 'backward', 'character')
-        document.execCommand('insertHTML', false, html)
-        travarLigacoes()
-        emitir()
-      },
-      focar: (ponto) => {
-        const el = editor.current
-        if (!el) return
-        el.focus()
-        const sel = window.getSelection()
-        if (!sel) return
-        let alcance = ponto ? (document.caretRangeFromPoint?.(ponto.x, ponto.y) ?? null) : null
-        if (!alcance || !el.contains(alcance.startContainer)) {
-          alcance = document.createRange()
-          alcance.selectNodeContents(el)
-          alcance.collapse(false)
-        }
-        sel.removeAllRanges()
-        sel.addRange(alcance)
-      },
-    }),
-    [],
-  )
+  useImperativeHandle(ref, () => ({ focar: () => editor.current?.focus() }), [])
 
   // só reescreve o conteúdo quando o valor muda por fora (abrir outro cartão, limpar o formulário)
   useEffect(() => {
     const el = editor.current
-    if (el && el.innerHTML !== valor) {
-      el.innerHTML = valor
-      travarLigacoes()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (el && el.innerHTML !== valor) el.innerHTML = valor
   }, [valor])
-
-  /** a etiqueta de uma ligação (menu Leis) é um bloco só: não dá para escrever dentro dela, o Backspace apaga inteira */
-  const travarLigacoes = () => {
-    for (const ref of Array.from(editor.current?.querySelectorAll('[data-ref]') ?? [])) ref.setAttribute('contenteditable', 'false')
-  }
 
   const emitir = () => {
     guardarCursor()
@@ -198,14 +136,12 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
     document.execCommand('styleWithCSS', false, 'true')
     document.execCommand('hiliteColor', false, COR_PROVISORIA)
     document.execCommand('styleWithCSS', false, 'false')
-    const novos: HTMLElement[] = []
     for (const pintado of Array.from(el.querySelectorAll<HTMLElement>('[style]'))) {
       if (pintado.style.backgroundColor !== COR_PROVISORIA) continue
       const mark = document.createElement('mark')
       mark.className = classeGrifo(cor)
       while (pintado.firstChild) mark.appendChild(pintado.firstChild)
       pintado.replaceWith(mark)
-      novos.push(mark)
     }
     // grifo novo dentro de um grifo antigo: corta o antigo em volta do novo, para não ficar um dentro do outro
     for (let voltas = 0; voltas < 200; voltas++) {
@@ -217,15 +153,6 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
       externo.after(interno)
       if (depois.childNodes.length) interno.after(depois)
       if (!externo.childNodes.length) externo.remove()
-    }
-    // o trecho continua selecionado, para dar também uma cor ou um tamanho sem selecionar de novo
-    const vivos = novos.filter((m) => el.contains(m))
-    if (vivos.length) {
-      const alcance = document.createRange()
-      alcance.setStartBefore(vivos[0])
-      alcance.setEndAfter(vivos[vivos.length - 1])
-      sel.removeAllRanges()
-      sel.addRange(alcance)
     }
     setCorGrifo(cor)
     emitir()
@@ -404,17 +331,12 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
     // imagem copiada (print da tela, "copiar imagem"): envia
     const arquivos = Array.from(e.clipboardData.files)
     if (arquivos.some((f) => f.type.startsWith('image/'))) {
-      if (linha) return void toast.info('As anotações da lei não aceitam imagem. Use um flashcard para guardar a imagem.')
       guardarCursor()
       void inserirImagens(arquivos)
       return
     }
     const html = e.clipboardData.getData('text/html')
     const texto = e.clipboardData.getData('text/plain')
-    if (linha && aoColarVarias) {
-      const partes = texto.split(/\r?\n/).filter((x) => x.trim())
-      if (partes.length > 1 && aoColarVarias(partes)) return
-    }
     document.execCommand('insertHTML', false, html ? limparHtml(html) : textoParaHtml(texto))
     emitir()
   }
@@ -423,7 +345,6 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
     const arquivos = Array.from(e.dataTransfer.files)
     if (!arquivos.some((f) => f.type.startsWith('image/'))) return
     e.preventDefault()
-    if (linha) return
     // põe o cursor onde a imagem foi solta
     const ponto = document.caretRangeFromPoint?.(e.clientX, e.clientY)
     if (ponto && editor.current?.contains(ponto.startContainer)) cursor.current = ponto
@@ -431,8 +352,6 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
   }
 
   const aoTeclar = (e: KeyboardEvent<HTMLDivElement>) => {
-    aoTecla?.(e)
-    if (e.defaultPrevented) return
     if (omissao && (e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'c') {
       e.preventDefault()
       inserirOmissao()
@@ -444,13 +363,12 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
   return (
     <div
       className={cn(
-        'overflow-hidden border bg-superficie focus-within:border-primaria',
-        linha ? 'flex flex-col-reverse rounded-lg' : 'rounded-xl focus-within:ring-2 focus-within:ring-primaria/40',
+        'overflow-hidden rounded-xl border bg-superficie focus-within:border-primaria focus-within:ring-2 focus-within:ring-primaria/40',
         invalido ? 'border-ruim' : 'border-linha',
         className,
       )}
     >
-      <div className={cn('flex flex-wrap items-center gap-0.5 border-linha/70 bg-superficie-2/60 px-1.5', linha ? 'border-t py-0.5' : 'border-b py-1')} role="toolbar" aria-label={`Formatação: ${rotulo}`}>
+      <div className="flex flex-wrap items-center gap-0.5 border-b border-linha/70 bg-superficie-2/60 px-1.5 py-1" role="toolbar" aria-label={`Formatação: ${rotulo}`}>
         <BotaoFerramenta rotulo="Negrito (Ctrl+B)" aoClicar={() => comando('bold')}>
           <Bold className="size-4" />
         </BotaoFerramenta>
@@ -460,8 +378,6 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
         <BotaoFerramenta rotulo="Sublinhado (Ctrl+U)" aoClicar={() => comando('underline')}>
           <Underline className="size-4" />
         </BotaoFerramenta>
-        {!linha && (
-          <>
         <BotaoFerramenta rotulo="Lista" aoClicar={() => comando('insertUnorderedList')}>
           <List className="size-4" />
         </BotaoFerramenta>
@@ -477,8 +393,6 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
         <BotaoFerramenta rotulo="Justificar" aoClicar={() => alinhar('justificado')}>
           <AlignJustify className="size-4" />
         </BotaoFerramenta>
-          </>
-        )}
         <BotaoFerramenta rotulo={painel === 'tamanho' ? 'Fechar o tamanho do texto' : 'Tamanho do texto'} aoClicar={() => alternarPainel('tamanho')} ativo={painel === 'tamanho'}>
           <ALargeSmall className="size-4" />
         </BotaoFerramenta>
@@ -488,8 +402,6 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
         <BotaoFerramenta rotulo={painel === 'grifo' ? 'Fechar o marca-texto' : 'Marca-texto'} aoClicar={() => alternarPainel('grifo')} ativo={painel === 'grifo'}>
           <Highlighter className="size-4" />
         </BotaoFerramenta>
-        {!linha && (
-          <>
         <BotaoFerramenta
           rotulo="Imagem (também dá para colar ou arrastar)"
           aoClicar={() => {
@@ -512,9 +424,6 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
             e.target.value = ''
           }}
         />
-          </>
-        )}
-        {extras}
         {enviando > 0 && (
           <span className="ml-1 inline-flex items-center gap-1.5 text-xs text-tinta-suave" role="status">
             <LoaderCircle className="size-3.5 animate-spin" aria-hidden /> Enviando imagem…
@@ -533,7 +442,7 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
         )}
       </div>
       {painel === 'grifo' && (
-        <div className={cn('flex flex-wrap items-center gap-1.5 border-linha/70 bg-superficie-2/40 px-2.5 py-1.5', linha ? 'border-t' : 'border-b')} role="group" aria-label="Cores do marca-texto">
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-linha/70 bg-superficie-2/40 px-2.5 py-1.5" role="group" aria-label="Cores do marca-texto">
           <span className="mr-0.5 text-xs text-tinta-suave">Selecione o texto e escolha a cor:</span>
           {CORES_GRIFO.map((cor) => (
             <button
@@ -559,7 +468,7 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
         </div>
       )}
       {painel === 'cor' && (
-        <div className={cn('flex flex-wrap items-center gap-1.5 border-linha/70 bg-superficie-2/40 px-2.5 py-1.5', linha ? 'border-t' : 'border-b')} role="group" aria-label="Cores do texto">
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-linha/70 bg-superficie-2/40 px-2.5 py-1.5" role="group" aria-label="Cores do texto">
           <span className="mr-0.5 text-xs text-tinta-suave">Selecione o texto e escolha a cor:</span>
           {CORES_TEXTO.map((cor) => (
             <button
@@ -584,7 +493,7 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
         </div>
       )}
       {painel === 'tamanho' && (
-        <div className={cn('flex flex-wrap items-center gap-1.5 border-linha/70 bg-superficie-2/40 px-2.5 py-1.5', linha ? 'border-t' : 'border-b')} role="group" aria-label="Tamanho do texto">
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-linha/70 bg-superficie-2/40 px-2.5 py-1.5" role="group" aria-label="Tamanho do texto">
           <span className="mr-0.5 text-xs text-tinta-suave">Selecione o texto e escolha o tamanho:</span>
           {([TAMANHOS_TEXTO[0], null, TAMANHOS_TEXTO[1], TAMANHOS_TEXTO[2]] as (TamanhoTexto | null)[]).map((tam) => (
             <button
@@ -601,7 +510,7 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
       )}
       <div className="relative">
         {vazio && placeholder && (
-          <span className={cn('pointer-events-none absolute text-[15px] text-tinta-suave/70', linha ? 'inset-x-2 top-1' : 'inset-x-3 top-2.5')} aria-hidden>
+          <span className="pointer-events-none absolute inset-x-3 top-2.5 text-[15px] text-tinta-suave/70" aria-hidden>
             {placeholder}
           </span>
         )}
@@ -621,7 +530,7 @@ export const CampoRico = forwardRef<CampoRicoRef, Props>(function CampoRico({ id
           onPaste={aoColar}
           onDrop={aoSoltar}
           onKeyDown={aoTeclar}
-          className={cn('texto-rico text-[15px] leading-relaxed text-tinta outline-none [overflow-wrap:anywhere]', linha ? 'min-h-7 px-2 py-1' : 'min-h-24 px-3 py-2.5')}
+          className="texto-rico min-h-24 px-3 py-2.5 text-[15px] leading-relaxed text-tinta outline-none [overflow-wrap:anywhere]"
         />
       </div>
     </div>
@@ -633,7 +542,7 @@ const BLOCOS_ALINHAVEIS = new Set(['P', 'DIV', 'LI', 'BLOCKQUOTE', 'TD', 'TH'])
 /** cor de fundo provisória que o navegador aplica na seleção antes de virar <mark> (não fica gravada) */
 const COR_PROVISORIA = 'rgb(254, 253, 1)'
 
-export function BotaoFerramenta({ rotulo, aoClicar, ativo, children }: { rotulo: string; aoClicar: () => void; ativo?: boolean; children: ReactNode }) {
+function BotaoFerramenta({ rotulo, aoClicar, ativo, children }: { rotulo: string; aoClicar: () => void; ativo?: boolean; children: ReactNode }) {
   return (
     <button
       type="button"

@@ -153,9 +153,6 @@ export type MapearSrc = (src: string) => string | null
 /** Só imagens enviadas para o bucket dos flashcards */
 export const srcPermitido: MapearSrc = (src) => (src.startsWith(PREFIXO_IMAGENS_FLASH) && !/["'<>\s]/.test(src) ? src : null)
 
-/** id (uuid) de uma ligação para dispositivo de lei */
-export const RE_ID_REF = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 function copiar(origem: Node, destino: Node, doc: Document, info: { imagens: number }, mapear: MapearSrc) {
   for (const filho of Array.from(origem.childNodes)) {
     if (filho.nodeType === Node.TEXT_NODE) {
@@ -175,15 +172,6 @@ function copiar(origem: Node, destino: Node, doc: Document, info: { imagens: num
         info.imagens++
         destino.appendChild(doc.createTextNode('[imagem]'))
       }
-      continue
-    }
-    // ligação para um dispositivo de lei (menu Leis): <span data-ref="id"> só com o texto do rótulo
-    if (tag === 'SPAN' && RE_ID_REF.test((filho as Element).getAttribute('data-ref') ?? '')) {
-      const ref = doc.createElement('span')
-      ref.setAttribute('data-ref', (filho as Element).getAttribute('data-ref')!.toLowerCase())
-      ref.setAttribute('class', 'ref-lei')
-      ref.textContent = (filho.textContent ?? '').replace(/\s+/g, ' ').trim() || 'ligação'
-      destino.appendChild(ref)
       continue
     }
     // marca-texto: <mark> com a cor (classe conhecida) ou um trecho com cor de fundo no style (grifo do Anki)
