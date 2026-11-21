@@ -215,31 +215,3 @@ export interface Material {
   url: string
   criado_em: string
 }
-
-export type Incidencia = 'alta' | 'media' | 'baixa'
-
-/** Uma lei mapeada (menu Leis); a disciplina dá a cor e é o baralho dos flashcards criados nela */
-export interface Lei {
-  id: string
-  user_id: string
-  disciplina_id: string
-  nome: string
-  criado_em: string
-}
-
-/** Uma linha da lei: lista única e ordenada, cada linha pertence à linha acima com um nível a menos */
-export interface LeiLinha {
-  id: string
-  user_id?: string
-  lei_id: string
-  ordem: number
-  nivel: number
-  /** HTML simples, já limpo */
-  texto: string
-  /** com incidência, a linha conta como "artigo mapeado" */
-  incidencia: Incidencia | null
-  revisado_em: string | null
-  /** flashcard criado a partir da linha */
-  nota_id: string | null
-  criado_em?: string
-}

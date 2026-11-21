@@ -8,12 +8,10 @@ import { toast } from 'sonner'
 import { ConteudoCartao, useLadosDoCartao } from '@/components/flashcards/ConteudoCartao'
 import { NotaFlashDialog } from '@/components/flashcards/NotaFlashDialog'
 import { Botao, Carregando } from '@/components/ui'
-import { chaves, useAtualizarCartoesFlash, useDesfazerFlash, useLeiLinhas, useLeis, useResponderFlash } from '@/hooks/dados'
+import { chaves, useAtualizarCartoesFlash, useDesfazerFlash, useResponderFlash } from '@/hooks/dados'
 import { filtroEscopo, useDadosFlash } from '@/hooks/useFlash'
 import { criarAgendador, previa, responder } from '@/lib/flashcards/agenda'
 import { contagem, disponiveis, proximoAprendizado, proximoCartao, type FeitosHoje, type Fila } from '@/lib/flashcards/fila'
-import { textoPuro } from '@/lib/flashcards/html'
-import { ancestrais, incidenciaEfetiva, rotuloSumario } from '@/lib/leis'
 import { cn, formatarDuracao, mensagemErro } from '@/lib/utils'
 import type { FlashCartao, FlashNota, RespostaFlash } from '@/types'
 
@@ -40,9 +38,6 @@ export function RevisaoFlash() {
   const { escopo = 'todos' } = useParams()
   const [busca] = useSearchParams()
   const topicoId = busca.get('topico')
-  // só os flashcards criados numa lei (e, se pedido, só os dos artigos de certa incidência: "alta" ou "alta,media")
-  const leiId = busca.get('lei')
-  const incidencias = busca.get('incidencia')
   const disciplinaId = escopo === 'todos' ? null : escopo
   const navegar = useNavigate()
   const qc = useQueryClient()
@@ -65,39 +60,7 @@ export function RevisaoFlash() {
   const gravacoes = useRef<Promise<unknown>>(Promise.resolve())
 
   const agendador = useMemo(() => criarAgendador(dados.limites.retencao), [dados.limites.retencao])
-  const leis = useLeis()
-  const leiLinhas = useLeiLinhas()
-  const carregandoLeis = leis.isLoading || leiLinhas.isLoading
-  // de qual linha de qual lei veio cada cartão
-  const origem = useMemo(() => {
-    const porLei = new Map<string, NonNullable<typeof leiLinhas.data>>()
-    for (const l of leiLinhas.data ?? []) {
-      const lista = porLei.get(l.lei_id)
-      if (lista) lista.push(l)
-      else porLei.set(l.lei_id, [l])
-    }
-    const m = new Map<string, { leiId: string; linhaId: string; incidencia: string | null; caminho: string }>()
-    for (const [idLei, lista] of porLei) {
-      const nome = leis.data?.find((x) => x.id === idLei)?.nome
-      if (!nome) continue
-      for (const l of lista) {
-        if (!l.nota_id) continue
-        const acima = ancestrais(lista, l.id)
-        const artigo = acima.length ? rotuloSumario(textoPuro(acima[acima.length - 1].texto)) : ''
-        m.set(l.nota_id, { leiId: idLei, linhaId: l.id, incidencia: incidenciaEfetiva(lista, l.id), caminho: artigo ? `${nome} › ${artigo}` : nome })
-      }
-    }
-    return m
-  }, [leiLinhas.data, leis.data])
-  const filtro = useMemo(() => {
-    const escopo = filtroEscopo(disciplinaId, topicoId)
-    if (!leiId) return escopo
-    const quais = incidencias ? incidencias.split(',') : null
-    return (n: FlashNota) => {
-      const o = origem.get(n.id)
-      return escopo(n) && o?.leiId === leiId && (!quais || (!!o.incidencia && quais.includes(o.incidencia)))
-    }
-  }, [disciplinaId, topicoId, leiId, incidencias, origem])
+  const filtro = useMemo(() => filtroEscopo(disciplinaId, topicoId), [disciplinaId, topicoId])
 
   const calcular = useCallback(
     (m: Map<string, FlashCartao>, f: FeitosHoje, agora = new Date()) =>
@@ -114,14 +77,14 @@ export function RevisaoFlash() {
 
   // começa a sessão quando os dados chegam
   useEffect(() => {
-    if (dados.carregando || carregandoLeis || mapa) return
+    if (dados.carregando || mapa) return
     const m = new Map(dados.cartoes.filter((c) => !c.suspenso && dados.notaPorId.has(c.nota_id) && filtro(dados.notaPorId.get(c.nota_id)!)).map((c) => [c.id, c]))
     const f = new Map([...dados.feitos].map(([k, v]) => [k, { ...v }]))
     setMapa(m)
     setFeitos(f)
     setAtual(proximoCartao(calcular(m, f), 0))
     setMostradoEm(Date.now())
-  }, [dados.carregando, carregandoLeis, dados.cartoes, dados.notaPorId, dados.feitos, filtro, mapa, calcular])
+  }, [dados.carregando, dados.cartoes, dados.notaPorId, dados.feitos, filtro, mapa, calcular])
 
   // sem cartão na tela, confere de tempos em tempos se um cartão em aprendizado já venceu
   useEffect(() => {
@@ -265,10 +228,8 @@ export function RevisaoFlash() {
   })
 
   const titulo = disciplinaId ? (dados.disciplinaPorId.get(disciplinaId)?.nome ?? 'Baralho') : 'Todos os baralhos'
-  const nomeDaLei = leiId ? leis.data?.find((l) => l.id === leiId)?.nome : undefined
-  const subtitulo = nomeDaLei ? `Flashcards de ${nomeDaLei}` : topicoId ? dados.topicoPorId.get(topicoId)?.nome : undefined
-  const voltar = leiId ? `/leis/${leiId}` : disciplinaId ? `/flashcards/${disciplinaId}` : '/flashcards'
-  const origemDoCartao = nota ? origem.get(nota.id) : undefined
+  const subtitulo = topicoId ? dados.topicoPorId.get(topicoId)?.nome : undefined
+  const voltar = disciplinaId ? `/flashcards/${disciplinaId}` : '/flashcards'
 
   if (dados.carregando || !mapa) return <Carregando texto="Preparando os cartões…" />
 
@@ -342,11 +303,6 @@ export function RevisaoFlash() {
                   </span>
                 )}
                 {topicoDoCartao && <span>{topicoDoCartao}</span>}
-                {origemDoCartao && (
-                  <Link to={`/leis/${origemDoCartao.leiId}?linha=${origemDoCartao.linhaId}`} title="Abrir a lei nesta linha" className="underline decoration-linha underline-offset-4 hover:text-tinta">
-                    {origemDoCartao.caminho}
-                  </Link>
-                )}
                 {atual.fila === 'novo' && <span className="rounded-md bg-revisao-fundo px-1.5 py-0.5 font-medium text-revisao">Novo</span>}
               </p>
               {revelado && lados.respostaSubstitui ? (

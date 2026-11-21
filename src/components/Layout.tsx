@@ -1,5 +1,5 @@
 import * as RadixDialog from '@radix-ui/react-dialog'
-import { BookOpen, CalendarDays, ChevronRight, History, House, Layers, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Scale, ScanSearch, Sun, Timer, Users, X } from 'lucide-react'
+import { BookOpen, CalendarDays, ChevronRight, History, House, Layers, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, ScanSearch, Sun, Timer, Users, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { useAuth } from '@/contexts/AuthContext'
@@ -13,7 +13,6 @@ const itens = [
   { para: '/edital', rotulo: 'Edital', icone: BookOpen, fim: false },
   { para: '/planner', rotulo: 'Planner', icone: CalendarDays, fim: false },
   { para: '/flashcards', rotulo: 'Flashcards', icone: Layers, fim: false },
-  { para: '/leis', rotulo: 'Leis', icone: Scale, fim: false },
   { para: '/estudar', rotulo: 'Estudar', icone: Timer, fim: false },
   { para: '/historico', rotulo: 'Histórico', icone: History, fim: false },
   { para: '/raio-x', rotulo: 'Raio-X', icone: ScanSearch, fim: false },
