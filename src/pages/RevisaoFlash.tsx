@@ -5,7 +5,7 @@ import { CircleCheck, EllipsisVertical, Pause, Pencil, Undo2, X } from 'lucide-r
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
-import { ConteudoCartao, useLadosDoCartao } from '@/components/flashcards/ConteudoCartao'
+import { ComparacaoDigitada, ConteudoCartao, useLadosDoCartao } from '@/components/flashcards/ConteudoCartao'
 import { NotaFlashDialog } from '@/components/flashcards/NotaFlashDialog'
 import { Botao, Carregando } from '@/components/ui'
 import { chaves, useAtualizarCartoesFlash, useDesfazerFlash, useResponderFlash } from '@/hooks/dados'
@@ -56,6 +56,9 @@ export function RevisaoFlash() {
   const [mostradoEm, setMostradoEm] = useState(() => Date.now())
   const [relogio, setRelogio] = useState(() => Date.now())
   const [editando, setEditando] = useState<FlashNota | null>(null)
+  // cartão "Digitar a resposta": o que a pessoa escreveu (zera a cada cartão novo na tela)
+  const [digitado, setDigitado] = useState('')
+  useEffect(() => setDigitado(''), [mostradoEm])
   // as gravações vão em fila, na ordem (responder e depois desfazer, por exemplo)
   const gravacoes = useRef<Promise<unknown>>(Promise.resolve())
 
@@ -310,10 +313,44 @@ export function RevisaoFlash() {
               ) : (
                 <ConteudoCartao html={lados.pergunta} />
               )}
+              {lados.digitar && !revelado && (
+                <form
+                  className="mx-auto mt-8 max-w-xl"
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    setRevelado(true)
+                  }}
+                >
+                  <label htmlFor="resposta-digitada" className="sr-only">
+                    Digite a resposta
+                  </label>
+                  <input
+                    id="resposta-digitada"
+                    value={digitado}
+                    onChange={(e) => setDigitado(e.target.value)}
+                    placeholder="Digite a resposta"
+                    autoFocus
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    enterKeyHint="done"
+                    className="h-12 w-full rounded-xl border border-linha bg-fundo px-4 text-center text-[1.05rem] text-tinta placeholder:text-tinta-suave/70 focus:border-primaria focus:outline-none"
+                  />
+                </form>
+              )}
               {revelado && !lados.respostaSubstitui && (
                 <>
                   <hr className="my-7 border-linha" />
-                  <ConteudoCartao html={lados.resposta} />
+                  {lados.digitar ? (
+                    <>
+                      <ComparacaoDigitada digitada={digitado} versoHtml={lados.resposta} />
+                      {/* imagem no verso não entra na comparação: mostra o verso também */}
+                      {/<img\b/i.test(lados.resposta) && <ConteudoCartao html={lados.resposta} className="mt-6" />}
+                    </>
+                  ) : (
+                    <ConteudoCartao html={lados.resposta} />
+                  )}
                 </>
               )}
             </article>
@@ -322,8 +359,9 @@ export function RevisaoFlash() {
           <footer className="sticky bottom-0 z-20 border-t border-linha/70 bg-superficie/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
             <div className="mx-auto max-w-3xl px-3 py-3 sm:px-4">
               {!revelado ? (
-                <Botao className="h-12 w-full text-base" onClick={() => setRevelado(true)} autoFocus>
-                  Mostrar resposta <span className="hidden text-sm font-normal opacity-80 sm:inline">(espaço)</span>
+                <Botao className="h-12 w-full text-base" onClick={() => setRevelado(true)} autoFocus={!lados.digitar}>
+                  {lados.digitar ? 'Conferir resposta' : 'Mostrar resposta'}{' '}
+                  <span className="hidden text-sm font-normal opacity-80 sm:inline">({lados.digitar ? 'Enter' : 'espaço'})</span>
                 </Botao>
               ) : (
                 <div className="grid grid-cols-4 gap-2">

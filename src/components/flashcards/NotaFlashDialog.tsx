@@ -70,6 +70,7 @@ export function NotaFlashDialog({
   }, [aberto, nota, disciplinaInicial, topicoInicial])
 
   const omissao = tipo === 'omissao'
+  const digitar = tipo === 'digitar'
   const numeros = omissao ? numerosOmissao(frente) : []
 
   const alternarCriarNovo = (v: boolean) => {
@@ -123,7 +124,13 @@ export function NotaFlashDialog({
       aberto={aberto}
       aoMudar={aoMudar}
       titulo={nota ? 'Editar cartão' : 'Novo cartão'}
-      descricao={omissao ? 'Escreva o texto e marque os trechos que devem ficar escondidos. Cada número de omissão vira um cartão.' : 'Pergunta na frente, resposta no verso.'}
+      descricao={
+        omissao
+          ? 'Escreva o texto e marque os trechos que devem ficar escondidos. Cada número de omissão vira um cartão.'
+          : digitar
+            ? 'Pergunta na frente. No verso, a resposta que você vai digitar na revisão.'
+            : 'Pergunta na frente, resposta no verso.'
+      }
       largura="max-w-2xl"
     >
       {semDisciplinas ? (
@@ -151,6 +158,7 @@ export function NotaFlashDialog({
               [
                 ['basico', 'Frente e verso'],
                 ['omissao', 'Omissão de palavras'],
+                ['digitar', 'Digitar a resposta'],
               ] as [TipoNotaFlash, string][]
             ).map(([v, r]) => (
               <button
@@ -158,7 +166,8 @@ export function NotaFlashDialog({
                 type="button"
                 role="radio"
                 aria-checked={tipo === v}
-                disabled={!!nota && tipo !== v}
+                // editando, frente e verso troca com digitar (os dois têm um cartão só); omissão não troca
+                disabled={!!nota && tipo !== v && (tipo === 'omissao' || v === 'omissao')}
                 onClick={() => setTipo(v)}
                 className={cn(
                   'rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors disabled:opacity-40',
@@ -244,8 +253,11 @@ export function NotaFlashDialog({
               valor={verso}
               aoMudar={setVerso}
               aoEnviar={setEnviandoVerso}
-              placeholder={omissao ? 'Mostrado junto com a resposta (fonte, artigo, comentário)' : 'Resposta'}
+              placeholder={omissao ? 'Mostrado junto com a resposta (fonte, artigo, comentário)' : digitar ? 'Resposta curta, do jeito que você vai digitar' : 'Resposta'}
             />
+            {digitar && (
+              <p className="text-sm text-tinta-suave">Na revisão, o que você digitar é comparado letra por letra com este texto. Prefira respostas curtas, como um número, um prazo ou um termo.</p>
+            )}
           </div>
 
           {erro && (

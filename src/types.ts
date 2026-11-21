@@ -144,7 +144,7 @@ export interface ItemPlanner {
   criado_em: string
 }
 
-export type TipoNotaFlash = 'basico' | 'omissao'
+export type TipoNotaFlash = 'basico' | 'omissao' | 'digitar'
 /** 0 novo, 1 aprendendo, 2 revisão, 3 reaprendendo (mesmos números do FSRS) */
 export type EstadoCartao = 0 | 1 | 2 | 3
 /** 1 errei, 2 difícil, 3 bom, 4 fácil */
