@@ -131,7 +131,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRecuperandoSenha(false)
     },
     async sair() {
-      await supabase.auth.signOut()
+      // só este aparelho: o padrão do Supabase ("global") desconectaria também o computador, o tablet e o celular
+      await supabase.auth.signOut({ scope: 'local' })
     },
     async recarregarPerfil() {
       await carregarPerfil(sessao, true)
