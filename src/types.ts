@@ -29,6 +29,8 @@ export interface Disciplina {
   nome: string
   cor: string
   ordem: number
+  /** sigla curta (DC, PORT…) para o quadro e a roda do ciclo; vazia = sugerida pelo nome */
+  sigla: string | null
   criado_em: string
 }
 
@@ -42,6 +44,8 @@ export interface Topico {
   nivel: NivelTopico
   concluido: boolean
   concluido_em: string | null
+  /** meta do ciclo a que o tópico pertence (os subtópicos acompanham o tópico de cima) */
+  meta_id: string | null
   criado_em: string
 }
 
@@ -123,27 +127,6 @@ export interface Prova {
   criado_em: string
 }
 
-export type TipoPlanner = 'estudo' | 'resumo' | 'exercicios' | 'revisao'
-
-export interface ItemPlanner {
-  id: string
-  user_id: string
-  /** yyyy-mm-dd */
-  data: string
-  /** dia em que foi planejado pela primeira vez */
-  data_original: string
-  disciplina_id: string
-  topico_id: string | null
-  tipo: TipoPlanner
-  minutos_previstos: number | null
-  observacao: string | null
-  ordem: number
-  adiamentos: number
-  concluido_em: string | null
-  estudo_id: string | null
-  criado_em: string
-}
-
 export type TipoNotaFlash = 'basico' | 'omissao' | 'digitar'
 /** 0 novo, 1 aprendendo, 2 revisão, 3 reaprendendo (mesmos números do FSRS) */
 export type EstadoCartao = 0 | 1 | 2 | 3
@@ -214,4 +197,24 @@ export interface Material {
   titulo: string | null
   url: string
   criado_em: string
+}
+
+/** Meta do ciclo: um grupo de tópicos seguidos do edital de uma disciplina */
+export interface CicloMeta {
+  id: string
+  user_id: string
+  disciplina_id: string
+  ordem: number
+  nome: string
+  orientacoes: string
+  criado_em: string
+}
+
+/** O ciclo da pessoa: disciplinas que se revezam, a posição atual e a meta da vez */
+export interface Ciclo {
+  user_id: string
+  sequencia: string[]
+  posicao: number
+  meta_id: string | null
+  atualizado_em: string
 }

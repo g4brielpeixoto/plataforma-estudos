@@ -34,8 +34,6 @@ interface Estado {
   focoTotalMs: number
   disciplinaId: string
   topicoId: string
-  /** item do planner que originou este estudo ('' se nenhum): ao salvar, ele fica concluído */
-  plannerId: string
 }
 
 const CHAVE_ESTADO = 'estudar:estado:v1'
@@ -54,7 +52,6 @@ const ESTADO_INICIAL: Estado = {
   focoTotalMs: 0,
   disciplinaId: '',
   topicoId: '',
-  plannerId: '',
 }
 
 function ler<T>(chave: string, padrao: T): T {
@@ -296,7 +293,7 @@ function useMotorCronometro() {
     },
     zerar() {
       pararAlarme()
-      setEstado((e) => ({ ...e, rodando: false, inicioEm: null, acumuladoMs: 0, fase: 'foco', ciclo: 0, focoTotalMs: 0, plannerId: '' }))
+      setEstado((e) => ({ ...e, rodando: false, inicioEm: null, acumuladoMs: 0, fase: 'foco', ciclo: 0, focoTotalMs: 0 }))
     },
     trocarModo(modo: Modo) {
       pararAlarme()
@@ -320,10 +317,6 @@ function useMotorCronometro() {
     },
     escolherAssunto(disciplinaId: string, topicoId: string) {
       setEstado((e) => ({ ...e, disciplinaId, topicoId }))
-    },
-    /** Liga o relógio a um item do planner (ou desliga, com '') */
-    vincularPlanner(plannerId: string, disciplinaId?: string, topicoId?: string) {
-      setEstado((e) => ({ ...e, plannerId, disciplinaId: disciplinaId ?? e.disciplinaId, topicoId: topicoId ?? e.topicoId }))
     },
     setConfig,
   }

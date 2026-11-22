@@ -81,7 +81,7 @@ export function DisciplinaDialog({
               {corPropria ? <Check className="size-4" style={{ color: corSobre(cor) }} aria-hidden /> : <Pipette className="size-4" aria-hidden />}
             </label>
           </div>
-          <p className="mt-2 text-xs text-tinta-suave">É a cor da disciplina no edital, no planner e nos gráficos.</p>
+          <p className="mt-2 text-xs text-tinta-suave">É a cor da disciplina no edital, nos ciclos e nos gráficos.</p>
         </fieldset>
         <div className="flex justify-end gap-2">
           <Botao type="button" variante="secundario" onClick={() => aoMudar(false)}>

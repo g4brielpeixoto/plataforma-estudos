@@ -87,6 +87,7 @@ export function Disciplina() {
       nome,
       ordem: 0,
       nivel: 1,
+      meta_id: subDe.meta_id,
       concluido: false,
       concluido_em: null,
       criado_em: new Date().toISOString(),

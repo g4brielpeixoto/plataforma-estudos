@@ -12,7 +12,7 @@ import { Flashcards } from './pages/Flashcards'
 import { Historico } from './pages/Historico'
 import { Inicio } from './pages/Inicio'
 import { Perfil } from './pages/Perfil'
-import { Planner } from './pages/Planner'
+import { Ciclos } from './pages/Ciclos'
 import { RaioX } from './pages/RaioX'
 import { RevisaoFlash } from './pages/RevisaoFlash'
 import { Usuarios } from './pages/Usuarios'
@@ -64,7 +64,9 @@ const router = createHashRouter([
           { path: '/', element: <Inicio /> },
           { path: '/edital', element: <Edital /> },
           { path: '/edital/:id', element: <Disciplina /> },
-          { path: '/planner', element: <Planner /> },
+          { path: '/ciclos', element: <Ciclos /> },
+          // o planner saiu (pedido da usuária): o endereço antigo leva aos ciclos
+          { path: '/planner', element: <Navigate to="/ciclos" replace /> },
           { path: '/flashcards', element: <Flashcards /> },
           { path: '/flashcards/:id', element: <BaralhoFlash /> },
           { path: '/estudar', element: <Estudar /> },

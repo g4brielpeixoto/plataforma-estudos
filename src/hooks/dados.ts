@@ -6,7 +6,7 @@ import { camposDeNovo } from '@/lib/flashcards/agenda'
 import type { CartaoImportado } from '@/lib/flashcards/anki'
 import { imagensDoHtml, limparHtmlComInfo, srcPermitido } from '@/lib/flashcards/html'
 import { EXTENSAO, prepararImagem } from '@/lib/flashcards/imagens'
-import type { Convite, DadosProvaFeita, Disciplina, Estudo, FlashCartao, FlashConfig, FlashNota, FlashRevisao, ItemPlanner, Material, Metas, NivelTopico, NovoEstudo, Perfil, Prova, ProvaFeita, Topico } from '@/types'
+import type { Ciclo, CicloMeta, Convite, DadosProvaFeita, Disciplina, Estudo, FlashCartao, FlashConfig, FlashNota, FlashRevisao, Material, Metas, NivelTopico, NovoEstudo, Perfil, Prova, ProvaFeita, Topico } from '@/types'
 
 /*
   Acesso aos dados. Toda leitura usa o React Query (cache + recarga automática);
@@ -23,12 +23,13 @@ export const chaves = {
   metas: ['metas'] as const,
   provas: ['provas'] as const,
   provasFeitas: ['provasFeitas'] as const,
-  planner: ['planner'] as const,
   flashNotas: ['flash', 'notas'] as const,
   flashCartoes: ['flash', 'cartoes'] as const,
   flashRevisoes: ['flash', 'revisoes'] as const,
   flashConfig: ['flash', 'config'] as const,
   materiais: ['materiais'] as const,
+  cicloMetas: ['ciclo', 'metas'] as const,
+  ciclo: ['ciclo', 'estado'] as const,
 }
 
 // ---------- leituras ----------
@@ -109,20 +110,28 @@ export function useProvas() {
   })
 }
 
-export function usePlanner() {
-  return useQuery({
-    queryKey: chaves.planner,
-    queryFn: () =>
-      buscarTodos<ItemPlanner>((de, ate) =>
-        supabase.from('planner_itens').select('*').order('data').order('ordem').order('criado_em').range(de, ate),
-      ),
-  })
-}
-
 export function useMateriais() {
   return useQuery({
     queryKey: chaves.materiais,
     queryFn: () => buscarTodos<Material>((de, ate) => supabase.from('materiais').select('*').order('criado_em').order('id').range(de, ate)),
+  })
+}
+
+export function useCicloMetas() {
+  return useQuery({
+    queryKey: chaves.cicloMetas,
+    queryFn: () => buscarTodos<CicloMeta>((de, ate) => supabase.from('ciclo_metas').select('*').order('ordem').order('criado_em').range(de, ate)),
+  })
+}
+
+export function useCiclo() {
+  return useQuery({
+    queryKey: chaves.ciclo,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('ciclos').select('*').maybeSingle()
+      if (error) throw error
+      return (data as Ciclo | null) ?? null
+    },
   })
 }
 
@@ -194,7 +203,7 @@ export function useExcluirDisciplina() {
       const { error } = await supabase.from('disciplinas').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => invalidar('disciplinas', 'topicos', 'estudos', 'planner', 'flashNotas', 'flashCartoes', 'flashRevisoes', 'materiais'),
+    onSuccess: () => invalidar('disciplinas', 'topicos', 'estudos', 'flashNotas', 'flashCartoes', 'flashRevisoes', 'materiais'),
   })
 }
 
@@ -280,7 +289,7 @@ export function useExcluirTopico() {
       const { error } = await supabase.from('topicos').delete().in('id', ids)
       if (error) throw error
     },
-    onSuccess: () => invalidar('topicos', 'estudos', 'planner', 'flashNotas', 'materiais'),
+    onSuccess: () => invalidar('topicos', 'estudos', 'flashNotas', 'materiais'),
   })
 }
 
@@ -327,7 +336,7 @@ export function useImportar() {
 export function useSalvarEstudo() {
   const invalidar = useInvalidar()
   return useMutation({
-    mutationFn: async ({ id, estudo, concluirTopico, plannerItemId }: { id?: string; estudo: NovoEstudo; concluirTopico?: boolean; plannerItemId?: string }) => {
+    mutationFn: async ({ id, estudo, concluirTopico }: { id?: string; estudo: NovoEstudo; concluirTopico?: boolean }) => {
       let estudoId = id
       if (id) {
         const { error } = await supabase.from('estudos').update(estudo).eq('id', id)
@@ -336,11 +345,6 @@ export function useSalvarEstudo() {
         const { data, error } = await supabase.from('estudos').insert(estudo).select('id').single()
         if (error) throw error
         estudoId = data.id as string
-      }
-      // estudo que veio do planner: o item fica concluído e ligado a este registro
-      if (plannerItemId && estudoId) {
-        const { error: e3 } = await supabase.from('planner_itens').update({ concluido_em: new Date().toISOString(), estudo_id: estudoId }).eq('id', plannerItemId)
-        if (e3) throw e3
       }
       if (concluirTopico !== undefined && estudo.topico_id) {
         const { error: e2 } = await supabase
@@ -351,7 +355,7 @@ export function useSalvarEstudo() {
       }
       return estudoId
     },
-    onSuccess: () => invalidar('estudos', 'topicos', 'planner'),
+    onSuccess: () => invalidar('estudos', 'topicos'),
   })
 }
 
@@ -362,7 +366,7 @@ export function useExcluirEstudo() {
       const { error } = await supabase.from('estudos').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => invalidar('estudos', 'planner'),
+    onSuccess: () => invalidar('estudos'),
   })
 }
 
@@ -496,87 +500,6 @@ export function useExcluirProvaFeita() {
       if (error) throw error
     },
     onSuccess: () => invalidar('provasFeitas'),
-  })
-}
-
-// ---------- planner ----------
-
-export type DadosItemPlanner = Pick<ItemPlanner, 'data' | 'disciplina_id' | 'topico_id' | 'tipo' | 'minutos_previstos' | 'observacao'>
-
-export function useSalvarItemPlanner() {
-  const invalidar = useInvalidar()
-  return useMutation({
-    mutationFn: async ({ id, dados }: { id?: string; dados: DadosItemPlanner & { ordem?: number; adiamentos?: number } }) => {
-      const { error } = id
-        ? await supabase.from('planner_itens').update(dados).eq('id', id)
-        : await supabase.from('planner_itens').insert({ ...dados, data_original: dados.data, ordem: dados.ordem ?? 0 })
-      if (error) throw error
-    },
-    onSuccess: () => invalidar('planner'),
-  })
-}
-
-/** Cria vários itens de uma vez (as revisões programadas ao salvar um estudo) */
-export function useCriarItensPlanner() {
-  const invalidar = useInvalidar()
-  return useMutation({
-    mutationFn: async (itens: (DadosItemPlanner & { ordem: number })[]) => {
-      if (itens.length === 0) return
-      const { error } = await supabase.from('planner_itens').insert(itens.map((i) => ({ ...i, data_original: i.data })))
-      if (error) throw error
-    },
-    onSuccess: () => invalidar('planner'),
-  })
-}
-
-export function useExcluirItemPlanner() {
-  const invalidar = useInvalidar()
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('planner_itens').delete().eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => invalidar('planner'),
-  })
-}
-
-/** Grava vários itens de uma vez (mover de dia, reagendar atrasados), atualizando a tela na hora */
-export function useAtualizarItensPlanner() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (itens: ItemPlanner[]) => {
-      if (!itens.length) return
-      const linhas = itens.map(({ user_id: _u, criado_em: _c, ...resto }) => resto)
-      const { error } = await supabase.from('planner_itens').upsert(linhas, { onConflict: 'id' })
-      if (error) throw error
-    },
-    onMutate: async (itens) => {
-      await qc.cancelQueries({ queryKey: chaves.planner })
-      const anterior = qc.getQueryData<ItemPlanner[]>(chaves.planner)
-      const novos = new Map(itens.map((i) => [i.id, i]))
-      qc.setQueryData<ItemPlanner[]>(chaves.planner, (lista) => (lista ?? []).map((i) => novos.get(i.id) ?? i))
-      return { anterior }
-    },
-    onError: (_e, _v, ctx) => {
-      if (ctx?.anterior) qc.setQueryData(chaves.planner, ctx.anterior)
-    },
-    onSettled: () => qc.invalidateQueries({ queryKey: chaves.planner }),
-  })
-}
-
-/** Desfaz o check: o item volta a pendente e o estudo que ele gerou sai do histórico */
-export function useDesmarcarItemPlanner() {
-  const invalidar = useInvalidar()
-  return useMutation({
-    mutationFn: async (item: ItemPlanner) => {
-      const { error } = await supabase.from('planner_itens').update({ concluido_em: null, estudo_id: null }).eq('id', item.id)
-      if (error) throw error
-      if (item.estudo_id) {
-        const { error: e2 } = await supabase.from('estudos').delete().eq('id', item.estudo_id)
-        if (e2) throw e2
-      }
-    },
-    onSuccess: () => invalidar('planner', 'estudos'),
   })
 }
 
@@ -904,5 +827,101 @@ export function useExcluirMaterial() {
       if (error) throw error
     },
     onSuccess: () => invalidar('materiais'),
+  })
+}
+
+// ---------- ciclos de metas ----------
+
+/** Grava o ciclo (sequência, posição e meta da vez); atualiza a tela na hora */
+export function useSalvarCiclo() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (c: Partial<Pick<Ciclo, 'sequencia' | 'posicao' | 'meta_id'>>) => {
+      const { error } = await supabase.from('ciclos').upsert({ ...c, atualizado_em: new Date().toISOString() }, { onConflict: 'user_id' })
+      if (error) throw error
+    },
+    onMutate: async (c) => {
+      await qc.cancelQueries({ queryKey: chaves.ciclo })
+      const anterior = qc.getQueryData<Ciclo | null>(chaves.ciclo)
+      qc.setQueryData<Ciclo | null>(chaves.ciclo, (atual) => ({ user_id: '', sequencia: [], posicao: 0, meta_id: null, atualizado_em: '', ...(atual ?? {}), ...c }))
+      return { anterior }
+    },
+    onError: (_e, _v, ctx) => qc.setQueryData(chaves.ciclo, ctx?.anterior ?? null),
+    onSettled: () => qc.invalidateQueries({ queryKey: chaves.ciclo }),
+  })
+}
+
+export function useSalvarMeta() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async ({ id, ...campos }: { id: string; nome?: string; orientacoes?: string }) => {
+      const { error } = await supabase.from('ciclo_metas').update(campos).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => invalidar('cicloMetas'),
+  })
+}
+
+export interface MetaDividida {
+  /** meta que já existe (mantém o id e as orientações) ou null para criar */
+  metaId: string | null
+  nome: string
+  /** os assuntos da meta (tópicos sem subtópicos) */
+  topicoIds: string[]
+}
+
+/** Divide uma disciplina em metas: cria/atualiza as metas na ordem, liga os tópicos e apaga as que sobraram */
+export function useDividirMetas() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async ({ disciplinaId, metas, existentes, semMeta = [] }: { disciplinaId: string; metas: MetaDividida[]; existentes: string[]; semMeta?: string[] }) => {
+      const linhas = metas.map((m, i) => ({ id: m.metaId ?? crypto.randomUUID(), disciplina_id: disciplinaId, ordem: i, nome: m.nome.trim() || `Meta ${i + 1}` }))
+      if (linhas.length) {
+        const { error } = await supabase.from('ciclo_metas').upsert(linhas, { onConflict: 'id' })
+        if (error) throw error
+      }
+      for (let i = 0; i < metas.length; i++) {
+        const ids = metas[i].topicoIds
+        for (let k = 0; k < ids.length; k += 200) {
+          const { error } = await supabase.from('topicos').update({ meta_id: linhas[i].id }).in('id', ids.slice(k, k + 200))
+          if (error) throw error
+        }
+      }
+      if (semMeta.length) {
+        const { error } = await supabase.from('topicos').update({ meta_id: null }).in('id', semMeta)
+        if (error) throw error
+      }
+      const sobram = existentes.filter((id) => !linhas.some((l) => l.id === id))
+      if (sobram.length) {
+        const { error } = await supabase.from('ciclo_metas').delete().in('id', sobram)
+        if (error) throw error
+      }
+    },
+    onSuccess: () => invalidar('cicloMetas', 'topicos', 'ciclo'),
+  })
+}
+
+/** Tira a divisão em metas de uma disciplina (os tópicos ficam sem meta) */
+export function useApagarMetasDaDisciplina() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async (disciplinaId: string) => {
+      const { error } = await supabase.from('ciclo_metas').delete().eq('disciplina_id', disciplinaId)
+      if (error) throw error
+    },
+    onSuccess: () => invalidar('cicloMetas', 'topicos', 'ciclo'),
+  })
+}
+
+export function useSalvarSiglas() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async (siglas: { id: string; sigla: string | null }[]) => {
+      for (const s of siglas) {
+        const { error } = await supabase.from('disciplinas').update({ sigla: s.sigla }).eq('id', s.id)
+        if (error) throw error
+      }
+    },
+    onSuccess: () => invalidar('disciplinas'),
   })
 }

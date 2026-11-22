@@ -8,15 +8,30 @@ import { ContagemProvas } from '@/components/ContagemProvas'
 import { EstudoDialog } from '@/components/EstudoDialog'
 import { EstudoSemanal } from '@/components/EstudoSemanal'
 import { MetasSemanais } from '@/components/MetasSemanais'
-import { PlanejamentoHoje } from '@/components/PlanejamentoHoje'
+import { MetaDaVez } from '@/components/ciclos/MetaDaVez'
+import { MetaDialog } from '@/components/ciclos/MetaDialog'
 import { ResumoTopo } from '@/components/ResumoTopo'
 import { TempoPizza } from '@/components/TempoPizza'
 import { Botao, Carregando, Painel } from '@/components/ui'
 import { useAuth } from '@/contexts/AuthContext'
 import { VersiculoMini } from '@/components/VersiculoCard'
 import { useDisciplinas, useEstudos, useProvas, useTopicos } from '@/hooks/dados'
+import { useCicloDados } from '@/hooks/useCicloDados'
 import { primeiroNome } from '@/lib/foto'
 import { provasFuturas, seloProva } from '@/lib/provas'
+
+/** A meta da vez do ciclo (no lugar do antigo planejamento de hoje), com o detalhe da meta */
+function MetaDaVezInicio() {
+  const dados = useCicloDados()
+  const [aberta, setAberta] = useState<string | null>(null)
+  if (dados.carregando) return null
+  return (
+    <>
+      <MetaDaVez dados={dados} aoAbrir={setAberta} />
+      <MetaDialog dados={dados} metaId={aberta} aoMudarMeta={setAberta} />
+    </>
+  )
+}
 
 /** Prova mais próxima numa linha discreta embaixo da saudação (só no celular; o cartão completo fica mais abaixo) */
 function ProximaProva() {
@@ -101,14 +116,14 @@ export function Inicio() {
           {/* 1. resumos do topo: tempo, desempenho, edital e versículo */}
           <ResumoTopo estudos={todos} topicos={topicos.data ?? []} />
 
-          {/* 2. constância, de ponta a ponta (no celular, logo depois do planejamento de hoje) */}
+          {/* 2. constância, de ponta a ponta (no celular, logo depois da meta da vez) */}
           <Constancia estudos={todos} aoVerDetalhes={() => navegar('/raio-x')} className="order-2 sm:order-none" />
 
           {/* 3. acompanhamento do dia e da semana; a análise detalhada fica no Raio-X */}
           <div className="contents xl:grid xl:grid-cols-2 xl:items-start xl:gap-5">
             <div className="contents xl:block xl:space-y-5">
               <div className="order-1 space-y-5">
-                <PlanejamentoHoje disciplinas={disciplinas.data ?? []} topicos={topicos.data ?? []} />
+                <MetaDaVezInicio />
               </div>
               <EstudoSemanal estudos={todos} className="order-4" />
               <Link

@@ -1,5 +1,5 @@
 import { isToday } from 'date-fns'
-import { BellOff, CalendarDays, ClipboardCheck, Pause, Play, RotateCcw, Settings, SkipForward, X } from 'lucide-react'
+import { BellOff, ClipboardCheck, Pause, Play, RotateCcw, Settings, SkipForward } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -7,11 +7,9 @@ import { EstudoDialog } from '@/components/EstudoDialog'
 import { SeletorTopico } from '@/components/SeletorTopico'
 import { ChipsMateriais } from '@/components/Materiais'
 import { Botao, Campo, Dialogo, Entrada, Selecao } from '@/components/ui'
-import { useDisciplinas, useEstudos, useMateriais, usePlanner, useTopicos } from '@/hooks/dados'
+import { useDisciplinas, useEstudos, useMateriais, useTopicos } from '@/hooks/dados'
 import { CONFIG_PADRAO, mostrador, useCronometro, type ConfigPomodoro, type Modo } from '@/hooks/useCronometro'
-import type { PlayDoPlanner } from '@/hooks/usePlannerAcoes'
 import type { Material } from '@/types'
-import { concluido, coresDoItem, ROTULO_TIPO } from '@/lib/planner'
 import { materiaisDaFamilia } from '@/lib/materiais'
 import { numeracaoDeTodos } from '@/lib/topicos'
 import { cn, formatarDuracao, formatarDuracaoExata, formatarRelogio } from '@/lib/utils'
@@ -75,7 +73,6 @@ export function Estudar() {
   const [salvando, setSalvando] = useState(false)
   const [configurando, setConfigurando] = useState(false)
   const [minutosPersonalizados, setMinutosPersonalizados] = useState('')
-  const planner = usePlanner()
   const materiais = useMateriais()
   // o subtópico também mostra os links do tópico acima dele (mesma família de assunto)
   const materiaisDoTopico = useMemo(() => (c.topicoId ? materiaisDaFamilia(materiais.data ?? [], topicos.data ?? [], c.topicoId) : []), [materiais.data, topicos.data, c.topicoId])
@@ -89,10 +86,10 @@ export function Estudar() {
   const navegar = useNavigate()
   const playTratado = useRef<string | null>(null)
 
-  // play vindo do planner: escolhe a disciplina e o tópico do item e começa a contar.
+  // "Começar" vindo do ciclo: escolhe a disciplina e o tópico da meta e começa a contar.
   // "salvar" vindo do mini cronômetro: abre o diálogo de salvar
   useEffect(() => {
-    const pedido = local.state as { planner?: PlayDoPlanner; salvar?: boolean } | null
+    const pedido = local.state as { comecar?: { disciplinaId: string; topicoId?: string }; salvar?: boolean } | null
     if (!pedido || playTratado.current === local.key) return
     playTratado.current = local.key
     navegar('/estudar', { replace: true, state: null })
@@ -100,24 +97,17 @@ export function Estudar() {
       if (mostrador(c).podeSalvar) abrirSalvar()
       return
     }
-    const play = pedido.planner
+    const play = pedido.comecar
     if (!play) return
-    if (c.temTempo && c.plannerId !== play.id) {
-      toast.error('Já existe um estudo em andamento. Salve ou zere o tempo atual e dê o play de novo no planner.')
+    const mesmo = c.disciplinaId === play.disciplinaId && (!play.topicoId || c.topicoId === play.topicoId)
+    if (c.temTempo && !mesmo) {
+      toast.error('Já existe um estudo em andamento. Salve ou zere o tempo atual e toque em Começar de novo.')
       return
     }
-    c.vincularPlanner(play.id, play.disciplinaId, play.topicoId ?? '')
-    if (c.modo === 'timer' && play.minutos && !c.temTempo) c.definirAlvoTimer(play.minutos)
+    c.escolherAssunto(play.disciplinaId, play.topicoId ?? '')
     if (!c.rodando) c.iniciar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [local.key])
-
-  const itemPlanner = c.plannerId ? (planner.data ?? []).find((i) => i.id === c.plannerId) : undefined
-  const itemPendente = itemPlanner && !concluido(itemPlanner) ? itemPlanner : undefined
-  // a faixa do item do planner usa a cor da disciplina (sem o vermelho de atrasado: aqui ele já está sendo feito)
-  const coresPlanner = itemPendente ? coresDoItem({ data: '9999-12-31', concluido_em: null }, (disciplinas.data ?? []).find((d) => d.id === itemPendente.disciplina_id)?.cor) : undefined
-  const nomeDisciplinaPlanner = itemPendente ? (disciplinas.data ?? []).find((d) => d.id === itemPendente.disciplina_id)?.nome : undefined
-  const nomeTopicoPlanner = itemPendente?.topico_id ? (topicos.data ?? []).find((t) => t.id === itemPendente.topico_id)?.nome : undefined
 
   const estudadoHoje = useMemo(
     () => (estudos.data ?? []).filter((e) => isToday(new Date(e.data_hora))).reduce((s, e) => s + (e.duracao_segundos ?? 0), 0),
@@ -153,27 +143,6 @@ export function Estudar() {
           </button>
         ))}
       </div>
-
-      {itemPendente && (
-        <div className="relative mb-3 flex items-center gap-3 overflow-hidden rounded-xl py-2.5 pr-2 pl-4" style={{ background: coresPlanner?.fundo }}>
-          <span className="absolute inset-y-0 left-0 w-1" style={{ background: coresPlanner?.barra }} aria-hidden />
-          <CalendarDays className="size-4 shrink-0 text-tinta-suave" aria-hidden />
-          <p className="min-w-0 flex-1 text-sm text-tinta">
-            <span className="text-tinta-suave">Do planner ({ROTULO_TIPO[itemPendente.tipo].toLowerCase()}): </span>
-            <span className="font-semibold">{nomeDisciplinaPlanner ?? 'Disciplina'}</span>
-            {nomeTopicoPlanner && <span className="text-tinta-suave"> · {nomeTopicoPlanner}</span>}
-            <span className="block text-xs text-tinta-suave">Ao salvar, o item fica marcado como feito.</span>
-          </p>
-          <button
-            onClick={() => c.vincularPlanner('')}
-            aria-label="Desligar do planner"
-            title="Desligar do planner (o tempo continua)"
-            className="grid size-8 shrink-0 place-items-center rounded-lg text-tinta-suave hover:bg-superficie/70 hover:text-tinta"
-          >
-            <X className="size-4" aria-hidden />
-          </button>
-        </div>
-      )}
 
       <div className="mb-8 grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Selecao
@@ -312,7 +281,6 @@ export function Estudar() {
           origem: c.modo,
           disciplinaId: c.disciplinaId,
           topicoId: c.topicoId,
-          plannerItemId: itemPendente?.id,
         }}
         aoSalvar={c.zerar}
       />
