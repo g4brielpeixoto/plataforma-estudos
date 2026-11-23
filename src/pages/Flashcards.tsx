@@ -1,10 +1,11 @@
 import { format, isToday } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { CalendarClock, Flame, Layers, Plus, Settings2, Target, Upload } from 'lucide-react'
+import { CalendarClock, Download, Flame, Layers, Plus, Settings2, Target, Upload } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ConfigFlashDialog } from '@/components/flashcards/ConfigFlashDialog'
+import { ExportarAnkiDialog } from '@/components/flashcards/ExportarAnkiDialog'
 import { ImportarAnkiDialog } from '@/components/flashcards/ImportarAnkiDialog'
 import { NotaFlashDialog } from '@/components/flashcards/NotaFlashDialog'
 import { Botao, CabecalhoPagina, Carregando, Painel } from '@/components/ui'
@@ -49,6 +50,7 @@ export function Flashcards() {
   const dados = useDadosFlash()
   const navegar = useNavigate()
   const [importando, setImportando] = useState(false)
+  const [exportando, setExportando] = useState(false)
   const [criando, setCriando] = useState(false)
   const [ajustando, setAjustando] = useState(false)
 
@@ -85,6 +87,11 @@ export function Flashcards() {
             <Botao variante="secundario" onClick={() => setImportando(true)}>
               <Upload className="size-4" aria-hidden /> Importar do Anki
             </Botao>
+            {!vazio && (
+              <Botao variante="secundario" onClick={() => setExportando(true)}>
+                <Download className="size-4" aria-hidden /> Exportar para o Anki
+              </Botao>
+            )}
             <Botao onClick={() => setCriando(true)}>
               <Plus className="size-4" aria-hidden /> Novo cartão
             </Botao>
@@ -224,6 +231,14 @@ export function Flashcards() {
         topicos={dados.topicos}
         notasExistentes={dados.notas}
         cartoesExistentes={dados.cartoes}
+      />
+      <ExportarAnkiDialog
+        aberto={exportando}
+        aoMudar={setExportando}
+        notas={dados.notas}
+        cartoesPorNota={dados.cartoesPorNota}
+        disciplinas={dados.disciplinas}
+        topicos={dados.topicos}
       />
       <ConfigFlashDialog aberto={ajustando} aoMudar={setAjustando} config={dados.config} />
     </>
