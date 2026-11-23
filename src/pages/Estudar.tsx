@@ -105,6 +105,8 @@ export function Estudar() {
       return
     }
     c.escolherAssunto(play.disciplinaId, play.topicoId ?? '')
+    // o Começar da meta sempre usa o cronômetro (contando para cima), mesmo que o último modo tenha sido timer ou pomodoro
+    if (!c.temTempo) c.trocarModo('cronometro')
     if (!c.rodando) c.iniciar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [local.key])
