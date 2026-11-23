@@ -5,16 +5,13 @@ import { Carregando } from './components/ui'
 import { useAuth } from './contexts/AuthContext'
 import { Cadastro, ContaDesativada, EsqueciSenha, Login, RedefinirSenha } from './pages/Acesso'
 import { Disciplina } from './pages/Disciplina'
-import { BaralhoFlash } from './pages/BaralhoFlash'
 import { Edital } from './pages/Edital'
 import { Estudar } from './pages/Estudar'
-import { Flashcards } from './pages/Flashcards'
 import { Historico } from './pages/Historico'
 import { Inicio } from './pages/Inicio'
 import { Perfil } from './pages/Perfil'
 import { Ciclos } from './pages/Ciclos'
 import { RaioX } from './pages/RaioX'
-import { RevisaoFlash } from './pages/RevisaoFlash'
 import { Usuarios } from './pages/Usuarios'
 
 /** Só deixa passar quem está logado e com a conta ativa */
@@ -67,8 +64,8 @@ const router = createHashRouter([
           { path: '/ciclos', element: <Ciclos /> },
           // o planner saiu (pedido da usuária): o endereço antigo leva aos ciclos
           { path: '/planner', element: <Navigate to="/ciclos" replace /> },
-          { path: '/flashcards', element: <Flashcards /> },
-          { path: '/flashcards/:id', element: <BaralhoFlash /> },
+          // os flashcards saíram (pedido da usuária: agora só no Anki); os endereços antigos levam ao Início
+          { path: '/flashcards/*', element: <Navigate to="/" replace /> },
           { path: '/estudar', element: <Estudar /> },
           { path: '/historico', element: <Historico /> },
           { path: '/raio-x', element: <RaioX /> },
@@ -77,7 +74,6 @@ const router = createHashRouter([
         ],
       },
       // revisão em tela cheia, sem o menu
-      { path: '/flashcards/estudar/:escopo', element: <RevisaoFlash /> },
     ],
   },
   { path: '*', element: <Navigate to="/" replace /> },

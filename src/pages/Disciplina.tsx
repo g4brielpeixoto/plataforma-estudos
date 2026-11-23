@@ -1,4 +1,4 @@
-import { ArrowDownUp, ArrowLeft, Check, FileUp, Layers, ListChecks, Pencil, Plus } from 'lucide-react'
+import { ArrowDownUp, ArrowLeft, Check, FileUp, ListChecks, Pencil, Plus } from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router'
 import { toast } from 'sonner'
@@ -7,7 +7,7 @@ import { ImportarDialog } from '@/components/ImportarDialog'
 import { ListaTopicos } from '@/components/ListaTopicos'
 import { MateriaisDialog } from '@/components/Materiais'
 import { BarraProgresso, Botao, Carregando, Confirmar, Dialogo, Entrada, Painel, Vazio } from '@/components/ui'
-import { useDisciplinas, useEstudos, useExcluirTopico, useFlashNotas, useMateriais, useReordenarTopicos, useSalvarTopico, useTopicos } from '@/hooks/dados'
+import { useDisciplinas, useEstudos, useExcluirTopico, useMateriais, useReordenarTopicos, useSalvarTopico, useTopicos } from '@/hooks/dados'
 import { calcularIndicadores, resumirPorTopico } from '@/lib/indicadores'
 import { porTopico as materiaisPorTopico } from '@/lib/materiais'
 import { descendentesDe, inserirFilho } from '@/lib/topicos'
@@ -24,7 +24,6 @@ export function Disciplina() {
   const salvarTopico = useSalvarTopico()
   const reordenar = useReordenarTopicos()
   const excluirTopico = useExcluirTopico()
-  const flashNotas = useFlashNotas()
   const materiais = useMateriais()
   // ordenar só no modo de edição, para não mudar a ordem sem querer
   const [ordenando, setOrdenando] = useState(false)
@@ -44,7 +43,6 @@ export function Disciplina() {
   const porTopico = useMemo(() => resumirPorTopico(estudosMeus), [estudosMeus])
   const ind = calcularIndicadores(estudosMeus, meus)
   const mapaMateriais = useMemo(() => materiaisPorTopico(materiais.data ?? []), [materiais.data])
-  const qtdFlash = useMemo(() => (flashNotas.data ?? []).filter((n) => n.disciplina_id === id).length, [flashNotas.data, id])
 
   if (disciplinas.isLoading || topicos.isLoading) return <Carregando />
   if (!disciplina)
@@ -138,12 +136,6 @@ export function Disciplina() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link
-            to={`/flashcards/${disciplina.id}`}
-            className="inline-flex h-10 items-center gap-2 rounded-xl border border-linha bg-superficie px-4 text-[15px] font-medium text-tinta hover:bg-nevoa/60"
-          >
-            <Layers className="size-4" aria-hidden /> Flashcards{qtdFlash ? ` (${qtdFlash})` : ''}
-          </Link>
           <Botao variante="secundario" onClick={() => setEditandoDisciplina(true)}>
             <Pencil className="size-4" aria-hidden /> Editar
           </Botao>

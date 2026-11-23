@@ -4,6 +4,3 @@
 export const URL_SUPABASE: string = import.meta.env?.VITE_SUPABASE_URL || 'https://qudoenqafdaayrdnxkel.supabase.co'
 export const CHAVE_SUPABASE: string = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_S5fSeBKEr-NIkDHGkAcXug_apPkLqWy'
 
-/** Bucket público das imagens dos flashcards (pasta = id do usuário, nome do arquivo aleatório) */
-export const BUCKET_FLASH = 'flashcards'
-export const PREFIXO_IMAGENS_FLASH = `${URL_SUPABASE}/storage/v1/object/public/${BUCKET_FLASH}/`

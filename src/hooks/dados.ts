@@ -1,12 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { caminhoDaFoto } from '@/lib/foto'
 import { buscarTodos, supabase } from '@/lib/supabase'
-import { BUCKET_FLASH, PREFIXO_IMAGENS_FLASH } from '@/lib/config'
-import { camposDeNovo } from '@/lib/flashcards/agenda'
-import type { CartaoImportado } from '@/lib/flashcards/anki'
-import { imagensDoHtml, limparHtmlComInfo, srcPermitido } from '@/lib/flashcards/html'
-import { EXTENSAO, prepararImagem } from '@/lib/flashcards/imagens'
-import type { Ciclo, CicloMeta, Convite, DadosProvaFeita, Disciplina, Estudo, FlashCartao, FlashConfig, FlashNota, FlashRevisao, Material, Metas, NivelTopico, NovoEstudo, Perfil, Prova, ProvaFeita, Topico } from '@/types'
+import type { Ciclo, CicloMeta, Convite, DadosProvaFeita, Disciplina, Estudo, Material, Metas, NivelTopico, NovoEstudo, Perfil, Prova, ProvaFeita, Topico } from '@/types'
 
 /*
   Acesso aos dados. Toda leitura usa o React Query (cache + recarga automática);
@@ -23,10 +18,6 @@ export const chaves = {
   metas: ['metas'] as const,
   provas: ['provas'] as const,
   provasFeitas: ['provasFeitas'] as const,
-  flashNotas: ['flash', 'notas'] as const,
-  flashCartoes: ['flash', 'cartoes'] as const,
-  flashRevisoes: ['flash', 'revisoes'] as const,
-  flashConfig: ['flash', 'config'] as const,
   materiais: ['materiais'] as const,
   cicloMetas: ['ciclo', 'metas'] as const,
   ciclo: ['ciclo', 'estado'] as const,
@@ -135,46 +126,6 @@ export function useCiclo() {
   })
 }
 
-// revisões de flashcards: só o último ano (é o que as estatísticas usam)
-const DIAS_REVISOES = 400
-
-export function useFlashNotas() {
-  return useQuery({
-    queryKey: chaves.flashNotas,
-    queryFn: () => buscarTodos<FlashNota>((de, ate) => supabase.from('flash_notas').select('*').order('criado_em').order('id').range(de, ate)),
-  })
-}
-
-export function useFlashCartoes() {
-  return useQuery({
-    queryKey: chaves.flashCartoes,
-    queryFn: () => buscarTodos<FlashCartao>((de, ate) => supabase.from('flash_cartoes').select('*').order('posicao').order('id').range(de, ate)),
-  })
-}
-
-export function useFlashRevisoes() {
-  return useQuery({
-    queryKey: chaves.flashRevisoes,
-    queryFn: () => {
-      const desde = new Date(Date.now() - DIAS_REVISOES * 86_400_000).toISOString()
-      return buscarTodos<FlashRevisao>((de, ate) =>
-        supabase.from('flash_revisoes').select('*').gte('revisado_em', desde).order('revisado_em').order('id').range(de, ate),
-      )
-    },
-  })
-}
-
-export function useFlashConfig() {
-  return useQuery({
-    queryKey: chaves.flashConfig,
-    queryFn: async () => {
-      const { data, error } = await supabase.from('flash_config').select('*').maybeSingle()
-      if (error) throw error
-      return (data as FlashConfig | null) ?? null
-    },
-  })
-}
-
 // ---------- escritas ----------
 
 function useInvalidar() {
@@ -203,7 +154,7 @@ export function useExcluirDisciplina() {
       const { error } = await supabase.from('disciplinas').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => invalidar('disciplinas', 'topicos', 'estudos', 'flashNotas', 'flashCartoes', 'flashRevisoes', 'materiais'),
+    onSuccess: () => invalidar('disciplinas', 'topicos', 'estudos', 'materiais'),
   })
 }
 
@@ -289,7 +240,7 @@ export function useExcluirTopico() {
       const { error } = await supabase.from('topicos').delete().in('id', ids)
       if (error) throw error
     },
-    onSuccess: () => invalidar('topicos', 'estudos', 'flashNotas', 'materiais'),
+    onSuccess: () => invalidar('topicos', 'estudos', 'materiais'),
   })
 }
 
@@ -500,307 +451,6 @@ export function useExcluirProvaFeita() {
       if (error) throw error
     },
     onSuccess: () => invalidar('provasFeitas'),
-  })
-}
-
-// ---------- flashcards ----------
-
-export type DadosNotaFlash = Pick<FlashNota, 'disciplina_id' | 'topico_id' | 'tipo' | 'frente' | 'verso'>
-
-function* lotes<T>(lista: T[], tamanho: number) {
-  for (let i = 0; i < lista.length; i += tamanho) yield lista.slice(i, i + tamanho)
-}
-
-/** Cria ou edita uma nota e acerta os cartões dela (um por número de omissão; um só no básico) */
-export function useSalvarNotaFlash() {
-  const invalidar = useInvalidar()
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ id, dados, ordens, posicao }: { id?: string; dados: DadosNotaFlash; ordens: number[]; posicao: number }) => {
-      const anterior = id ? qc.getQueryData<FlashNota[]>(chaves.flashNotas)?.find((n) => n.id === id) : undefined
-      const novoCartao = (notaId: string, ordem: number) => ({ nota_id: notaId, ordem, posicao, suspenso: false, ...camposDeNovo() })
-      if (!id) {
-        const notaId = crypto.randomUUID()
-        const { error } = await supabase.from('flash_notas').insert({ id: notaId, ...dados })
-        if (error) throw error
-        const { error: e2 } = await supabase.from('flash_cartoes').insert(ordens.map((o) => novoCartao(notaId, o)))
-        if (e2) {
-          await supabase.from('flash_notas').delete().eq('id', notaId)
-          throw e2
-        }
-        return notaId
-      }
-      const { error } = await supabase.from('flash_notas').update({ ...dados, atualizado_em: new Date().toISOString() }).eq('id', id)
-      if (error) throw error
-      const { data: atuais, error: e2 } = await supabase.from('flash_cartoes').select('id, ordem').eq('nota_id', id)
-      if (e2) throw e2
-      const existentes = (atuais ?? []) as { id: string; ordem: number }[]
-      const faltam = ordens.filter((o) => !existentes.some((a) => a.ordem === o))
-      const sobram = existentes.filter((a) => !ordens.includes(a.ordem)).map((a) => a.id)
-      if (faltam.length) {
-        const { error: e3 } = await supabase.from('flash_cartoes').insert(faltam.map((o) => novoCartao(id, o)))
-        if (e3) throw e3
-      }
-      if (sobram.length) {
-        const { error: e4 } = await supabase.from('flash_cartoes').delete().in('id', sobram)
-        if (e4) throw e4
-      }
-      if (anterior) {
-        const restantes = (qc.getQueryData<FlashNota[]>(chaves.flashNotas) ?? []).map((n) => (n.id === id ? { ...n, ...dados } : n))
-        await apagarImagensSemUso(imagensDoHtml(anterior.frente + anterior.verso), restantes)
-      }
-      return id
-    },
-    onSuccess: () => invalidar('flashNotas', 'flashCartoes', 'flashRevisoes'),
-  })
-}
-
-export function useExcluirNotasFlash() {
-  const invalidar = useInvalidar()
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (ids: string[]) => {
-      const todas = qc.getQueryData<FlashNota[]>(chaves.flashNotas) ?? []
-      const apagar = new Set(ids)
-      for (const lote of lotes(ids, 200)) {
-        const { error } = await supabase.from('flash_notas').delete().in('id', lote)
-        if (error) throw error
-      }
-      const saem = todas.filter((n) => apagar.has(n.id)).flatMap((n) => imagensDoHtml(n.frente + n.verso))
-      await apagarImagensSemUso(saem, todas.filter((n) => !apagar.has(n.id)))
-    },
-    onSuccess: () => invalidar('flashNotas', 'flashCartoes', 'flashRevisoes'),
-  })
-}
-
-/** Muda vários cartões de uma vez (suspender, reativar, esquecer) */
-export function useAtualizarCartoesFlash() {
-  const invalidar = useInvalidar()
-  return useMutation({
-    mutationFn: async ({ ids, campos }: { ids: string[]; campos: Partial<Omit<FlashCartao, 'id' | 'user_id' | 'nota_id'>> }) => {
-      for (const lote of lotes(ids, 200)) {
-        const { error } = await supabase.from('flash_cartoes').update(campos).in('id', lote)
-        if (error) throw error
-      }
-    },
-    onSuccess: () => invalidar('flashCartoes'),
-  })
-}
-
-export function useSalvarFlashConfig() {
-  const invalidar = useInvalidar()
-  return useMutation({
-    mutationFn: async (c: Pick<FlashConfig, 'novos_por_dia' | 'revisoes_por_dia' | 'retencao'>) => {
-      const { error } = await supabase.from('flash_config').upsert({ ...c, atualizado_em: new Date().toISOString() })
-      if (error) throw error
-    },
-    onSuccess: () => invalidar('flashConfig'),
-  })
-}
-
-type CamposResposta = Omit<FlashCartao, 'user_id' | 'nota_id' | 'ordem' | 'suspenso' | 'posicao' | 'criado_em'>
-const camposDaAgenda = ({ id: _id, ...c }: FlashCartao): Omit<CamposResposta, 'id'> => ({
-  estado: c.estado,
-  vence_em: c.vence_em,
-  estabilidade: c.estabilidade,
-  dificuldade: c.dificuldade,
-  dias_agendados: c.dias_agendados,
-  passo: c.passo,
-  repeticoes: c.repeticoes,
-  lapsos: c.lapsos,
-  ultima_revisao: c.ultima_revisao,
-})
-
-/**
-  Resposta na sessão de revisão: grava o novo agendamento e o registro da revisão.
-  Atualiza o cache na hora e não recarrega tudo a cada cartão.
-*/
-export function useResponderFlash() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ cartao, revisao }: { cartao: FlashCartao; revisao: Omit<FlashRevisao, 'user_id'> }) => {
-      const { error } = await supabase.from('flash_cartoes').update(camposDaAgenda(cartao)).eq('id', cartao.id)
-      if (error) throw error
-      const { error: e2 } = await supabase.from('flash_revisoes').insert(revisao)
-      if (e2) throw e2
-    },
-    onMutate: ({ cartao, revisao }) => {
-      qc.setQueryData<FlashCartao[]>(chaves.flashCartoes, (l) => l?.map((c) => (c.id === cartao.id ? cartao : c)))
-      qc.setQueryData<FlashRevisao[]>(chaves.flashRevisoes, (l) => (l ? [...l, { ...revisao, user_id: '' }] : l))
-    },
-  })
-}
-
-/** Desfaz a última resposta: volta o agendamento anterior e apaga o registro da revisão */
-export function useDesfazerFlash() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ anterior, revisaoId }: { anterior: FlashCartao; revisaoId: string }) => {
-      const { error } = await supabase.from('flash_revisoes').delete().eq('id', revisaoId)
-      if (error) throw error
-      const { error: e2 } = await supabase.from('flash_cartoes').update(camposDaAgenda(anterior)).eq('id', anterior.id)
-      if (e2) throw e2
-    },
-    onMutate: ({ anterior, revisaoId }) => {
-      qc.setQueryData<FlashCartao[]>(chaves.flashCartoes, (l) => l?.map((c) => (c.id === anterior.id ? anterior : c)))
-      qc.setQueryData<FlashRevisao[]>(chaves.flashRevisoes, (l) => l?.filter((r) => r.id !== revisaoId))
-    },
-  })
-}
-
-/** Envia uma imagem de flashcard (já reduzida se precisar) e devolve o endereço público */
-export async function enviarImagemFlash(arquivo: Blob): Promise<string> {
-  const { data } = await supabase.auth.getSession()
-  const uid = data.session?.user.id
-  if (!uid) throw new Error('Sua sessão expirou. Entre de novo para enviar imagens.')
-  const { blob, tipo } = await prepararImagem(arquivo)
-  const caminho = `${uid}/${crypto.randomUUID()}.${EXTENSAO[tipo] ?? 'img'}`
-  const { error } = await supabase.storage.from(BUCKET_FLASH).upload(caminho, blob, { contentType: tipo, cacheControl: '31536000', upsert: false })
-  if (error) throw error
-  return supabase.storage.from(BUCKET_FLASH).getPublicUrl(caminho).data.publicUrl
-}
-
-/** Apaga do bucket as imagens que nenhuma das notas restantes usa (falhar aqui só deixa um arquivo sobrando) */
-async function apagarImagensSemUso(candidatas: string[], restantes: Pick<FlashNota, 'frente' | 'verso'>[]) {
-  if (!candidatas.length) return
-  const usadas = new Set(restantes.flatMap((n) => imagensDoHtml(n.frente + n.verso)))
-  const caminhos = [...new Set(candidatas)].filter((u) => u.startsWith(PREFIXO_IMAGENS_FLASH) && !usadas.has(u)).map((u) => u.slice(PREFIXO_IMAGENS_FLASH.length))
-  if (caminhos.length) await supabase.storage.from(BUCKET_FLASH).remove(caminhos)
-}
-
-export interface NotaParaImportar {
-  id: string
-  origem: string
-  /** disciplina existente, ou o nome de uma disciplina nova (em `novasDisciplinas`) */
-  disciplinaId: string | null
-  novaDisciplina: string | null
-  topicoId: string | null
-  tipo: FlashNota['tipo']
-  /** HTML com as imagens do pacote ainda como "anki-midia:NOME" */
-  frente: string
-  verso: string
-  cartoes: CartaoImportado[]
-}
-
-export interface PlanoImportacaoFlash {
-  novasDisciplinas: { nome: string; cor: string; ordem: number }[]
-  notas: NotaParaImportar[]
-  /** notas importadas antes sem as imagens: recebem o conteúdo de novo, agora com elas */
-  completar: { nota: FlashNota; frente: string; verso: string }[]
-  /** imagens do pacote usadas pelas notas acima */
-  midias: string[]
-  lerMidias: (nomes: string[]) => Promise<Map<string, Blob>>
-}
-
-export interface ProgressoImportacao {
-  fase: 'imagens' | 'notas'
-  feitas: number
-  total: number
-}
-
-/** Grava a importação do Anki: imagens, disciplinas novas e depois notas e cartões em lotes */
-export function useImportarFlashcards() {
-  const invalidar = useInvalidar()
-  return useMutation({
-    mutationFn: async ({ plano, aoProgredir }: { plano: PlanoImportacaoFlash; aoProgredir?: (p: ProgressoImportacao) => void }) => {
-      // 1. imagens: lê do pacote em blocos e envia 4 por vez
-      const enderecos = new Map<string, string>()
-      let imagensComFalha = 0
-      const PREFIXO = 'anki-midia:'
-      for (let i = 0; i < plano.midias.length; i += 40) {
-        const bloco = plano.midias.slice(i, i + 40)
-        const blobs = await plano.lerMidias(bloco)
-        for (let j = 0; j < bloco.length; j += 4) {
-          await Promise.all(
-            bloco.slice(j, j + 4).map(async (nome) => {
-              const blob = blobs.get(nome)
-              if (!blob) return void imagensComFalha++
-              try {
-                enderecos.set(nome, await enviarImagemFlash(blob))
-              } catch {
-                imagensComFalha++
-              }
-            }),
-          )
-          aoProgredir?.({ fase: 'imagens', feitas: Math.min(plano.midias.length, i + j + 4), total: plano.midias.length })
-        }
-      }
-      const resolver = (html: string) =>
-        limparHtmlComInfo(html, (src) => (src.startsWith(PREFIXO) ? (enderecos.get(decodeURIComponent(src.slice(PREFIXO.length))) ?? null) : srcPermitido(src))).html
-
-      // 2. notas já importadas que tinham ficado sem as imagens
-      for (const lote of lotes(plano.completar, 200)) {
-        const linhas = lote.map(({ nota, frente, verso }) => ({
-          id: nota.id,
-          disciplina_id: nota.disciplina_id,
-          topico_id: nota.topico_id,
-          tipo: nota.tipo,
-          origem_anki: nota.origem_anki,
-          frente: resolver(frente),
-          verso: resolver(verso),
-          atualizado_em: new Date().toISOString(),
-        }))
-        const { error } = await supabase.from('flash_notas').upsert(linhas, { onConflict: 'id' })
-        if (error) throw error
-      }
-
-      // 3. disciplinas novas
-      const idsNovas = new Map<string, string>()
-      if (plano.novasDisciplinas.length) {
-        const { data, error } = await supabase.from('disciplinas').insert(plano.novasDisciplinas).select('id, nome')
-        if (error) throw error
-        for (const d of data as { id: string; nome: string }[]) idsNovas.set(d.nome, d.id)
-      }
-      const total = plano.notas.length
-      let feitas = 0
-      let cartoes = 0
-      aoProgredir?.({ fase: 'notas', feitas: 0, total })
-      // lotes de até 400 notas ou ~300 KB de texto
-      const grupos: NotaParaImportar[][] = []
-      let atual: NotaParaImportar[] = []
-      let tamanho = 0
-      for (const n of plano.notas) {
-        const t = n.frente.length + n.verso.length + 200
-        if (atual.length && (atual.length >= 400 || tamanho + t > 300_000)) {
-          grupos.push(atual)
-          atual = []
-          tamanho = 0
-        }
-        atual.push(n)
-        tamanho += t
-      }
-      if (atual.length) grupos.push(atual)
-
-      for (const grupo of grupos) {
-        const linhasNotas = grupo.map((n) => ({
-          id: n.id,
-          disciplina_id: n.disciplinaId ?? idsNovas.get(n.novaDisciplina ?? '') ?? '',
-          topico_id: n.topicoId,
-          tipo: n.tipo,
-          frente: resolver(n.frente),
-          verso: resolver(n.verso),
-          origem_anki: n.origem,
-        }))
-        const { error } = await supabase.from('flash_notas').insert(linhasNotas)
-        if (error) throw error
-        const linhasCartoes = grupo.flatMap((n) =>
-          n.cartoes.map((c) => ({ nota_id: n.id, ordem: c.ordem, suspenso: c.suspenso, posicao: c.posicao, ...(c.agenda ?? camposDeNovo()) })),
-        )
-        for (const lote of lotes(linhasCartoes, 1000)) {
-          const { error: e2 } = await supabase.from('flash_cartoes').insert(lote)
-          if (e2) {
-            // não deixa nota sem cartão: desfaz o lote inteiro
-            await supabase.from('flash_notas').delete().in('id', grupo.map((n) => n.id))
-            throw e2
-          }
-        }
-        feitas += grupo.length
-        cartoes += linhasCartoes.length
-        aoProgredir?.({ fase: 'notas', feitas, total })
-      }
-      return { notas: feitas, cartoes, disciplinasNovas: idsNovas.size, imagens: enderecos.size, imagensComFalha, completadas: plano.completar.length }
-    },
-    onSettled: () => invalidar('disciplinas', 'flashNotas', 'flashCartoes'),
   })
 }
 

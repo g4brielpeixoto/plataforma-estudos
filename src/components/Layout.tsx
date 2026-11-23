@@ -1,5 +1,5 @@
 import * as RadixDialog from '@radix-ui/react-dialog'
-import { BookOpen, ChevronRight, History, House, Layers, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, RefreshCcw, ScanSearch, Sun, Timer, Users, X } from 'lucide-react'
+import { BookOpen, ChevronRight, History, House, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, RefreshCcw, ScanSearch, Sun, Timer, Users, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { useAuth } from '@/contexts/AuthContext'
@@ -12,13 +12,12 @@ const itens = [
   { para: '/', rotulo: 'Início', icone: House, fim: true },
   { para: '/edital', rotulo: 'Edital', icone: BookOpen, fim: false },
   { para: '/ciclos', rotulo: 'Ciclos', icone: RefreshCcw, fim: false },
-  { para: '/flashcards', rotulo: 'Flashcards', icone: Layers, fim: false },
   { para: '/estudar', rotulo: 'Estudar', icone: Timer, fim: false },
   { para: '/historico', rotulo: 'Histórico', icone: History, fim: false },
   { para: '/raio-x', rotulo: 'Raio-X', icone: ScanSearch, fim: false },
 ]
 // a barra de baixo do celular tem só os 4 atalhos mais usados; o resto fica no menu lateral (☰)
-const ATALHOS_CELULAR = ['/', '/edital', '/ciclos', '/flashcards']
+const ATALHOS_CELULAR = ['/', '/edital', '/ciclos', '/historico']
 const itensCelular = itens.filter((i) => ATALHOS_CELULAR.includes(i.para))
 
 export function useTema() {
