@@ -56,13 +56,17 @@ function ordenarPorDisciplina(topicos: Topico[]): Topico[][] {
 }
 
 /**
-  A meta de cada assunto: a dele; sem meta própria (ex.: subtópico criado depois), herda a do tópico de cima.
+  A meta de cada assunto: a dele; sem meta própria, herda a do tópico de cima (subtópico criado depois).
+  Se ainda assim ficar sem meta (assunto novo no meio do edital) e a disciplina já estiver dividida, entra
+  na meta do assunto anterior (ou do seguinte, se for o primeiro): assim nenhum assunto fica de fora do
+  ciclo e a meta da vez nunca "pula" um assunto que ainda não foi concluído.
   Tópico com subtópicos fica sem meta (é título de seção).
 */
 export function metaEfetiva(topicos: Topico[]): Map<Topico, string | null> {
   const r = new Map<Topico, string | null>()
   for (const lista of ordenarPorDisciplina(topicos)) {
     const acima: (string | null)[] = [] // meta de cada nível acima (o tópico pai de cada nível)
+    const assuntos: Topico[] = []
     lista.forEach((t, i) => {
       acima.length = t.nivel
       const herdada = [...acima].reverse().find((m) => m) ?? null
@@ -72,8 +76,18 @@ export function metaEfetiva(topicos: Topico[]): Map<Topico, string | null> {
       } else {
         acima[t.nivel] = null
         r.set(t, t.meta_id ?? herdada)
+        assuntos.push(t)
       }
     })
+    // assuntos sem meta numa disciplina já dividida: entram na meta do assunto vizinho
+    const primeira = assuntos.map((t) => r.get(t)).find((m) => m)
+    if (!primeira) continue
+    let anterior: string = primeira
+    for (const t of assuntos) {
+      const m = r.get(t)
+      if (m) anterior = m
+      else r.set(t, anterior)
+    }
   }
   return r
 }
