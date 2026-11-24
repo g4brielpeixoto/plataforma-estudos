@@ -1,6 +1,5 @@
 import { Settings2 } from 'lucide-react'
 import { useState } from 'react'
-import { DividirMetasDialog } from '@/components/ciclos/DividirMetasDialog'
 import { EditarCicloDialog } from '@/components/ciclos/EditarCicloDialog'
 import { MetaDaVez } from '@/components/ciclos/MetaDaVez'
 import { MetaDialog } from '@/components/ciclos/MetaDialog'
@@ -9,16 +8,14 @@ import { RodaCiclo } from '@/components/ciclos/RodaCiclo'
 import { Botao, CabecalhoPagina, Carregando, Painel } from '@/components/ui'
 import { useCicloDados } from '@/hooks/useCicloDados'
 import { mensagemErro } from '@/lib/utils'
-import type { Disciplina } from '@/types'
 
 /**
   Ciclos de metas: a meta da vez, a roda com a ordem das disciplinas e o quadro de metas.
-  As metas são grupos de tópicos do edital; meta cumprida = todos os tópicos dela concluídos.
+  As metas seguem o edital sozinhas (uma por tópico principal); meta cumprida = todos os tópicos dela concluídos.
 */
 export function Ciclos() {
   const dados = useCicloDados()
   const [metaAberta, setMetaAberta] = useState<string | null>(null)
-  const [dividindo, setDividindo] = useState<Disciplina | null>(null)
   const [editando, setEditando] = useState(false)
 
   if (dados.carregando) return <Carregando texto="Carregando o ciclo…" />
@@ -42,7 +39,7 @@ export function Ciclos() {
           <div className="xl:hidden">
             <PainelRoda dados={dados} aoAbrir={setMetaAberta} aoEditar={() => setEditando(true)} />
           </div>
-          <QuadroMetas dados={dados} aoAbrir={setMetaAberta} aoDividir={setDividindo} />
+          <QuadroMetas dados={dados} aoAbrir={setMetaAberta} />
         </div>
         <div className="hidden xl:sticky xl:top-8 xl:block">
           <PainelRoda dados={dados} aoAbrir={setMetaAberta} aoEditar={() => setEditando(true)} />
@@ -50,7 +47,6 @@ export function Ciclos() {
       </div>
 
       <MetaDialog dados={dados} metaId={metaAberta} aoMudarMeta={setMetaAberta} />
-      <DividirMetasDialog dados={dados} disciplina={dividindo} aoFechar={() => setDividindo(null)} />
       <EditarCicloDialog dados={dados} aberto={editando} aoMudar={setEditando} />
     </div>
   )

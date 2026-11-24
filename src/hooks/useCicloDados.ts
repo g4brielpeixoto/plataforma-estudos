@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
-import { useCiclo, useCicloMetas, useDisciplinas, useSalvarCiclo, useTopicos } from '@/hooks/dados'
-import { proximaMetaDaDisciplina, resolverCiclo, siglaDe, situacaoDasMetas, type SituacaoMeta } from '@/lib/ciclos'
+import { useCiclo, useCicloMetas, useDisciplinas, useSalvarCiclo, useSincronizarMetas, useTopicos } from '@/hooks/dados'
+import { metasNaOrdemDoEdital, planoDeMetas, proximaMetaDaDisciplina, resolverCiclo, siglaDe, situacaoDasMetas, type SituacaoMeta } from '@/lib/ciclos'
+import { mensagemErro } from '@/lib/utils'
 import type { Disciplina } from '@/types'
 
 /**
@@ -17,7 +18,22 @@ export function useCicloDados() {
   const salvarCiclo = useSalvarCiclo()
 
   const carregando = disciplinas.isLoading || topicos.isLoading || metas.isLoading || ciclo.isLoading
-  const listaMetas = useMemo(() => metas.data ?? [], [metas.data])
+  const sincronizar = useSincronizarMetas()
+  // as metas seguem o edital: uma por tópico principal, na ordem dele
+  const listaMetas = useMemo(() => metasNaOrdemDoEdital(metas.data ?? [], topicos.data ?? []), [metas.data, topicos.data])
+  const plano = useMemo(
+    () => (metas.data && topicos.data ? planoDeMetas(topicos.data, metas.data) : null),
+    [metas.data, topicos.data],
+  )
+  // grava o ajuste quando o edital muda (tópico novo, movido, renomeado, virou subtópico…)
+  const sincronizado = useRef('')
+  useEffect(() => {
+    if (!plano || sincronizar.isPending || metas.isFetching || topicos.isFetching) return
+    const chave = JSON.stringify({ ...plano, salvar: plano.salvar.map((m) => (metas.data?.some((x) => x.id === m.id) ? m : { ...m, id: '' })) })
+    if (sincronizado.current === chave) return
+    sincronizado.current = chave
+    sincronizar.mutate(plano, { onError: (e) => toast.error(`Não deu para ajustar as metas ao edital. ${mensagemErro(e)} Recarregue a página.`) })
+  }, [plano, sincronizar, metas.isFetching, metas.data, topicos.isFetching])
   const situacao = useMemo(() => situacaoDasMetas(listaMetas, topicos.data ?? []), [listaMetas, topicos.data])
   const disciplinaPorId = useMemo(() => new Map((disciplinas.data ?? []).map((d) => [d.id, d])), [disciplinas.data])
 
@@ -31,7 +47,7 @@ export function useCicloDados() {
   // grava a passagem (uma vez por mudança)
   const gravado = useRef('')
   useEffect(() => {
-    if (carregando || !ciclo.data || !estado.mudou || salvarCiclo.isPending) return
+    if (carregando || !ciclo.data || !estado.mudou || salvarCiclo.isPending || plano || sincronizar.isPending) return
     const chave = `${estado.posicao}:${estado.metaId}`
     if (gravado.current === chave) return
     gravado.current = chave
@@ -47,7 +63,7 @@ export function useCicloDados() {
         },
       },
     )
-  }, [carregando, ciclo.data, estado, sequencia, situacao, disciplinaPorId, salvarCiclo])
+  }, [carregando, ciclo.data, estado, sequencia, situacao, disciplinaPorId, salvarCiclo, plano, sincronizar.isPending])
 
   const metaDaVez = estado.metaId ? situacao.get(estado.metaId) : undefined
   const proximaDe = (disciplinaId: string): SituacaoMeta | undefined => proximaMetaDaDisciplina(disciplinaId, listaMetas, situacao)

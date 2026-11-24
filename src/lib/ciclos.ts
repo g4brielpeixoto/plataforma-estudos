@@ -158,94 +158,84 @@ export function questoesDaMeta(s: SituacaoMeta, estudos: Estudo[]) {
   return { feitas, acertadas, segundos }
 }
 
-// ---------- dividir uma disciplina em metas ----------
-
-export interface Segmento {
-  /** assuntos (tópicos sem subtópicos) que formam a meta, na ordem do edital */
-  assuntos: Topico[]
-  /** meta que já existe (mantém nome, orientações e o id) ou null para criar */
-  metaId: string | null
-  nome: string
-}
+// ---------- metas iguais ao edital ----------
 
 /** Assuntos da disciplina (tópicos sem subtópicos), na ordem do edital; `lista` = tópicos da disciplina já ordenados */
 export function assuntosDaDisciplina(lista: Topico[]): Topico[] {
   return lista.filter((_, i) => !temFilhos(lista, i))
 }
 
-/** Onde começa cada meta hoje: um assunto começa meta nova quando a meta dele é diferente da do anterior */
-export function iniciosAtuais(lista: Topico[]): Set<string> {
-  const efetiva = metaEfetiva(lista)
-  const assuntos = assuntosDaDisciplina(lista)
-  const s = new Set<string>()
-  assuntos.forEach((t, i) => {
-    if (i === 0 || efetiva.get(t) !== efetiva.get(assuntos[i - 1])) s.add(t.id)
-  })
-  return s
-}
-
-/**
-  Monta as metas a partir dos pontos de início escolhidos. Um trecho continua com a meta que o primeiro
-  assunto dele já tinha (mantém nome, orientações e id); trecho novo vira meta nova. As que sobrarem são apagadas.
-*/
-export function segmentar(lista: Topico[], inicios: Set<string>, metasExistentes: CicloMeta[]): Segmento[] {
-  const efetiva = metaEfetiva(lista)
-  const segs: Topico[][] = []
-  assuntosDaDisciplina(lista).forEach((t, i) => {
-    if (i === 0 || inicios.has(t.id)) segs.push([t])
-    else segs[segs.length - 1].push(t)
-  })
-  const usadas = new Set<string>()
-  return segs.map((assuntos) => {
-    const id = efetiva.get(assuntos[0]) ?? null
-    const existente = id && !usadas.has(id) ? metasExistentes.find((m) => m.id === id) : undefined
-    if (existente) usadas.add(existente.id)
-    return { assuntos, metaId: existente?.id ?? null, nome: existente?.nome ?? nomeSugerido(lista, assuntos) }
-  })
-}
-
-/** Uma meta por tópico principal: corta no primeiro assunto de cada tópico de nível 0 */
-export function iniciosPorPrincipal(lista: Topico[]): Set<string> {
-  const s = new Set<string>()
-  let novo = true
+/** Tópicos principais da disciplina (nível 0), cada um com os assuntos dele, na ordem do edital */
+export function principaisComAssuntos(lista: Topico[]): { principal: Topico; assuntos: Topico[] }[] {
+  const r: { principal: Topico; assuntos: Topico[] }[] = []
   lista.forEach((t, i) => {
-    if (t.nivel === 0) novo = true
-    if (novo && !temFilhos(lista, i)) {
-      s.add(t.id)
-      novo = false
-    }
+    if (t.nivel === 0 || r.length === 0) r.push({ principal: t, assuntos: [] })
+    if (!temFilhos(lista, i)) r[r.length - 1].assuntos.push(t)
   })
-  return s
+  return r.filter((g) => g.assuntos.length > 0)
 }
 
-/** Divide em grupos de N assuntos seguidos */
-export function iniciosDeNEmN(lista: Topico[], n: number): Set<string> {
-  const passo = Math.max(1, Math.floor(n))
-  return new Set(
-    assuntosDaDisciplina(lista)
-      .filter((_, i) => i % passo === 0)
-      .map((t) => t.id),
-  )
+export interface PlanoMetas {
+  /** metas a criar ou atualizar (nome = tópico principal, ordem = posição no edital) */
+  salvar: { id: string; disciplina_id: string; ordem: number; nome: string }[]
+  /** assuntos que precisam apontar para outra meta */
+  ligar: { metaId: string; topicoIds: string[] }[]
+  /** títulos de seção que estão com meta (não deveriam) */
+  soltar: string[]
+  /** metas que não correspondem a nenhum tópico principal e não têm orientações */
+  apagar: string[]
 }
 
 /**
-  Nome sugerido de uma meta: se ela tem todos os assuntos de um tópico principal, o nome dele;
-  senão, o primeiro assunto, e "e mais N" quando tem outros.
+  As metas seguem o edital sozinhas: uma meta por tópico principal, com o nome dele, na ordem do edital,
+  e todos os assuntos dele dentro. Cada tópico principal fica com a meta que a maioria dos assuntos dele
+  já usa (assim as orientações e a meta da vez continuam); se nenhuma serve, ganha meta nova.
+  Meta que sobra sem orientações é apagada; com orientações fica guardada (sem aparecer).
+  Devolve null quando já está tudo certo.
 */
-export function nomeSugerido(lista: Topico[], assuntos: Topico[]): string {
-  const raizDe = new Map<string, Topico>()
-  let raiz: Topico | undefined
-  for (const t of lista) {
-    if (t.nivel === 0) raiz = t
-    if (raiz) raizDe.set(t.id, raiz)
+export function planoDeMetas(topicos: Topico[], metas: CicloMeta[], novoId: () => string = () => crypto.randomUUID()): PlanoMetas | null {
+  const plano: PlanoMetas = { salvar: [], ligar: [], soltar: [], apagar: [] }
+  const metasDe = metasPorDisciplina(metas)
+  const usadas = new Set<string>()
+  for (const lista of ordenarPorDisciplina(topicos)) {
+    const disciplinaId = lista[0].disciplina_id
+    const daDisciplina = new Map((metasDe.get(disciplinaId) ?? []).map((m) => [m.id, m]))
+    lista.forEach((t, i) => {
+      if (temFilhos(lista, i) && t.meta_id) plano.soltar.push(t.id)
+    })
+    principaisComAssuntos(lista).forEach(({ principal, assuntos }, ordem) => {
+      const contagem = new Map<string, number>()
+      for (const t of assuntos) if (t.meta_id && daDisciplina.has(t.meta_id) && !usadas.has(t.meta_id)) contagem.set(t.meta_id, (contagem.get(t.meta_id) ?? 0) + 1)
+      const escolhida = [...contagem].sort((a, b) => b[1] - a[1])[0]?.[0]
+      const id = escolhida ?? novoId()
+      usadas.add(id)
+      const nome = cortar(principal.nome.trim()) || `Meta ${ordem + 1}`
+      const atual = daDisciplina.get(id)
+      if (!atual || atual.nome !== nome || atual.ordem !== ordem) plano.salvar.push({ id, disciplina_id: disciplinaId, ordem, nome })
+      const fora = assuntos.filter((t) => t.meta_id !== id).map((t) => t.id)
+      if (fora.length) plano.ligar.push({ metaId: id, topicoIds: fora })
+    })
   }
-  const r = assuntos[0] && raizDe.get(assuntos[0].id)
-  if (r && assuntos.every((t) => raizDe.get(t.id) === r)) {
-    const todos = assuntosDaDisciplina(lista).filter((t) => raizDe.get(t.id) === r)
-    if (todos.length === assuntos.length) return cortar(r.nome.trim())
+  for (const m of metas) if (!usadas.has(m.id) && !m.orientacoes?.trim()) plano.apagar.push(m.id)
+  const vazio = !plano.salvar.length && !plano.ligar.length && !plano.soltar.length && !plano.apagar.length
+  return vazio ? null : plano
+}
+
+/** Só as metas que têm assuntos, na ordem do edital (a meta guardada sem assunto não aparece) */
+export function metasNaOrdemDoEdital(metas: CicloMeta[], topicos: Topico[]): CicloMeta[] {
+  const posicao = new Map<string, number>()
+  let k = 0
+  for (const lista of ordenarPorDisciplina(topicos)) {
+    const efetiva = metaEfetiva(lista)
+    for (const t of assuntosDaDisciplina(lista)) {
+      const m = efetiva.get(t)
+      if (m && !posicao.has(m)) posicao.set(m, k++)
+    }
   }
-  const primeiro = assuntos[0]?.nome.trim() ?? 'Meta'
-  return cortar(assuntos.length > 1 ? `${primeiro} e mais ${assuntos.length - 1}` : primeiro)
+  return metas
+    .filter((m) => posicao.has(m.id))
+    .sort((a, b) => posicao.get(a.id)! - posicao.get(b.id)!)
+    .map((m) => ({ ...m, ordem: posicao.get(m.id)! }))
 }
 
 const cortar = (nome: string) => (nome.length > 200 ? nome.slice(0, 199) + '…' : nome)

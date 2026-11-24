@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { caminhoDaFoto } from '@/lib/foto'
 import { buscarTodos, supabase } from '@/lib/supabase'
+import type { PlanoMetas } from '@/lib/ciclos'
 import type { Ciclo, CicloMeta, Convite, DadosProvaFeita, Disciplina, Estudo, Material, Metas, NivelTopico, NovoEstudo, Perfil, Prova, ProvaFeita, Topico } from '@/types'
 
 /*
@@ -512,52 +513,29 @@ export function useSalvarMeta() {
   })
 }
 
-export interface MetaDividida {
-  /** meta que já existe (mantém o id e as orientações) ou null para criar */
-  metaId: string | null
-  nome: string
-  /** os assuntos da meta (tópicos sem subtópicos) */
-  topicoIds: string[]
-}
-
-/** Divide uma disciplina em metas: cria/atualiza as metas na ordem, liga os tópicos e apaga as que sobraram */
-export function useDividirMetas() {
+/** Aplica o plano que deixa as metas iguais ao edital (`planoDeMetas`, em lib/ciclos.ts) */
+export function useSincronizarMetas() {
   const invalidar = useInvalidar()
   return useMutation({
-    mutationFn: async ({ disciplinaId, metas, existentes, semMeta = [] }: { disciplinaId: string; metas: MetaDividida[]; existentes: string[]; semMeta?: string[] }) => {
-      const linhas = metas.map((m, i) => ({ id: m.metaId ?? crypto.randomUUID(), disciplina_id: disciplinaId, ordem: i, nome: m.nome.trim() || `Meta ${i + 1}` }))
-      if (linhas.length) {
-        const { error } = await supabase.from('ciclo_metas').upsert(linhas, { onConflict: 'id' })
+    mutationFn: async (plano: PlanoMetas) => {
+      if (plano.salvar.length) {
+        const { error } = await supabase.from('ciclo_metas').upsert(plano.salvar, { onConflict: 'id' })
         if (error) throw error
       }
-      for (let i = 0; i < metas.length; i++) {
-        const ids = metas[i].topicoIds
-        for (let k = 0; k < ids.length; k += 200) {
-          const { error } = await supabase.from('topicos').update({ meta_id: linhas[i].id }).in('id', ids.slice(k, k + 200))
+      for (const { metaId, topicoIds } of plano.ligar) {
+        for (let k = 0; k < topicoIds.length; k += 200) {
+          const { error } = await supabase.from('topicos').update({ meta_id: metaId }).in('id', topicoIds.slice(k, k + 200))
           if (error) throw error
         }
       }
-      if (semMeta.length) {
-        const { error } = await supabase.from('topicos').update({ meta_id: null }).in('id', semMeta)
+      if (plano.soltar.length) {
+        const { error } = await supabase.from('topicos').update({ meta_id: null }).in('id', plano.soltar)
         if (error) throw error
       }
-      const sobram = existentes.filter((id) => !linhas.some((l) => l.id === id))
-      if (sobram.length) {
-        const { error } = await supabase.from('ciclo_metas').delete().in('id', sobram)
+      if (plano.apagar.length) {
+        const { error } = await supabase.from('ciclo_metas').delete().in('id', plano.apagar)
         if (error) throw error
       }
-    },
-    onSuccess: () => invalidar('cicloMetas', 'topicos', 'ciclo'),
-  })
-}
-
-/** Tira a divisão em metas de uma disciplina (os tópicos ficam sem meta) */
-export function useApagarMetasDaDisciplina() {
-  const invalidar = useInvalidar()
-  return useMutation({
-    mutationFn: async (disciplinaId: string) => {
-      const { error } = await supabase.from('ciclo_metas').delete().eq('disciplina_id', disciplinaId)
-      if (error) throw error
     },
     onSuccess: () => invalidar('cicloMetas', 'topicos', 'ciclo'),
   })

@@ -17,10 +17,10 @@ export function MetaDaVez({ dados, aoAbrir, comPular, className }: { dados: Cicl
         <h2 className="text-sm font-semibold tracking-[0.08em] text-tinta-suave uppercase">Meta da vez</h2>
         <p className="mt-3 text-[15px] text-tinta-suave">
           {semCiclo
-            ? 'Divida suas disciplinas em metas e monte a ordem do ciclo para saber sempre o que estudar agora.'
+            ? 'Monte a ordem do ciclo para saber sempre o que estudar agora. Cada tópico principal do edital já é uma meta.'
             : dados.terminou
-              ? 'Todas as metas do ciclo estão cumpridas. Parabéns! Divida mais tópicos em metas ou inclua outras disciplinas no ciclo.'
-              : 'Nenhuma disciplina do ciclo tem metas ainda. Divida as disciplinas em metas para começar.'}
+              ? 'Todas as metas do ciclo estão cumpridas. Parabéns! Cadastre mais tópicos no edital ou inclua outras disciplinas no ciclo.'
+              : 'Nenhuma disciplina do ciclo tem tópicos ainda. Cadastre o edital delas para começar.'}
         </p>
         <Link to="/ciclos" className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-nevoa px-4 text-[15px] font-medium text-tinta hover:bg-nevoa/70">
           <RefreshCcw className="size-4" aria-hidden /> Ir para Ciclos

@@ -1,9 +1,7 @@
-import { Scissors } from 'lucide-react'
 import { useMemo } from 'react'
 import { Painel } from '@/components/ui'
 import type { CicloDados } from '@/hooks/useCicloDados'
-import { assuntosDaDisciplina, metaEfetiva, metasPorDisciplina, siglaDe } from '@/lib/ciclos'
-import { topicosDaDisciplina } from '@/lib/topicos'
+import { metasPorDisciplina, siglaDe } from '@/lib/ciclos'
 import { cn, corSobre } from '@/lib/utils'
 import type { Disciplina } from '@/types'
 
@@ -11,26 +9,16 @@ import type { Disciplina } from '@/types'
   Quadro de metas: uma linha por disciplina e um quadradinho por meta. Cumprida fica pintada na cor
   da disciplina; a da vez tem contorno; a que já tem assunto concluído fica com um tom de fundo.
 */
-export function QuadroMetas({ dados, aoAbrir, aoDividir }: { dados: CicloDados; aoAbrir: (metaId: string) => void; aoDividir: (d: Disciplina) => void }) {
+export function QuadroMetas({ dados, aoAbrir }: { dados: CicloDados; aoAbrir: (metaId: string) => void }) {
   const porDisciplina = useMemo(() => metasPorDisciplina(dados.metas), [dados.metas])
-  // assuntos ainda sem meta (ex.: adicionados depois de dividir)
-  const semMeta = useMemo(() => {
-    const m = new Map<string, number>()
-    const efetiva = metaEfetiva(dados.topicos)
-    for (const d of dados.disciplinas) {
-      const n = assuntosDaDisciplina(topicosDaDisciplina(dados.topicos, d.id)).filter((t) => !efetiva.get(t)).length
-      if (n) m.set(d.id, n)
-    }
-    return m
-  }, [dados.topicos, dados.disciplinas])
 
-  // ordem: as do ciclo (na ordem em que aparecem), depois as que têm metas fora do ciclo, depois as sem metas
+  // ordem: as do ciclo (na ordem em que aparecem), depois as que estão fora do ciclo
   const linhas = useMemo(() => {
     const vistas = new Set<string>()
     const r: { d: Disciplina; noCiclo: boolean }[] = []
     for (const id of dados.sequencia) {
       const d = dados.disciplinaPorId.get(id)
-      if (d && !vistas.has(id)) {
+      if (d && !vistas.has(id) && porDisciplina.has(id)) {
         vistas.add(id)
         r.push({ d, noCiclo: true })
       }
@@ -40,9 +28,8 @@ export function QuadroMetas({ dados, aoAbrir, aoDividir }: { dados: CicloDados; 
       vistas.add(d.id)
       r.push({ d, noCiclo: false })
     }
-    return { comMetas: r, semMetas: dados.disciplinas.filter((d) => !vistas.has(d.id)) }
+    return r
   }, [dados.sequencia, dados.disciplinaPorId, dados.disciplinas, porDisciplina])
-
   return (
     <Painel className="p-5 sm:p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -60,15 +47,14 @@ export function QuadroMetas({ dados, aoAbrir, aoDividir }: { dados: CicloDados; 
         </p>
       </div>
 
-      {linhas.comMetas.length === 0 && (
-        <p className="mt-4 text-[15px] text-tinta-suave">Nenhuma disciplina dividida em metas ainda. Comece pela disciplina que você vai estudar primeiro.</p>
+      {linhas.length === 0 && (
+        <p className="mt-4 text-[15px] text-tinta-suave">Cadastre os tópicos do edital: cada tópico principal vira uma meta.</p>
       )}
 
       <ul className="mt-5 space-y-4">
-        {linhas.comMetas.map(({ d, noCiclo }) => {
+        {linhas.map(({ d, noCiclo }) => {
           const metas = porDisciplina.get(d.id) ?? []
           const cumpridas = metas.filter((m) => dados.situacao.get(m.id)?.cumprida).length
-          const faltando = semMeta.get(d.id) ?? 0
           return (
             <li key={d.id} className="grid grid-cols-1 gap-2 sm:grid-cols-[9.5rem_minmax(0,1fr)] sm:gap-4">
               <div className="flex min-w-0 items-center gap-2 sm:items-start">
@@ -85,15 +71,6 @@ export function QuadroMetas({ dados, aoAbrir, aoDividir }: { dados: CicloDados; 
                     {!noCiclo && ' · fora do ciclo'}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => aoDividir(d)}
-                  aria-label={`Dividir ${d.nome} em metas`}
-                  title="Dividir em metas"
-                  className="grid size-8 shrink-0 place-items-center rounded-lg text-tinta-suave hover:bg-nevoa/60 hover:text-tinta"
-                >
-                  <Scissors className="size-4" aria-hidden />
-                </button>
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
                 {metas.map((m) => {
@@ -125,36 +102,12 @@ export function QuadroMetas({ dados, aoAbrir, aoDividir }: { dados: CicloDados; 
                     </button>
                   )
                 })}
-                {faltando > 0 && (
-                  <button type="button" onClick={() => aoDividir(d)} className="ml-1 text-xs text-medio hover:underline">
-                    {faltando} {faltando === 1 ? 'assunto sem meta' : 'assuntos sem meta'}
-                  </button>
-                )}
               </div>
             </li>
           )
         })}
       </ul>
 
-      {linhas.semMetas.length > 0 && (
-        <div className="mt-6 border-t border-linha/70 pt-4">
-          <p className="text-sm text-tinta-suave">Ainda não divididas em metas:</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {linhas.semMetas.map((d) => (
-              <button
-                key={d.id}
-                type="button"
-                onClick={() => aoDividir(d)}
-                className="inline-flex items-center gap-2 rounded-lg border border-linha px-2.5 py-1.5 text-sm text-tinta hover:bg-nevoa/50"
-              >
-                <span className="size-2 rounded-full" style={{ background: d.cor }} aria-hidden />
-                {d.nome}
-                <Scissors className="size-3.5 text-tinta-suave" aria-hidden />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </Painel>
   )
 }
