@@ -1,12 +1,12 @@
-import { eachDayOfInterval, format, startOfDay, subDays } from 'date-fns'
+import { format, startOfDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { ArrowRight, Check, ChevronLeft, ChevronRight, CircleHelp, Flame } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { calcularSequencia, chaveDia, diaConta, minutosPorDia, MINUTOS_PARA_CONTAR } from '@/lib/constancia'
+import { calcularSequencia, chaveDia, diaConta, diasUteisAte, minutosPorDia, MINUTOS_PARA_CONTAR } from '@/lib/constancia'
 import { cn, formatarDuracao } from '@/lib/utils'
 import type { Estudo } from '@/types'
 
-/** Faixa larga com a sequência de dias estudados e um quadradinho por dia */
+/** Faixa larga com a sequência de dias estudados e um quadradinho por dia útil (sábado e domingo não entram) */
 export function Constancia({ estudos, aoVerDetalhes, className }: { estudos: Estudo[]; aoVerDetalhes?: () => void; className?: string }) {
   const mapa = useMemo(() => minutosPorDia(estudos), [estudos])
   const seq = useMemo(() => calcularSequencia(mapa), [mapa])
@@ -34,9 +34,11 @@ export function Constancia({ estudos, aoVerDetalhes, className }: { estudos: Est
 
   const [deslocamento, setDeslocamento] = useState(0)
   const hoje = startOfDay(new Date())
-  const fim = subDays(hoje, deslocamento * qtd)
-  const inicio = subDays(fim, qtd - 1)
-  const dias = eachDayOfInterval({ start: inicio, end: fim })
+  // janelas de `qtd` dias úteis, voltando a partir de hoje
+  const recentes = diasUteisAte(hoje, qtd * (deslocamento + 1))
+  const dias = recentes.slice(0, qtd)
+  const inicio = dias[0]
+  const fim = dias[dias.length - 1]
   const podeVoltar = primeiroDia !== null && chaveDia(inicio) > primeiroDia
 
   const minutosHoje = mapa.get(chaveDia(hoje)) ?? 0
@@ -47,7 +49,7 @@ export function Constancia({ estudos, aoVerDetalhes, className }: { estudos: Est
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <h2 className="flex items-center gap-1.5 text-sm font-semibold tracking-[0.08em] text-tinta-suave uppercase">
           Constância nos estudos
-          <span title={`Um dia conta quando você estuda pelo menos ${MINUTOS_PARA_CONTAR} minutos.`} aria-label={`Um dia conta quando você estuda pelo menos ${MINUTOS_PARA_CONTAR} minutos.`}>
+          <span title={`Um dia conta quando você estuda pelo menos ${MINUTOS_PARA_CONTAR} minutos. Sábado e domingo não entram.`} aria-label={`Um dia conta quando você estuda pelo menos ${MINUTOS_PARA_CONTAR} minutos. Sábado e domingo não entram.`}>
             <CircleHelp className="size-4 text-lilas" aria-hidden />
           </span>
         </h2>
@@ -70,7 +72,7 @@ export function Constancia({ estudos, aoVerDetalhes, className }: { estudos: Est
           {seq.atual > 0 ? (
             <>
               <strong className="font-semibold text-primaria-forte numeros dark:text-primaria">{seq.atual}</strong>
-              {seq.atual === 1 ? 'dia seguido.' : 'dias seguidos.'}
+              {seq.atual === 1 ? 'dia útil seguido.' : 'dias úteis seguidos.'}
               <span className="text-tinta-suave">{recorde ? 'É o seu recorde.' : `Recorde: ${seq.recorde} dias.`}</span>
             </>
           ) : (
@@ -79,7 +81,7 @@ export function Constancia({ estudos, aoVerDetalhes, className }: { estudos: Est
               <span className="text-tinta-suave">{seq.recorde > 0 ? `Recorde: ${seq.recorde} ${seq.recorde === 1 ? 'dia' : 'dias'}.` : ''}</span>
             </>
           )}
-          {!seq.hojeConta && (
+          {!seq.hojeConta && !seq.fimDeSemana && (
             <span className="text-sm text-tinta-suave numeros">
               {minutosHoje > 0
                 ? `Faltam ${Math.ceil(MINUTOS_PARA_CONTAR - minutosHoje)} min hoje.`

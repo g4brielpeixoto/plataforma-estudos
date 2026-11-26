@@ -19,34 +19,62 @@ export function minutosPorDia(estudos: Estudo[]): Map<string, number> {
 
 export const diaConta = (minutos: number | undefined) => (minutos ?? 0) >= MINUTOS_PARA_CONTAR
 
+/** Sábado e domingo não entram na constância (pedido dela): a sequência conta só os dias úteis */
+export const diaUtil = (d: Date) => d.getDay() !== 0 && d.getDay() !== 6
+
+/** Dia útil anterior (pula o fim de semana) */
+export function diaUtilAnterior(d: Date): Date {
+  let r = subDays(startOfDay(d), 1)
+  while (!diaUtil(r)) r = subDays(r, 1)
+  return r
+}
+
+/** Os últimos `qtd` dias úteis terminando em `fim` (ou no dia útil antes dele), do mais antigo ao mais novo */
+export function diasUteisAte(fim: Date, qtd: number): Date[] {
+  let d = startOfDay(fim)
+  if (!diaUtil(d)) d = diaUtilAnterior(d)
+  const r: Date[] = []
+  for (let i = 0; i < qtd; i++) {
+    r.push(d)
+    d = diaUtilAnterior(d)
+  }
+  return r.reverse()
+}
+
 export interface Sequencia {
-  /** dias seguidos até hoje (ou até ontem, se hoje ainda não bateu os 20 min) */
+  /** dias úteis seguidos até hoje (ou até o dia útil anterior, se hoje ainda não bateu os 20 min ou é fim de semana) */
   atual: number
   recorde: number
   hojeConta: boolean
+  /** hoje é sábado ou domingo */
+  fimDeSemana: boolean
 }
 
 export function calcularSequencia(mapa: Map<string, number>, hoje = new Date()): Sequencia {
-  const hojeConta = diaConta(mapa.get(chaveDia(hoje)))
-  // a sequência continua viva enquanto o dia de hoje não terminou
-  let dia = hojeConta ? startOfDay(hoje) : subDays(startOfDay(hoje), 1)
+  const fimDeSemana = !diaUtil(hoje)
+  const hojeConta = !fimDeSemana && diaConta(mapa.get(chaveDia(hoje)))
+  // a sequência continua viva enquanto o dia de hoje não terminou; fim de semana não quebra
+  let dia = hojeConta ? startOfDay(hoje) : diaUtilAnterior(hoje)
   let atual = 0
   while (diaConta(mapa.get(chaveDia(dia)))) {
     atual++
-    dia = subDays(dia, 1)
+    dia = diaUtilAnterior(dia)
   }
 
-  const dias = [...mapa.entries()].filter(([, m]) => diaConta(m)).map(([k]) => k).sort()
+  const dias = [...mapa.entries()]
+    .filter(([k, m]) => diaConta(m) && diaUtil(new Date(`${k}T12:00:00`)))
+    .map(([k]) => k)
+    .sort()
   let recorde = 0
   let corrida = 0
   let anterior: string | null = null
   for (const k of dias) {
-    const esperado = anterior ? chaveDia(addDays(new Date(`${anterior}T12:00:00`), 1)) : null
-    corrida = k === esperado ? corrida + 1 : 1
+    const seguido = anterior !== null && chaveDia(diaUtilAnterior(new Date(`${k}T12:00:00`))) === anterior
+    corrida = seguido ? corrida + 1 : 1
     recorde = Math.max(recorde, corrida)
     anterior = k
   }
-  return { atual, recorde: Math.max(recorde, atual), hojeConta }
+  return { atual, recorde: Math.max(recorde, atual), hojeConta, fimDeSemana }
 }
 
 /** Faixas de intensidade do mapa de calor */
