@@ -11,6 +11,7 @@ import { Historico } from './pages/Historico'
 import { Inicio } from './pages/Inicio'
 import { Perfil } from './pages/Perfil'
 import { Ciclos } from './pages/Ciclos'
+import { Revisoes } from './pages/Revisoes'
 import { RaioX } from './pages/RaioX'
 import { Usuarios } from './pages/Usuarios'
 
@@ -62,6 +63,7 @@ const router = createHashRouter([
           { path: '/edital', element: <Edital /> },
           { path: '/edital/:id', element: <Disciplina /> },
           { path: '/ciclos', element: <Ciclos /> },
+          { path: '/revisoes', element: <Revisoes /> },
           // o planner saiu (pedido da usuária): o endereço antigo leva aos ciclos
           { path: '/planner', element: <Navigate to="/ciclos" replace /> },
           // os flashcards saíram (pedido da usuária: agora só no Anki); os endereços antigos levam ao Início

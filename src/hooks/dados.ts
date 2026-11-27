@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { caminhoDaFoto } from '@/lib/foto'
 import { buscarTodos, supabase } from '@/lib/supabase'
 import type { PlanoMetas } from '@/lib/ciclos'
-import type { Ciclo, CicloMeta, Convite, DadosProvaFeita, Disciplina, Estudo, Material, Metas, NivelTopico, NovoEstudo, Perfil, Prova, ProvaFeita, Topico } from '@/types'
+import type { Ciclo, CicloMeta, Convite, DadosProvaFeita, Disciplina, Estudo, Material, Metas, NivelTopico, NovoEstudo, Perfil, Prova, ProvaFeita, Revisao, Topico } from '@/types'
 
 /*
   Acesso aos dados. Toda leitura usa o React Query (cache + recarga automática);
@@ -22,6 +22,7 @@ export const chaves = {
   materiais: ['materiais'] as const,
   cicloMetas: ['ciclo', 'metas'] as const,
   ciclo: ['ciclo', 'estado'] as const,
+  revisoes: ['revisoes'] as const,
 }
 
 // ---------- leituras ----------
@@ -155,7 +156,7 @@ export function useExcluirDisciplina() {
       const { error } = await supabase.from('disciplinas').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => invalidar('disciplinas', 'topicos', 'estudos', 'materiais'),
+    onSuccess: () => invalidar('disciplinas', 'topicos', 'estudos', 'materiais', 'revisoes'),
   })
 }
 
@@ -241,7 +242,7 @@ export function useExcluirTopico() {
       const { error } = await supabase.from('topicos').delete().in('id', ids)
       if (error) throw error
     },
-    onSuccess: () => invalidar('topicos', 'estudos', 'materiais'),
+    onSuccess: () => invalidar('topicos', 'estudos', 'materiais', 'revisoes'),
   })
 }
 
@@ -288,7 +289,7 @@ export function useImportar() {
 export function useSalvarEstudo() {
   const invalidar = useInvalidar()
   return useMutation({
-    mutationFn: async ({ id, estudo, concluirTopico }: { id?: string; estudo: NovoEstudo; concluirTopico?: boolean }) => {
+    mutationFn: async ({ id, estudo, concluirTopico, revisaoId }: { id?: string; estudo: NovoEstudo; concluirTopico?: boolean; revisaoId?: string }) => {
       let estudoId = id
       if (id) {
         const { error } = await supabase.from('estudos').update(estudo).eq('id', id)
@@ -305,9 +306,14 @@ export function useSalvarEstudo() {
           .eq('id', estudo.topico_id)
         if (e2) throw e2
       }
+      // estudo que veio de uma revisão: a revisão fica feita e ligada a este registro
+      if (revisaoId && estudoId) {
+        const { error: e3 } = await supabase.from('planner_itens').update({ concluido_em: new Date().toISOString(), estudo_id: estudoId }).eq('id', revisaoId)
+        if (e3) throw e3
+      }
       return estudoId
     },
-    onSuccess: () => invalidar('estudos', 'topicos'),
+    onSuccess: () => invalidar('estudos', 'topicos', 'revisoes'),
   })
 }
 
@@ -551,5 +557,62 @@ export function useSalvarSiglas() {
       }
     },
     onSuccess: () => invalidar('disciplinas'),
+  })
+}
+
+// ---------- revisões (tabela planner_itens, tipo 'revisao') ----------
+
+export function useRevisoes() {
+  return useQuery({
+    queryKey: chaves.revisoes,
+    queryFn: () =>
+      buscarTodos<Revisao>((de, ate) =>
+        supabase.from('planner_itens').select('id,user_id,data,data_original,disciplina_id,topico_id,tipo,observacao,concluido_em,estudo_id,criado_em').eq('tipo', 'revisao').order('data').order('criado_em').range(de, ate),
+      ),
+  })
+}
+
+export type NovaRevisao = Pick<Revisao, 'data' | 'disciplina_id' | 'topico_id' | 'observacao'>
+
+export function useCriarRevisoes() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async (revisoes: NovaRevisao[]) => {
+      if (!revisoes.length) return
+      const { error } = await supabase.from('planner_itens').insert(revisoes.map((r) => ({ ...r, tipo: 'revisao', data_original: r.data })))
+      if (error) throw error
+    },
+    onSuccess: () => invalidar('revisoes'),
+  })
+}
+
+/** Marca ou desmarca como feita, ou muda o dia */
+export function useAtualizarRevisao() {
+  const qc = useQueryClient()
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async ({ id, ...campos }: { id: string; concluido_em?: string | null; data?: string }) => {
+      const { error } = await supabase.from('planner_itens').update(campos).eq('id', id)
+      if (error) throw error
+    },
+    onMutate: async ({ id, ...campos }) => {
+      await qc.cancelQueries({ queryKey: chaves.revisoes })
+      const antes = qc.getQueryData<Revisao[]>(chaves.revisoes)
+      qc.setQueryData<Revisao[]>(chaves.revisoes, (l) => l?.map((r) => (r.id === id ? { ...r, ...campos } : r)))
+      return { antes }
+    },
+    onError: (_e, _v, ctx) => ctx?.antes && qc.setQueryData(chaves.revisoes, ctx.antes),
+    onSettled: () => invalidar('revisoes'),
+  })
+}
+
+export function useExcluirRevisao() {
+  const invalidar = useInvalidar()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('planner_itens').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => invalidar('revisoes'),
   })
 }

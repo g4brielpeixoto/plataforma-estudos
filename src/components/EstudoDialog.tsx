@@ -1,9 +1,10 @@
 import { format, subDays } from 'date-fns'
-import { CalendarDays, CircleCheck, Clock, X } from 'lucide-react'
+import { CalendarDays, CircleCheck, Clock, Plus, RotateCcw, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
-import { useDisciplinas, useEstudos, useSalvarEstudo, useTopicos } from '@/hooks/dados'
+import { useCriarRevisoes, useDisciplinas, useEstudos, useSalvarEstudo, useTopicos } from '@/hooks/dados'
+import { datasDasRevisoes, diaMes, limparIntervalos, REVISAO_MAXIMA, REVISOES_PADRAO, REVISOES_SUGERIDAS } from '@/lib/revisoes'
 import { categoriaDaLista, categoriasConhecidas, chaveCategoria, LIMITE_CATEGORIA } from '@/lib/categorias'
 import { cn, formatarDuracaoExata, mensagemErro, porcentagem } from '@/lib/utils'
 import type { Estudo, Origem } from '@/types'
@@ -17,6 +18,8 @@ export interface ValoresIniciaisEstudo {
   topicoId?: string
   /** categoria já escolhida (ex.: "Questões", vindo do registrar questões da meta) */
   categoria?: string
+  /** revisão que fica feita (e ligada a este estudo) ao salvar */
+  revisaoId?: string
 }
 
 const ROTULO_ORIGEM: Record<Origem, string> = {
@@ -30,6 +33,17 @@ const paraLocal = (d: Date) => format(d, "yyyy-MM-dd'T'HH:mm")
 const CHAVE_CRIAR_NOVO = 'estudo:criar-novo'
 const LIMITE_OBSERVACAO = 500
 const NOVA_CATEGORIA = '__nova__'
+const CHAVE_REVISOES = 'estudo:revisoes'
+
+/** Os intervalos de revisão usados da última vez (ou os padrão) */
+function lerRevisoes(): number[] {
+  try {
+    const salvo = localStorage.getItem(CHAVE_REVISOES)
+    return salvo ? limparIntervalos(JSON.parse(salvo)) : REVISOES_PADRAO
+  } catch {
+    return REVISOES_PADRAO
+  }
+}
 
 function lerCriarNovo() {
   try {
@@ -91,6 +105,20 @@ export function EstudoDialog({
   const [acertadas, setAcertadas] = useState('')
   const [observacao, setObservacao] = useState('')
   const [concluir, setConcluir] = useState(false)
+  // revisões programadas: cada intervalo (dias depois do estudo) vira uma revisão do tópico
+  const criarRevisoes = useCriarRevisoes()
+  const [programar, setProgramar] = useState(false)
+  const [revisoes, setRevisoes] = useState<number[]>(lerRevisoes)
+  const [novaRevisao, setNovaRevisao] = useState(false)
+  const mudarRevisoes = (dias: number[]) => {
+    const limpo = limparIntervalos(dias)
+    setRevisoes(limpo)
+    try {
+      localStorage.setItem(CHAVE_REVISOES, JSON.stringify(limpo))
+    } catch {
+      /* sem armazenamento: só não fica salvo */
+    }
+  }
   const [erro, setErro] = useState('')
   const [origem, setOrigem] = useState<Origem>('manual')
   // "Salvar e criar novo": depois de salvar, o diálogo continua aberto com um registro em branco
@@ -121,6 +149,8 @@ export function EstudoDialog({
     const todos = topicos.data ?? []
     setNovaCategoria(false)
     setOutroDia(false)
+    setProgramar(false)
+    setRevisoes(lerRevisoes())
     setCategoria(editando?.categoria ?? iniciais?.categoria ?? '')
     if (editando) {
       const t = todos.find((x) => x.id === editando.topico_id)
@@ -193,8 +223,30 @@ export function EstudoDialog({
           categoria: categoriaDaLista(categoria, categorias),
         },
         concluirTopico: topicoSelecionado && topicoSelecionado.concluido !== concluir ? concluir : undefined,
+        revisaoId: editando || !primeiro ? undefined : iniciais?.revisaoId,
       })
-      toast.success(editando ? 'Estudo atualizado.' : 'Estudo salvo.')
+      const daRevisao = !editando && primeiro && iniciais?.revisaoId
+      // revisões programadas: uma por intervalo, contadas a partir do dia do estudo
+      const datas = !editando && programar && topicoId ? datasDasRevisoes(dataHora.slice(0, 10), revisoes) : []
+      let revisoesCriadas = 0
+      if (datas.length) {
+        const diaEstudo = diaMes(dataHora.slice(0, 10))
+        try {
+          await criarRevisoes.mutateAsync(
+            datas.map(({ dias, data }) => ({
+              data,
+              disciplina_id: disciplinaId,
+              topico_id: topicoId,
+              observacao: `Revisão de ${dias} ${dias === 1 ? 'dia' : 'dias'} do estudo de ${diaEstudo}`,
+            })),
+          )
+          revisoesCriadas = datas.length
+        } catch (err) {
+          toast.error(`O estudo foi salvo, mas as revisões não foram programadas. ${mensagemErro(err)}`)
+        }
+      }
+      const comRevisoes = revisoesCriadas ? ` ${revisoesCriadas} ${revisoesCriadas === 1 ? 'revisão programada' : 'revisões programadas'}.` : ''
+      toast.success((editando ? 'Estudo atualizado.' : daRevisao ? 'Estudo salvo e revisão feita.' : 'Estudo salvo.') + comRevisoes)
       aoSalvar?.()
       if (editando || !criarNovo) return aoMudar(false)
 
@@ -212,6 +264,7 @@ export function EstudoDialog({
       setAcertadas('')
       setObservacao('')
       setConcluir(false)
+      setProgramar(false)
       setOrigem('manual')
       // volta ao topo (onde aparece o aviso de salvo) e deixa o cursor no tópico
       requestAnimationFrame(() => {
@@ -233,9 +286,9 @@ export function EstudoDialog({
       largura="max-w-3xl"
       titulo={editando ? 'Editar estudo' : 'Salvar estudo'}
       descricao={
-        primeiro && duracaoInicial && origem !== 'manual'
+        (primeiro && duracaoInicial && origem !== 'manual'
           ? `${ROTULO_ORIGEM[origem]}: ${formatarDuracaoExata(duracaoInicial)} cronometrados. Diga o que você estudou.`
-          : 'Registre o que você estudou.'
+          : 'Registre o que você estudou.') + (!editando && primeiro && iniciais?.revisaoId ? ' Ao salvar, a revisão fica marcada como feita.' : '')
       }
     >
       {semDisciplinas ? (
@@ -433,9 +486,65 @@ export function EstudoDialog({
 
           {topicoSelecionado && (
             <label className="flex cursor-pointer items-center gap-3 rounded-xl bg-superficie-2 px-3 py-3 text-[15px] text-tinta">
-              <input type="checkbox" className="visto size-5" checked={concluir} onChange={(e) => setConcluir(e.target.checked)} />
+              <input
+                type="checkbox"
+                className="visto size-5"
+                checked={concluir}
+                onChange={(e) => {
+                  setConcluir(e.target.checked)
+                  // concluiu o tópico: já sugere programar as revisões
+                  if (e.target.checked && !editando) setProgramar(true)
+                }}
+              />
               Marcar tópico como concluído no edital
             </label>
+          )}
+
+          {!editando && topicoSelecionado && (
+            <div className="rounded-xl border border-linha px-3 py-3">
+              <label className="inline-flex cursor-pointer items-center gap-3 text-[15px] text-tinta">
+                <input type="checkbox" className="size-5" checked={programar} onChange={(e) => setProgramar(e.target.checked)} />
+                Programar revisões
+              </label>
+              {programar && (
+                <>
+                  <ul className="mt-2.5 flex flex-wrap items-center gap-2" aria-label="Revisões programadas">
+                    {revisoes.map((d) => (
+                      <li key={d} className="inline-flex h-8 items-center gap-1 rounded-lg bg-revisao-fundo pr-1 pl-2.5 text-sm font-semibold text-revisao numeros">
+                        {d}d
+                        <button
+                          type="button"
+                          onClick={() => mudarRevisoes(revisoes.filter((x) => x !== d))}
+                          aria-label={`Tirar a revisão de ${d} ${d === 1 ? 'dia' : 'dias'}`}
+                          className="grid size-6 place-items-center rounded-md hover:bg-revisao/15"
+                        >
+                          <X className="size-3.5" aria-hidden />
+                        </button>
+                      </li>
+                    ))}
+                    <li>
+                      <button
+                        type="button"
+                        onClick={() => setNovaRevisao(true)}
+                        aria-label="Adicionar revisão"
+                        title="Adicionar revisão"
+                        className="grid size-8 place-items-center rounded-full bg-revisao text-sobre-primaria transition-transform hover:scale-105"
+                      >
+                        <Plus className="size-4" aria-hidden />
+                      </button>
+                    </li>
+                  </ul>
+                  <p className="mt-2 flex items-start gap-1.5 text-xs text-tinta-suave numeros">
+                    <RotateCcw className="mt-px size-3.5 shrink-0" aria-hidden />
+                    {revisoes.length === 0
+                      ? 'Nenhuma revisão escolhida. Toque no + para adicionar.'
+                      : `Ao salvar, ${revisoes.length === 1 ? 'entra 1 revisão' : `entram ${revisoes.length} revisões`} em Revisões: ${datasDasRevisoes(dataHora.slice(0, 10), revisoes)
+                          .map((x) => diaMes(x.data))
+                          .join(', ')}.`}
+                  </p>
+                </>
+              )}
+            </div>
           )}
 
           {erro && (
@@ -466,6 +575,76 @@ export function EstudoDialog({
           </div>
         </form>
       )}
+      <NovaRevisaoDialog aberto={novaRevisao} aoMudar={setNovaRevisao} jaTem={revisoes} aoAdicionar={(d) => mudarRevisoes([...revisoes, d])} />
+    </Dialogo>
+  )
+}
+
+/** "Nova revisão": quantos dias depois do estudo. Sem <form> próprio, porque abre por cima do formulário do estudo */
+function NovaRevisaoDialog({ aberto, aoMudar, jaTem, aoAdicionar }: { aberto: boolean; aoMudar: (v: boolean) => void; jaTem: number[]; aoAdicionar: (dias: number) => void }) {
+  const [texto, setTexto] = useState('')
+  const campo = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (aberto) setTexto('')
+  }, [aberto])
+  const dias = /^\d{1,3}$/.test(texto.trim()) ? Number(texto) : null
+  const valido = dias !== null && dias >= 1 && dias <= REVISAO_MAXIMA
+  const repetido = valido && jaTem.includes(dias)
+  const adicionar = () => {
+    if (!valido || repetido) return
+    aoAdicionar(dias)
+    aoMudar(false)
+  }
+  return (
+    <Dialogo aberto={aberto} aoMudar={aoMudar} titulo="Nova revisão" descricao="Quantos dias depois deste estudo ela acontece." largura="max-w-sm" sobreposto focoInicial={campo}>
+      <div className="space-y-4">
+        <Campo rotulo="Intervalo" htmlFor="r-dias">
+          <div className="flex items-center gap-2">
+            <Entrada
+              ref={campo}
+              id="r-dias"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={REVISAO_MAXIMA}
+              placeholder="7"
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return
+                // Enter aqui adiciona a revisão; não pode enviar o formulário do estudo
+                e.preventDefault()
+                e.stopPropagation()
+                adicionar()
+              }}
+              className="numeros w-28"
+            />
+            <span className="text-tinta-suave">dias</span>
+          </div>
+        </Campo>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Intervalos comuns">
+          {REVISOES_SUGERIDAS.map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => setTexto(String(d))}
+              className={cn('h-9 rounded-full border px-3.5 text-sm font-medium transition-colors', dias === d ? 'border-primaria bg-nevoa text-tinta' : 'border-linha text-tinta hover:border-lilas')}
+            >
+              {d} {d === 1 ? 'dia' : 'dias'}
+            </button>
+          ))}
+        </div>
+        {repetido && <p className="text-sm text-tinta-suave">Você já tem uma revisão de {dias} {dias === 1 ? 'dia' : 'dias'}.</p>}
+        {texto.trim() !== '' && !valido && <p className="text-sm text-ruim">Use um número de 1 a {REVISAO_MAXIMA}.</p>}
+        <div className="flex justify-end gap-2 border-t border-linha/70 pt-4">
+          <Botao type="button" variante="secundario" onClick={() => aoMudar(false)}>
+            Cancelar
+          </Botao>
+          <Botao type="button" onClick={adicionar} disabled={!valido || repetido}>
+            Adicionar
+          </Botao>
+        </div>
+      </div>
     </Dialogo>
   )
 }

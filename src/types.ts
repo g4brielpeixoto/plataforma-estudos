@@ -156,3 +156,19 @@ export interface Ciclo {
   meta_id: string | null
   atualizado_em: string
 }
+
+/** Revisão programada de um tópico (linha de `planner_itens` com tipo 'revisao') */
+export interface Revisao {
+  id: string
+  user_id: string
+  /** yyyy-mm-dd */
+  data: string
+  data_original: string
+  disciplina_id: string
+  topico_id: string | null
+  tipo: 'revisao'
+  observacao: string | null
+  concluido_em: string | null
+  estudo_id: string | null
+  criado_em: string
+}

@@ -11,6 +11,7 @@ import { MetasSemanais } from '@/components/MetasSemanais'
 import { MetaDaVez } from '@/components/ciclos/MetaDaVez'
 import { MetaDialog } from '@/components/ciclos/MetaDialog'
 import { ResumoTopo } from '@/components/ResumoTopo'
+import { RevisoesHoje } from '@/components/RevisoesHoje'
 import { TempoPizza } from '@/components/TempoPizza'
 import { Botao, Carregando, Painel } from '@/components/ui'
 import { useAuth } from '@/contexts/AuthContext'
@@ -124,6 +125,7 @@ export function Inicio() {
             <div className="contents xl:block xl:space-y-5">
               <div className="order-1 space-y-5">
                 <MetaDaVezInicio />
+                <RevisoesHoje />
               </div>
               <EstudoSemanal estudos={todos} className="order-4" />
               <Link
